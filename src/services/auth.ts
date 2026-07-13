@@ -1,29 +1,52 @@
 import { supabase } from '@/lib/supabase'
-import type { Profile } from '@/types'
+
+export type UserRole = 'super_admin' | 'admin' | 'site_user'
+
+export interface CurrentUser {
+  id: string
+  full_name: string
+  role: UserRole
+  site_id?: string        // only present for site_users
+  designation?: string    // only present for site_users
+}
 
 export const authService = {
-  getCurrentProfile: async (): Promise<Profile | null> => {
+  getCurrentUser: async (): Promise<CurrentUser | null> => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
+    const { data: superAdmin } = await supabase
+      .from('super_admins')
+      .select('id, full_name')
       .eq('id', user.id)
       .single()
+    if (superAdmin) return { ...superAdmin, role: 'super_admin' }
 
-    if (error) console.error('Profile fetch error:', error)
-    return data as Profile | null
+    const { data: admin } = await supabase
+      .from('admins')
+      .select('id, full_name')
+      .eq('id', user.id)
+      .single()
+    if (admin) return { ...admin, role: 'admin' }
+
+    const { data: siteUser } = await supabase
+      .from('site_users')
+      .select('id, full_name, site_id, designation')
+      .eq('id', user.id)
+      .single()
+    if (siteUser) return { ...siteUser, role: 'site_user' }
+
+    return null
   },
 
   isSuperAdmin: async (): Promise<boolean> => {
-    const profile = await authService.getCurrentProfile()
-    return profile?.role === 'super_admin'
+    const user = await authService.getCurrentUser()
+    return user?.role === 'super_admin'
   },
 
   isAdmin: async (): Promise<boolean> => {
-    const profile = await authService.getCurrentProfile()
-    return ['super_admin', 'admin'].includes(profile?.role || '')
+    const user = await authService.getCurrentUser()
+    return user?.role === 'admin' || user?.role === 'super_admin'
   },
 
   signOut: async () => {

@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SiteHeader } from "@/components/public/site-header";
 import {
   Outlet,
   Link,
@@ -6,6 +7,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  useLocation, 
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
@@ -113,6 +115,12 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  
+  // 1. Get the current route location
+  const location = useLocation();
+  
+  // 2. Check if the user is on the /auth page
+  const isAuthPage = location.pathname.startsWith('/auth');
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -125,7 +133,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <div className="flex min-h-svh flex-col bg-background">
+        {/* 3. Conditionally render the header based on the route */}
+        {!isAuthPage && <SiteHeader />}
+        <main id="main" className="flex-1">
+          <Outlet />
+        </main>
+      </div>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
   );

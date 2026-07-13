@@ -10,27 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedSubmissionsRouteImport } from './routes/authenticated/submissions'
+import { Route as AuthenticatedNewRouteImport } from './routes/authenticated/new'
 import { Route as AuthenticatedAppRouteImport } from './routes/authenticated/app'
 import { Route as AuthenticatedAdminRouteImport } from './routes/authenticated/admin'
+import { Route as AuthenticatedSubmissionIdRouteImport } from './routes/authenticated/$submissionId'
 import { Route as AuthenticatedSiteIndexRouteImport } from './routes/authenticated/site.index'
-import { Route as AuthenticatedAdminIndexRouteImport } from './routes/authenticated/admin.index'
-import { Route as AuthenticatedFormsFormIdRouteImport } from './routes/authenticated/forms.$formId'
-import { Route as AuthenticatedAdminUsersRouteImport } from './routes/authenticated/admin.users'
-import { Route as AuthenticatedAdminSubmissionsRouteImport } from './routes/authenticated/admin.submissions'
-import { Route as AuthenticatedAdminSitesRouteImport } from './routes/authenticated/admin.sites'
-import { Route as AuthenticatedAdminFormsRouteImport } from './routes/authenticated/admin.forms'
+import { Route as AuthenticatedSupAdminRouteImport } from './routes/authenticated/sup.admin'
+import { Route as AuthenticatedSiteFormsFormIdRouteImport } from './routes/authenticated/site.forms.$formId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/authenticated',
-  path: '/authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -38,156 +29,124 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSubmissionsRoute =
-  AuthenticatedSubmissionsRouteImport.update({
-    id: '/submissions',
-    path: '/submissions',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedNewRoute = AuthenticatedNewRouteImport.update({
+  id: '/authenticated/new',
+  path: '/authenticated/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  id: '/authenticated/app',
+  path: '/authenticated/app',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  id: '/authenticated/admin',
+  path: '/authenticated/admin',
+  getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSubmissionIdRoute =
+  AuthenticatedSubmissionIdRouteImport.update({
+    id: '/authenticated/$submissionId',
+    path: '/authenticated/$submissionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedSiteIndexRoute = AuthenticatedSiteIndexRouteImport.update({
-  id: '/site/',
-  path: '/site/',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  id: '/authenticated/site/',
+  path: '/authenticated/site/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedAdminRoute,
+const AuthenticatedSupAdminRoute = AuthenticatedSupAdminRouteImport.update({
+  id: '/authenticated/sup/admin',
+  path: '/authenticated/sup/admin',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedFormsFormIdRoute =
-  AuthenticatedFormsFormIdRouteImport.update({
-    id: '/forms/$formId',
-    path: '/forms/$formId',
-    getParentRoute: () => AuthenticatedRouteRoute,
+const AuthenticatedSiteFormsFormIdRoute =
+  AuthenticatedSiteFormsFormIdRouteImport.update({
+    id: '/authenticated/site/forms/$formId',
+    path: '/authenticated/site/forms/$formId',
+    getParentRoute: () => rootRouteImport,
   } as any)
-const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedAdminSubmissionsRoute =
-  AuthenticatedAdminSubmissionsRouteImport.update({
-    id: '/submissions',
-    path: '/submissions',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminSitesRoute = AuthenticatedAdminSitesRouteImport.update({
-  id: '/sites',
-  path: '/sites',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedAdminFormsRoute = AuthenticatedAdminFormsRouteImport.update({
-  id: '/forms',
-  path: '/forms',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/authenticated/$submissionId': typeof AuthenticatedSubmissionIdRoute
+  '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
-  '/authenticated/submissions': typeof AuthenticatedSubmissionsRoute
-  '/authenticated/admin/forms': typeof AuthenticatedAdminFormsRoute
-  '/authenticated/admin/sites': typeof AuthenticatedAdminSitesRoute
-  '/authenticated/admin/submissions': typeof AuthenticatedAdminSubmissionsRoute
-  '/authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/authenticated/forms/$formId': typeof AuthenticatedFormsFormIdRoute
-  '/authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/authenticated/new': typeof AuthenticatedNewRoute
+  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/authenticated/$submissionId': typeof AuthenticatedSubmissionIdRoute
+  '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
-  '/authenticated/submissions': typeof AuthenticatedSubmissionsRoute
-  '/authenticated/admin/forms': typeof AuthenticatedAdminFormsRoute
-  '/authenticated/admin/sites': typeof AuthenticatedAdminSitesRoute
-  '/authenticated/admin/submissions': typeof AuthenticatedAdminSubmissionsRoute
-  '/authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/authenticated/forms/$formId': typeof AuthenticatedFormsFormIdRoute
-  '/authenticated/admin': typeof AuthenticatedAdminIndexRoute
+  '/authenticated/new': typeof AuthenticatedNewRoute
+  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
   '/authenticated/site': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/authenticated/$submissionId': typeof AuthenticatedSubmissionIdRoute
+  '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
-  '/authenticated/submissions': typeof AuthenticatedSubmissionsRoute
-  '/authenticated/admin/forms': typeof AuthenticatedAdminFormsRoute
-  '/authenticated/admin/sites': typeof AuthenticatedAdminSitesRoute
-  '/authenticated/admin/submissions': typeof AuthenticatedAdminSubmissionsRoute
-  '/authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/authenticated/forms/$formId': typeof AuthenticatedFormsFormIdRoute
-  '/authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/authenticated/new': typeof AuthenticatedNewRoute
+  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/authenticated'
     | '/auth'
+    | '/authenticated/$submissionId'
     | '/authenticated/admin'
     | '/authenticated/app'
-    | '/authenticated/submissions'
-    | '/authenticated/admin/forms'
-    | '/authenticated/admin/sites'
-    | '/authenticated/admin/submissions'
-    | '/authenticated/admin/users'
-    | '/authenticated/forms/$formId'
-    | '/authenticated/admin/'
+    | '/authenticated/new'
+    | '/authenticated/sup/admin'
     | '/authenticated/site/'
+    | '/authenticated/site/forms/$formId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/authenticated'
     | '/auth'
-    | '/authenticated/app'
-    | '/authenticated/submissions'
-    | '/authenticated/admin/forms'
-    | '/authenticated/admin/sites'
-    | '/authenticated/admin/submissions'
-    | '/authenticated/admin/users'
-    | '/authenticated/forms/$formId'
+    | '/authenticated/$submissionId'
     | '/authenticated/admin'
+    | '/authenticated/app'
+    | '/authenticated/new'
+    | '/authenticated/sup/admin'
     | '/authenticated/site'
+    | '/authenticated/site/forms/$formId'
   id:
     | '__root__'
     | '/'
-    | '/authenticated'
     | '/auth'
+    | '/authenticated/$submissionId'
     | '/authenticated/admin'
     | '/authenticated/app'
-    | '/authenticated/submissions'
-    | '/authenticated/admin/forms'
-    | '/authenticated/admin/sites'
-    | '/authenticated/admin/submissions'
-    | '/authenticated/admin/users'
-    | '/authenticated/forms/$formId'
-    | '/authenticated/admin/'
+    | '/authenticated/new'
+    | '/authenticated/sup/admin'
     | '/authenticated/site/'
+    | '/authenticated/site/forms/$formId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  AuthenticatedSubmissionIdRoute: typeof AuthenticatedSubmissionIdRoute
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAppRoute: typeof AuthenticatedAppRoute
+  AuthenticatedNewRoute: typeof AuthenticatedNewRoute
+  AuthenticatedSupAdminRoute: typeof AuthenticatedSupAdminRoute
+  AuthenticatedSiteIndexRoute: typeof AuthenticatedSiteIndexRoute
+  AuthenticatedSiteFormsFormIdRoute: typeof AuthenticatedSiteFormsFormIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -199,13 +158,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/authenticated': {
-      id: '/authenticated'
-      path: '/authenticated'
-      fullPath: '/authenticated'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -213,121 +165,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/authenticated/submissions': {
-      id: '/authenticated/submissions'
-      path: '/submissions'
-      fullPath: '/authenticated/submissions'
-      preLoaderRoute: typeof AuthenticatedSubmissionsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/authenticated/new': {
+      id: '/authenticated/new'
+      path: '/authenticated/new'
+      fullPath: '/authenticated/new'
+      preLoaderRoute: typeof AuthenticatedNewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/authenticated/app': {
       id: '/authenticated/app'
-      path: '/app'
+      path: '/authenticated/app'
       fullPath: '/authenticated/app'
       preLoaderRoute: typeof AuthenticatedAppRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/authenticated/admin': {
       id: '/authenticated/admin'
-      path: '/admin'
+      path: '/authenticated/admin'
       fullPath: '/authenticated/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof rootRouteImport
+    }
+    '/authenticated/$submissionId': {
+      id: '/authenticated/$submissionId'
+      path: '/authenticated/$submissionId'
+      fullPath: '/authenticated/$submissionId'
+      preLoaderRoute: typeof AuthenticatedSubmissionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/authenticated/site/': {
       id: '/authenticated/site/'
-      path: '/site'
+      path: '/authenticated/site'
       fullPath: '/authenticated/site/'
       preLoaderRoute: typeof AuthenticatedSiteIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof rootRouteImport
     }
-    '/authenticated/admin/': {
-      id: '/authenticated/admin/'
-      path: '/'
-      fullPath: '/authenticated/admin/'
-      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+    '/authenticated/sup/admin': {
+      id: '/authenticated/sup/admin'
+      path: '/authenticated/sup/admin'
+      fullPath: '/authenticated/sup/admin'
+      preLoaderRoute: typeof AuthenticatedSupAdminRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/authenticated/forms/$formId': {
-      id: '/authenticated/forms/$formId'
-      path: '/forms/$formId'
-      fullPath: '/authenticated/forms/$formId'
-      preLoaderRoute: typeof AuthenticatedFormsFormIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/authenticated/admin/users': {
-      id: '/authenticated/admin/users'
-      path: '/users'
-      fullPath: '/authenticated/admin/users'
-      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/authenticated/admin/submissions': {
-      id: '/authenticated/admin/submissions'
-      path: '/submissions'
-      fullPath: '/authenticated/admin/submissions'
-      preLoaderRoute: typeof AuthenticatedAdminSubmissionsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/authenticated/admin/sites': {
-      id: '/authenticated/admin/sites'
-      path: '/sites'
-      fullPath: '/authenticated/admin/sites'
-      preLoaderRoute: typeof AuthenticatedAdminSitesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/authenticated/admin/forms': {
-      id: '/authenticated/admin/forms'
-      path: '/forms'
-      fullPath: '/authenticated/admin/forms'
-      preLoaderRoute: typeof AuthenticatedAdminFormsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
+    '/authenticated/site/forms/$formId': {
+      id: '/authenticated/site/forms/$formId'
+      path: '/authenticated/site/forms/$formId'
+      fullPath: '/authenticated/site/forms/$formId'
+      preLoaderRoute: typeof AuthenticatedSiteFormsFormIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminFormsRoute: typeof AuthenticatedAdminFormsRoute
-  AuthenticatedAdminSitesRoute: typeof AuthenticatedAdminSitesRoute
-  AuthenticatedAdminSubmissionsRoute: typeof AuthenticatedAdminSubmissionsRoute
-  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
-  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
-}
-
-const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminFormsRoute: AuthenticatedAdminFormsRoute,
-  AuthenticatedAdminSitesRoute: AuthenticatedAdminSitesRoute,
-  AuthenticatedAdminSubmissionsRoute: AuthenticatedAdminSubmissionsRoute,
-  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
-  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
-}
-
-const AuthenticatedAdminRouteWithChildren =
-  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
-
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-  AuthenticatedAppRoute: typeof AuthenticatedAppRoute
-  AuthenticatedSubmissionsRoute: typeof AuthenticatedSubmissionsRoute
-  AuthenticatedFormsFormIdRoute: typeof AuthenticatedFormsFormIdRoute
-  AuthenticatedSiteIndexRoute: typeof AuthenticatedSiteIndexRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
-  AuthenticatedAppRoute: AuthenticatedAppRoute,
-  AuthenticatedSubmissionsRoute: AuthenticatedSubmissionsRoute,
-  AuthenticatedFormsFormIdRoute: AuthenticatedFormsFormIdRoute,
-  AuthenticatedSiteIndexRoute: AuthenticatedSiteIndexRoute,
-}
-
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  AuthenticatedSubmissionIdRoute: AuthenticatedSubmissionIdRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAppRoute: AuthenticatedAppRoute,
+  AuthenticatedNewRoute: AuthenticatedNewRoute,
+  AuthenticatedSupAdminRoute: AuthenticatedSupAdminRoute,
+  AuthenticatedSiteIndexRoute: AuthenticatedSiteIndexRoute,
+  AuthenticatedSiteFormsFormIdRoute: AuthenticatedSiteFormsFormIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
