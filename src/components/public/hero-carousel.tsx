@@ -80,12 +80,6 @@ export function HeroCarousel() {
                 <p className="mt-3 text-sm text-brand-foreground/90 sm:text-lg">
                   {slide.text}
                 </p>
-                <a
-                  href="#business"
-                  className="mt-6 inline-flex items-center rounded bg-white px-5 py-2.5 text-sm font-bold text-brand-strong shadow hover:bg-brand-soft"
-                >
-                  Explore Our Business
-                </a>
               </div>
             </div>
           </div>

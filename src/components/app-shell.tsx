@@ -17,6 +17,10 @@ import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// --- IMPORT YOUR LOGO HERE ---
+// Note: Make sure the file extension and name exactly match what is in your folder!
+import sjvnLogo from "@/assets/sjvn-logo.jpeg"; 
+
 async function fetchMe() {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
@@ -100,9 +104,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/app" className="flex min-w-0 items-center gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-gradient-brand font-bold text-primary-foreground">
-                S
+              
+              {/* --- YOUR NEW IMAGE ASSET GOES HERE --- */}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
+                <img 
+                  src={sjvnLogo} 
+                  alt="SJVN Logo" 
+                  className="h-full w-full object-contain p-0.5" 
+                />
               </div>
+
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold text-brand">SJVN · EMEMP</div>
                 <div className="hidden truncate text-[11px] text-muted-foreground sm:block">
