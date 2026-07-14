@@ -138,8 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-
-        {/* Bottom Navigation Teal Bar */}
+{/* Bottom Navigation Teal Bar */}
         <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
           
           {/* 1. Left Side: Home Icon */}
@@ -149,27 +148,43 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           </div>
 
-          {/* 2. Middle: Scrolling Announcement Marquee */}
-          <div className="flex-1 overflow-hidden whitespace-nowrap mx-4 flex items-center h-full cursor-default">
-            {/* CSS Animation specifically for this scrolling text */}
+          {/* 2. Middle: Continuous Infinite Marquee */}
+          <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
+            {/* CSS Animation for Seamless Infinite Loop */}
             <style>{`
-              .marquee-content {
-                display: inline-block;
-                padding-left: 100%;
-                animation: marquee 20s linear infinite;
+              .marquee-wrapper {
+                display: flex;
+                width: 100%;
+                overflow: hidden;
               }
-              /* Optional: pauses the scrolling when the user hovers over it with their mouse */
-              .marquee-content:hover {
+              .marquee-content {
+                display: flex;
+                flex-shrink: 0;
+                /* Adjust the '30s' here to make it scroll faster or slower */
+                animation: scroll 30s linear infinite;
+              }
+              .marquee-wrapper:hover .marquee-content {
                 animation-play-state: paused;
               }
-              @keyframes marquee {
+              @keyframes scroll {
                 0% { transform: translateX(0); }
                 100% { transform: translateX(-100%); }
               }
             `}</style>
             
-            <div className="marquee-content text-[#ffb600] text-sm font-bold tracking-wide drop-shadow-sm">
-              Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal
+            <div className="marquee-wrapper text-[#ffb600] text-sm font-bold tracking-wide drop-shadow-sm">
+              {/* First Track */}
+              <div className="marquee-content">
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+              </div>
+              {/* Second Track (Exact Duplicate for the seamless loop behind the first one) */}
+              <div className="marquee-content">
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+              </div>
             </div>
           </div>
 
