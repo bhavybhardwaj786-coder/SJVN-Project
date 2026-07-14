@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { formsService, submissionsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/site/forms/$formId")({
   ssr: false,
@@ -80,84 +80,129 @@ function FillForm() {
   if (!formDef) {
     return (
       <AppShell>
-        <p className="text-muted-foreground">Loading form…</p>
+        <div className="flex justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>{formDef.title}</CardTitle>
-          {formDef.description && (
-            <p className="text-sm text-muted-foreground">{formDef.description}</p>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {fields.map((field: any) => (
-            <div key={field.key} className="space-y-1.5">
-              <Label>
-                {field.label}
-                {field.required && <span className="text-destructive"> *</span>}
-              </Label>
+      {/* Outer container keeps the default transparent app background */}
+      <div className="py-8 flex justify-center">
+        
+        {/* The Form Box - Now with the light purple background */}
+        <div className="w-full max-w-[450px] bg-[#eae8f4] p-8 sm:p-10 shadow-md rounded-xl border border-[#d4d4dc]">
+          
+          {/* Dark Purple Title */}
+          <div className="mb-8 text-left">
+            <h2 className="text-2xl font-extrabold text-[#1d1442]">
+              {formDef.title}
+            </h2>
+            {formDef.description && (
+              <p className="text-sm text-[#5a5575] mt-1.5">{formDef.description}</p>
+            )}
+          </div>
 
-              {["text", "number", "date"].includes(field.type) && (
-                <Input
-                  type={field.type}
-                  disabled={isSubmitted}
-                  value={values[field.key] ?? ""}
-                  onChange={(e) => setField(field.key, e.target.value)}
-                />
-              )}
+          {/* 1-Column Stack Layout */}
+          <div className="space-y-5">
+            {fields.map((field: any) => {
+              const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
 
-              {field.type === "textarea" && (
-                <Textarea
-                  disabled={isSubmitted}
-                  value={values[field.key] ?? ""}
-                  onChange={(e) => setField(field.key, e.target.value)}
-                />
-              )}
+              return (
+                <div key={field.key} className="space-y-1.5">
+                  
+                  {/* Grey-purple label above the input */}
+                  {field.type !== "checkbox" && (
+                    <Label className="text-[#5a5575] font-semibold text-sm">
+                      {field.label}{field.required && '*'}
+                    </Label>
+                  )}
+                  
+                  {/* Inputs now use pure white background against the purple box */}
+                  {["text", "number", "date"].includes(field.type) && (
+                    <Input
+                      type={field.type}
+                      disabled={isSubmitted}
+                      value={values[field.key] ?? ""}
+                      onChange={(e) => setField(field.key, e.target.value)}
+                      placeholder={dynamicPlaceholder}
+                      className="bg-white border-[#d4d4dc] text-gray-800 placeholder:text-gray-400 focus-visible:ring-[#1d1442] h-11 rounded-md shadow-sm"
+                    />
+                  )}
 
-              {field.type === "select" && (
-                <Select
-                  disabled={isSubmitted}
-                  value={values[field.key] ?? ""}
-                  onValueChange={(v) => setField(field.key, v)}
+                  {field.type === "textarea" && (
+                    <Textarea
+                      disabled={isSubmitted}
+                      value={values[field.key] ?? ""}
+                      onChange={(e) => setField(field.key, e.target.value)}
+                      placeholder={dynamicPlaceholder}
+                      className="bg-white border-[#d4d4dc] text-gray-800 placeholder:text-gray-400 focus-visible:ring-[#1d1442] min-h-[100px] resize-none rounded-md shadow-sm"
+                    />
+                  )}
+
+                  {field.type === "select" && (
+                    <Select
+                      disabled={isSubmitted}
+                      value={values[field.key] ?? ""}
+                      onValueChange={(v) => setField(field.key, v)}
+                    >
+                      <SelectTrigger className="bg-white border-[#d4d4dc] h-11 text-gray-600 rounded-md shadow-sm focus:ring-[#1d1442]">
+                        <SelectValue placeholder="Select an option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {field.options?.map((opt: any) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {field.type === "checkbox" && (
+                    <div className="flex items-center h-11 gap-3 px-4 rounded-md border border-[#d4d4dc] bg-white shadow-sm">
+                      <Checkbox
+                        id={field.key}
+                        disabled={isSubmitted}
+                        checked={!!values[field.key]}
+                        onCheckedChange={(v) => setField(field.key, v)}
+                      />
+                      <label htmlFor={field.key} className="text-sm text-[#5a5575] font-semibold cursor-pointer select-none">
+                         {field.label} {field.required && '*'}
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {!isSubmitted && (
+              <div className="pt-6 flex flex-col gap-3">
+                {/* Dark Purple Submit Button */}
+                <Button 
+                  onClick={() => save.mutate(true)} 
+                  disabled={save.isPending}
+                  className="w-full bg-[#1c1340] hover:bg-[#120c29] text-white font-bold h-12 text-[15px] rounded-md shadow-md transition-all active:scale-[0.98]"
                 >
-                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                  <SelectContent>
-                    {field.options?.map((opt: any) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {field.type === "checkbox" && (
-                <Checkbox
-                  disabled={isSubmitted}
-                  checked={!!values[field.key]}
-                  onCheckedChange={(v) => setField(field.key, v)}
-                />
-              )}
-            </div>
-          ))}
-
-          {!isSubmitted && (
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={() => save.mutate(false)} disabled={save.isPending}>
-                Save Draft
-              </Button>
-              <Button onClick={() => save.mutate(true)} disabled={save.isPending}>
-                Submit
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  Submit Form
+                </Button>
+                
+                {/* Save Draft Text Button */}
+                <Button 
+                  variant="ghost" 
+                  onClick={() => save.mutate(false)} 
+                  disabled={save.isPending}
+                  className="w-full text-[#5a5575] hover:text-[#1d1442] hover:bg-[#dcd9e8]"
+                >
+                  Save Draft
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </AppShell>
   );
 }
