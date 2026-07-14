@@ -328,7 +328,8 @@ function SubmissionDetail() {
                 ) : (
                   <Download className="h-3.5 w-3.5 text-primary-foreground" />
                 )}
-                <span>{downloading ? "Exporting..." : "Export Options"}</span>
+                {/* This specific line ensures the text remains pure white */}
+                <span className="!text-white">{downloading ? "Exporting..." : "Export Options"}</span>
               </div>
             </SelectTrigger>
             <SelectContent align="end" className="bg-card text-foreground border shadow-md">
