@@ -10,6 +10,8 @@ import {
   Users,
   ClipboardList,
   FormInput,
+  Home,
+  ShieldCheck
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -17,8 +19,6 @@ import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import sjvnLogo from "@/assets/sjvn-logo.jpeg"; 
-
-// 1. IMPORT THE CAROUSEL COMPONENT HERE
 import { HeroCarousel } from "@/components/public/hero-carousel";
 
 async function fetchMe() {
@@ -60,7 +60,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => setOpen(false), [pathname]);
 
-  // 2. DETECT IF USER IS ON THE DASHBOARD
   const isUserDashboard = pathname === "/authenticated/site" || pathname === "/authenticated/site/";
 
   const nav = me?.isAdmin
@@ -84,106 +83,183 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    // 3. ADD 'relative' AND 'overflow-x-hidden' TO THE MAIN WRAPPER
-    <div className="min-h-screen bg-background relative overflow-x-hidden">
+    // Changed to a flex column layout with a solid gray background base
+    <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
       
-      {/* 4. INJECT RUNNING CAROUSEL ON FULL BACKGROUND BENEATH EVERYTHING ELSE */}
-      {isUserDashboard && (
-        <div className="fixed inset-0 z-0 pointer-events-none transition-opacity duration-500">
-          <HeroCarousel />
-          {/* Dimmer overlay mask layer to guarantee text readability */}
-          <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]" />
-        </div>
-      )}
-
-      {/* Top gov strip */}
-      <div className="bg-brand text-brand-foreground text-[11px] no-print relative z-10">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-1">
-          <span className="font-medium">Government of India · SJVN Limited</span>
-          <span className="hidden sm:inline">EMEMP · Secure Portal</span>
-        </div>
+      {/* 1. Top gov strip */}
+      <div className="bg-[#14647f] text-white text-[11px] no-print relative z-20 py-1.5 px-4 md:px-8 flex justify-between items-center h-8">
+        <span className="font-medium">Government of India · SJVN Limited</span>
+        <span className="hidden sm:inline">EMEMP · Secure Portal</span>
       </div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b bg-surface/95 backdrop-blur no-print">
-        <div className="mx-auto grid max-w-[1400px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
+      {/* 2. Header */}
+      <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
+        <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4 relative z-10">
+          <div className="flex items-center gap-4 w-full md:w-auto">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="lg:hidden text-[#095a7d]"
               onClick={() => setOpen((o) => !o)}
               aria-label="Toggle navigation"
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <Link to="/app" className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
-                <img 
-                  src={sjvnLogo} 
-                  alt="SJVN Logo" 
-                  className="h-full w-full object-contain p-0.5" 
-                />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-bold text-brand">SJVN · EMEMP</div>
-                <div className="hidden truncate text-[11px] text-muted-foreground sm:block">
-                  Environmental Monitoring & Expenditure Management
-                </div>
-              </div>
-            </Link>
+
+            <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
+              <img
+                src={sjvnLogo}
+                alt="SJVN Logo"
+                className="w-16 h-16 md:w-[72px] md:h-[72px] object-contain"
+              />
+            </div>
+            <div className="flex flex-col text-gray-800">
+              <h1 className="text-2xl md:text-[28px] font-extrabold text-[#095a7d] tracking-tight leading-tight">
+                SJVN Limited
+              </h1>
+              <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
+                (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
+              </p>
+              <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
+              </p>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+
+          <div className="hidden md:flex items-center gap-3">
             {me?.isAdmin && (
-              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">
                 <Shield className="h-3.5 w-3.5" /> Administrator
               </span>
             )}
-            <div className="hidden text-right md:block">
-              <div className="text-xs font-medium">{me?.profile?.full_name ?? me?.user.email}</div>
-              <div className="text-[11px] text-muted-foreground">{me?.user.email}</div>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full py-1.5 px-4 shadow-sm text-sm font-semibold text-gray-800">
+              <ShieldCheck size={16} className="text-[#095a7d]" />
+              A Navratna PSU
             </div>
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
+          </div>
+        </div>
+{/* Bottom Navigation Teal Bar */}
+        <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
+          
+          {/* 1. Left Side: Home Icon */}
+          <div className="h-full flex items-center pr-4 border-r border-[#3a8da6] shrink-0">
+            <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
+              <Home size={20} />
+            </Link>
+          </div>
+
+          {/* 2. Middle: Continuous Infinite Marquee */}
+          <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
+            {/* CSS Animation for Seamless Infinite Loop */}
+            <style>{`
+              .marquee-wrapper {
+                display: flex;
+                width: 100%;
+                overflow: hidden;
+              }
+              .marquee-content {
+                display: flex;
+                flex-shrink: 0;
+                /* Adjust the '30s' here to make it scroll faster or slower */
+                animation: scroll 30s linear infinite;
+              }
+              .marquee-wrapper:hover .marquee-content {
+                animation-play-state: paused;
+              }
+              @keyframes scroll {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-100%); }
+              }
+            `}</style>
+            
+            <div className="marquee-wrapper text-[#ffb600] text-sm font-bold tracking-wide drop-shadow-sm">
+              {/* First Track */}
+              <div className="marquee-content">
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+              </div>
+              {/* Second Track (Exact Duplicate for the seamless loop behind the first one) */}
+              <div className="marquee-content">
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Right Side: User Info & Sign Out */}
+          <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-[#3a8da6]">
+            <div className="hidden text-right md:block text-white">
+              <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user.email}</div>
+              <div className="text-[10px] text-white/80">{me?.user.email}</div>
+            </div>
+
+            <button 
+              onClick={signOut}
+              className="bg-[#ffb600] hover:bg-[#e0a100] transition-colors text-black font-bold py-1.5 px-4 rounded text-xs shadow-sm flex items-center gap-1.5"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
           </div>
         </div>
       </header>
 
-      {/* 5. ADD RELATIVE Z-10 SO CONTENT STAYS ACTIVE ON TOP OF THE CAROUSEL */}
-      <div className="mx-auto grid max-w-[1400px] gap-6 px-4 py-6 lg:grid-cols-[240px_1fr] relative z-10">
-        {/* Sidebar */}
-        <aside className={cn("no-print lg:block", open ? "block" : "hidden")}>
-          {/* Subtle translucency for sidebar over background */}
-          <nav className="rounded-xl border bg-card/90 backdrop-blur-sm p-2 shadow-card">
-            <ul className="space-y-0.5">
-              {nav.map((item) => {
-                const active = item.exact
-                  ? pathname === item.to
-                  : pathname === item.to || pathname.startsWith(item.to + "/");
-                return (
-                  <li key={item.to}>
-                    <Link
-                      to={item.to}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
-                        active
-                          ? "bg-primary-soft text-brand"
-                          : "text-foreground/80 hover:bg-muted hover:text-foreground",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-        </aside>
+      {/* 3. Main Workspace Area */}
+      <div className="relative flex-1 w-full">
+        
+        {/* The Running Background Banner */}
+        {isUserDashboard && (
+          <div className="absolute top-0 left-0 w-full h-[450px] z-0 overflow-hidden shadow-sm">
+            <HeroCarousel />
+            {/* White translucent fade overlay so black text is highly readable */}
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]" />
+            {/* Gradient mask to blend the bottom edge of the image cleanly into the gray page */}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#eaeff2] to-transparent" />
+          </div>
+        )}
+{/* 4. Dashboard Content layer (z-10) */}
+        <div 
+          className={cn(
+            "mx-auto grid max-w-[1400px] gap-6 px-4 py-6 relative z-10",
+            // If on the user dashboard, use 1 full-width column. Otherwise, keep the 240px sidebar layout.
+            isUserDashboard ? "grid-cols-1" : "lg:grid-cols-[240px_1fr]"
+          )}
+        >
+          {/* Conditionally render the aside sidebar so it completely disappears on the user dashboard */}
+          {!isUserDashboard && (
+            <aside className={cn("no-print lg:block", open ? "block" : "hidden")}>
+              <nav className="rounded-xl border bg-white/95 backdrop-blur-sm p-3 shadow-sm">
+                <ul className="space-y-0.5">
+                  {nav.map((item) => {
+                    const active = item.exact
+                      ? pathname === item.to
+                      : pathname === item.to || pathname.startsWith(item.to + "/");
+                    return (
+                      <li key={item.to}>
+                        <Link
+                          to={item.to}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
+                            active
+                              ? "bg-[#eaf3f6] text-[#095a7d] font-bold"
+                              : "text-foreground/80 hover:bg-muted hover:text-foreground",
+                          )}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+            </aside>
+          )}
 
-        <main className="min-w-0">{children}</main>
+          <main className="min-w-0">{children}</main>
+        </div>
       </div>
     </div>
   );
