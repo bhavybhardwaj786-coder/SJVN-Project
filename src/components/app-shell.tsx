@@ -141,14 +141,40 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Bottom Navigation Teal Bar */}
         <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
-          <div className="h-full flex items-center pr-4 border-r border-[#3a8da6]">
-            {/* UPDATED LINK */}
+          
+          {/* 1. Left Side: Home Icon */}
+          <div className="h-full flex items-center pr-4 border-r border-[#3a8da6] shrink-0">
             <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
               <Home size={20} />
             </Link>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* 2. Middle: Scrolling Announcement Marquee */}
+          <div className="flex-1 overflow-hidden whitespace-nowrap mx-4 flex items-center h-full cursor-default">
+            {/* CSS Animation specifically for this scrolling text */}
+            <style>{`
+              .marquee-content {
+                display: inline-block;
+                padding-left: 100%;
+                animation: marquee 20s linear infinite;
+              }
+              /* Optional: pauses the scrolling when the user hovers over it with their mouse */
+              .marquee-content:hover {
+                animation-play-state: paused;
+              }
+              @keyframes marquee {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-100%); }
+              }
+            `}</style>
+            
+            <div className="marquee-content text-[#ffb600] text-sm font-bold tracking-wide drop-shadow-sm">
+              Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal
+            </div>
+          </div>
+
+          {/* 3. Right Side: User Info & Sign Out */}
+          <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-[#3a8da6]">
             <div className="hidden text-right md:block text-white">
               <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user.email}</div>
               <div className="text-[10px] text-white/80">{me?.user.email}</div>
