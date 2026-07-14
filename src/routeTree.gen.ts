@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedUsersRouteImport } from './routes/authenticated.users'
+import { Route as AuthenticatedUsersRouteImport } from './routes/authenticated/users'
 import { Route as AuthenticatedSupadminRouteImport } from './routes/authenticated/supadmin'
 import { Route as AuthenticatedNewRouteImport } from './routes/authenticated/new'
 import { Route as AuthenticatedAppRouteImport } from './routes/authenticated/app'

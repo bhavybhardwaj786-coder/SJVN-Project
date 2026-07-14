@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus, Trash2, GripVertical, Loader2, ArrowLeft, ArrowRight, Check,
 } from "lucide-react";
@@ -21,10 +21,14 @@ import {
 
 export const Route = createFileRoute("/authenticated/new")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { edit?: string } => {
+    return {
+      edit: typeof search.edit === 'string' ? search.edit : undefined,
+    };
+  },
   component: NewForm,
 });
 
-// Icon names must match the ICONS map in app.tsx
 const ICON_OPTIONS = [
   "Droplet", "Wind", "Trash2", "AlertTriangle", "Wallet", "Trees",
   "Fuel", "Volume2", "Waves", "CloudRain", "Leaf", "MapPinned",
@@ -80,6 +84,9 @@ const STEPS = [
 function NewForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  
+  const search = Route.useSearch();
+  const editId = search.edit;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -96,6 +103,39 @@ function NewForm() {
   // Step 3 — visibility
   const [visibilityMode, setVisibilityMode] = useState<"all" | "specific">("all");
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
+
+  // 1. Fetch data when editId is available
+  const { data: existingForm, isLoading: isFormLoading } = useQuery({
+    queryKey: ["form-to-edit", editId],
+    queryFn: async () => {
+      if (!editId) return null;
+      const res = await formsService.getFormById(editId);
+      return res.data;
+    },
+    enabled: !!editId,
+  });
+
+  // 2. Hydrate state values when edit query resolves successfully
+  useEffect(() => {
+    if (existingForm) {
+      setTitle(existingForm.title || "");
+      setDescription(existingForm.description || "");
+      setFrequency(existingForm.frequency || "monthly");
+      setIsActive(existingForm.is_active ?? true);
+      
+      if (existingForm.schema) {
+        setIcon(existingForm.schema.icon || ICON_OPTIONS[0]);
+        setFields(existingForm.schema.fields || []);
+      }
+      
+      if (existingForm.site_ids && existingForm.site_ids.length > 0) {
+        setVisibilityMode("specific");
+        setSelectedSiteIds(new Set(existingForm.site_ids));
+      } else {
+        setVisibilityMode("all");
+      }
+    }
+  }, [existingForm]);
 
   const { data: sitesResult, isLoading: sitesLoading } = useQuery({
     queryKey: ["all-sites"],
@@ -193,8 +233,8 @@ function NewForm() {
 
   const goBack = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
 
-  // ---- Create Form Mutation ----
-  const createMutation = useMutation({
+  // ---- Create / Update Form Mutation Handling ----
+  const submitMutation = useMutation({
     mutationFn: async () => {
       const cleanFields = fields.map((f) => ({
         key: f.key,
@@ -207,39 +247,56 @@ function NewForm() {
           : {}),
       }));
 
-      return formsService.createForm({
+      const payload = {
         title: title.trim(),
         description: description.trim() || null,
         schema: { icon, fields: cleanFields },
         is_active: isActive,
         frequency,
-        // null = visible to ALL sites (recommended for most forms)
         site_ids: visibilityMode === "all" ? null : Array.from(selectedSiteIds),
-      });
+      };
+
+      // Branch evaluation logic dynamically relative to transactional state context
+      if (editId) {
+        return formsService.updateForm(editId, payload);
+      } else {
+        return formsService.createForm(payload);
+      }
     },
     onSuccess: (result) => {
       if (result?.error) {
-        toast.error(result.error.message || "Failed to create form");
+        toast.error(result.error.message || "Failed to preserve form definitions");
         return;
       }
 
-      toast.success("Form created successfully! Site users can now fill it.");
+      toast.success(editId ? "Form configurations updated successfully!" : "Form created successfully!");
       queryClient.invalidateQueries({ queryKey: ["admin-all-forms"] });
       navigate({ to: "/authenticated/app" });
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to create form");
+      toast.error(err?.message || "Failed to apply mutations to structural data records");
     },
   });
 
-  const handleCreate = () => {
+  const handleSubmit = () => {
     const err = validateStep3();
     if (err) {
       toast.error(err);
       return;
     }
-    createMutation.mutate();
+    submitMutation.mutate();
   };
+
+  if (editId && isFormLoading) {
+    return (
+      <AppShell>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading form settings...</span>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -281,7 +338,7 @@ function NewForm() {
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Name the Form</CardTitle>
+              <CardTitle>{editId ? "Modify Form Parameters" : "Name the Form"}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Start with what this form is for. You'll add the actual questions next.
               </p>
@@ -561,9 +618,9 @@ function NewForm() {
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create & Publish Form
+            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+              {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editId ? "Save Changes" : "Create & Publish Form"}
             </Button>
           )}
         </div>
