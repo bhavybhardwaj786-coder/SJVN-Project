@@ -16,6 +16,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import sjvnLogo from "@/assets/sjvn-logo.jpeg"; 
+
+// 1. IMPORT THE CAROUSEL COMPONENT HERE
+import { HeroCarousel } from "@/components/public/hero-carousel";
 
 async function fetchMe() {
   const { data: userData } = await supabase.auth.getUser();
@@ -56,6 +60,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => setOpen(false), [pathname]);
 
+  // 2. DETECT IF USER IS ON THE DASHBOARD
+  const isUserDashboard = pathname === "/authenticated/site" || pathname === "/authenticated/site/";
+
   const nav = me?.isAdmin
     ? [
         { to: "/admin", label: "Admin Dashboard", icon: LayoutDashboard, exact: true },
@@ -77,9 +84,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    // 3. ADD 'relative' AND 'overflow-x-hidden' TO THE MAIN WRAPPER
+    <div className="min-h-screen bg-background relative overflow-x-hidden">
+      
+      {/* 4. INJECT RUNNING CAROUSEL ON FULL BACKGROUND BENEATH EVERYTHING ELSE */}
+      {isUserDashboard && (
+        <div className="fixed inset-0 z-0 pointer-events-none transition-opacity duration-500">
+          <HeroCarousel />
+          {/* Dimmer overlay mask layer to guarantee text readability */}
+          <div className="absolute inset-0 bg-slate-950/20 backdrop-blur-[1px]" />
+        </div>
+      )}
+
       {/* Top gov strip */}
-      <div className="bg-brand text-brand-foreground text-[11px] no-print">
+      <div className="bg-brand text-brand-foreground text-[11px] no-print relative z-10">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-1">
           <span className="font-medium">Government of India · SJVN Limited</span>
           <span className="hidden sm:inline">EMEMP · Secure Portal</span>
@@ -100,8 +118,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/app" className="flex min-w-0 items-center gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-gradient-brand font-bold text-primary-foreground">
-                S
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
+                <img 
+                  src={sjvnLogo} 
+                  alt="SJVN Logo" 
+                  className="h-full w-full object-contain p-0.5" 
+                />
               </div>
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold text-brand">SJVN · EMEMP</div>
@@ -129,15 +151,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1400px] gap-6 px-4 py-6 lg:grid-cols-[240px_1fr]">
+      {/* 5. ADD RELATIVE Z-10 SO CONTENT STAYS ACTIVE ON TOP OF THE CAROUSEL */}
+      <div className="mx-auto grid max-w-[1400px] gap-6 px-4 py-6 lg:grid-cols-[240px_1fr] relative z-10">
         {/* Sidebar */}
-        <aside
-          className={cn(
-            "no-print lg:block",
-            open ? "block" : "hidden",
-          )}
-        >
-          <nav className="rounded-xl border bg-card p-2 shadow-card">
+        <aside className={cn("no-print lg:block", open ? "block" : "hidden")}>
+          {/* Subtle translucency for sidebar over background */}
+          <nav className="rounded-xl border bg-card/90 backdrop-blur-sm p-2 shadow-card">
             <ul className="space-y-0.5">
               {nav.map((item) => {
                 const active = item.exact
