@@ -11,12 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUsersRouteImport } from './routes/authenticated.users'
+import { Route as AuthenticatedSupadminRouteImport } from './routes/authenticated/supadmin'
 import { Route as AuthenticatedNewRouteImport } from './routes/authenticated/new'
 import { Route as AuthenticatedAppRouteImport } from './routes/authenticated/app'
 import { Route as AuthenticatedAdminRouteImport } from './routes/authenticated/admin'
 import { Route as AuthenticatedSubmissionIdRouteImport } from './routes/authenticated/$submissionId'
 import { Route as AuthenticatedSiteIndexRouteImport } from './routes/authenticated/site.index'
-import { Route as AuthenticatedSupAdminRouteImport } from './routes/authenticated/sup.admin'
 import { Route as AuthenticatedSiteFormsFormIdRouteImport } from './routes/authenticated/site.forms.$formId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -27,6 +28,16 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/authenticated/users',
+  path: '/authenticated/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSupadminRoute = AuthenticatedSupadminRouteImport.update({
+  id: '/authenticated/supadmin',
+  path: '/authenticated/supadmin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedNewRoute = AuthenticatedNewRouteImport.update({
@@ -55,11 +66,6 @@ const AuthenticatedSiteIndexRoute = AuthenticatedSiteIndexRouteImport.update({
   path: '/authenticated/site/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSupAdminRoute = AuthenticatedSupAdminRouteImport.update({
-  id: '/authenticated/sup/admin',
-  path: '/authenticated/sup/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedSiteFormsFormIdRoute =
   AuthenticatedSiteFormsFormIdRouteImport.update({
     id: '/authenticated/site/forms/$formId',
@@ -74,7 +80,8 @@ export interface FileRoutesByFullPath {
   '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
   '/authenticated/new': typeof AuthenticatedNewRoute
-  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
+  '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
+  '/authenticated/users': typeof AuthenticatedUsersRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
@@ -85,7 +92,8 @@ export interface FileRoutesByTo {
   '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
   '/authenticated/new': typeof AuthenticatedNewRoute
-  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
+  '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
+  '/authenticated/users': typeof AuthenticatedUsersRoute
   '/authenticated/site': typeof AuthenticatedSiteIndexRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
@@ -97,7 +105,8 @@ export interface FileRoutesById {
   '/authenticated/admin': typeof AuthenticatedAdminRoute
   '/authenticated/app': typeof AuthenticatedAppRoute
   '/authenticated/new': typeof AuthenticatedNewRoute
-  '/authenticated/sup/admin': typeof AuthenticatedSupAdminRoute
+  '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
+  '/authenticated/users': typeof AuthenticatedUsersRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
@@ -110,7 +119,8 @@ export interface FileRouteTypes {
     | '/authenticated/admin'
     | '/authenticated/app'
     | '/authenticated/new'
-    | '/authenticated/sup/admin'
+    | '/authenticated/supadmin'
+    | '/authenticated/users'
     | '/authenticated/site/'
     | '/authenticated/site/forms/$formId'
   fileRoutesByTo: FileRoutesByTo
@@ -121,7 +131,8 @@ export interface FileRouteTypes {
     | '/authenticated/admin'
     | '/authenticated/app'
     | '/authenticated/new'
-    | '/authenticated/sup/admin'
+    | '/authenticated/supadmin'
+    | '/authenticated/users'
     | '/authenticated/site'
     | '/authenticated/site/forms/$formId'
   id:
@@ -132,7 +143,8 @@ export interface FileRouteTypes {
     | '/authenticated/admin'
     | '/authenticated/app'
     | '/authenticated/new'
-    | '/authenticated/sup/admin'
+    | '/authenticated/supadmin'
+    | '/authenticated/users'
     | '/authenticated/site/'
     | '/authenticated/site/forms/$formId'
   fileRoutesById: FileRoutesById
@@ -144,7 +156,8 @@ export interface RootRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedNewRoute: typeof AuthenticatedNewRoute
-  AuthenticatedSupAdminRoute: typeof AuthenticatedSupAdminRoute
+  AuthenticatedSupadminRoute: typeof AuthenticatedSupadminRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
   AuthenticatedSiteIndexRoute: typeof AuthenticatedSiteIndexRoute
   AuthenticatedSiteFormsFormIdRoute: typeof AuthenticatedSiteFormsFormIdRoute
 }
@@ -163,6 +176,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authenticated/users': {
+      id: '/authenticated/users'
+      path: '/authenticated/users'
+      fullPath: '/authenticated/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authenticated/supadmin': {
+      id: '/authenticated/supadmin'
+      path: '/authenticated/supadmin'
+      fullPath: '/authenticated/supadmin'
+      preLoaderRoute: typeof AuthenticatedSupadminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/authenticated/new': {
@@ -200,13 +227,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSiteIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/authenticated/sup/admin': {
-      id: '/authenticated/sup/admin'
-      path: '/authenticated/sup/admin'
-      fullPath: '/authenticated/sup/admin'
-      preLoaderRoute: typeof AuthenticatedSupAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/authenticated/site/forms/$formId': {
       id: '/authenticated/site/forms/$formId'
       path: '/authenticated/site/forms/$formId'
@@ -224,7 +244,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedNewRoute: AuthenticatedNewRoute,
-  AuthenticatedSupAdminRoute: AuthenticatedSupAdminRoute,
+  AuthenticatedSupadminRoute: AuthenticatedSupadminRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
   AuthenticatedSiteIndexRoute: AuthenticatedSiteIndexRoute,
   AuthenticatedSiteFormsFormIdRoute: AuthenticatedSiteFormsFormIdRoute,
 }

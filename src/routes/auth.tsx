@@ -94,7 +94,7 @@ return;
 const userId = data.user.id;
 
 const { data: superAdmin } = await supabase.from("super_admins").select("id, full_name").eq("id", userId).single();
-if (superAdmin) { navigate({ to: "/authenticated/app" }); return; }
+if (superAdmin) { navigate({ to: "/authenticated/supadmin" }); return; }
 
 const { data: admin } = await supabase.from("admins").select("id, full_name").eq("id", userId).single();
 if (admin) { navigate({ to: "/authenticated/app" }); return; }
@@ -124,7 +124,7 @@ style={{ backgroundImage: `url(${heroBackground})` }}
 <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-lg border border-gray-100 relative z-10">
 <div className="text-center mb-8">
 <img src={sjvnLogo} alt="SJVN Logo" className="mx-auto w-16 h-16 object-contain mb-4 rounded" />
-<h4 className="text-xl font-bold text-[#095a7d]">Sign in to SJVN EMEMP</h4>
+<h4 className="text-xl font-bold text-[#095a7d]">LogIn in to SJVN EMEMP</h4>
 </div>
 
 <Tabs defaultValue="login" className="mt-6">
@@ -134,15 +134,15 @@ style={{ backgroundImage: `url(${heroBackground})` }}
 <TabsContent value="login">
 <form onSubmit={handleLogin} className="space-y-4">
 <div>
-<Label htmlFor="email">Email</Label>
-<Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nathpa@sjvn.com" required className="mt-1.5 focus-visible:ring-[#227b96]" />
+<Label htmlFor="email">Username</Label>
+<Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="username@sjvn.com" required className="mt-1.5 focus-visible:ring-[#227b96]" />
 </div>
 <div>
 <Label htmlFor="password">Password</Label>
-<Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="mt-1.5 focus-visible:ring-[#227b96]" />
+<Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" required className="mt-1.5 focus-visible:ring-[#227b96]" />
 </div>
 <Button type="submit" className="w-full bg-[#227b96] hover:bg-[#1a6279] text-white mt-2" disabled={loading}>
-{loading ? "Signing in..." : "Sign In"}
+{loading ? "Signing in..." : "Login"}
 </Button>
 </form>
 </TabsContent>

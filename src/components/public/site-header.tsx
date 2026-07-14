@@ -94,7 +94,7 @@ export function SiteHeader() {
               to="/auth"
               className="flex h-8 items-center rounded bg-[#ffb600] px-6 text-xs font-bold text-black hover:bg-[#e5a20e] transition-colors shadow-sm" 
             >
-              Sign in
+              Login
             </Link>
           </div>
 
