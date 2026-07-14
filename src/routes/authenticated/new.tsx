@@ -49,6 +49,8 @@ const COMMON_UNITS = [
 ];
 
 type FieldOption = { label: string; value: string };
+type CustomMetaAttribute = { key: string; label: string; type: "text" | "select"; options?: string };
+
 type FormField = {
   key: string;
   label: string;
@@ -56,7 +58,9 @@ type FormField = {
   unit?: string;
   required: boolean;
   options?: FieldOption[];
+  metaAttributes?: CustomMetaAttribute[]; // 👈 ADD THIS LINE ONLY
 };
+
 type SiteRow = { id: string; name: string; code: string };
 
 let fieldCounter = 0;
@@ -512,6 +516,77 @@ function NewForm() {
                         <Label htmlFor={`required-${field.key}`} className="cursor-pointer text-xs">
                           Required
                         </Label>
+                      </div>
+                      {/* Dynamic Sub-Column Attribute Section Block */}
+                      <div className="pt-3 border-t border-slate-100 space-y-2">
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="text-blue-600 font-bold p-0 h-auto text-xs"
+                          onClick={() => {
+                            const updatedFields = [...fields];
+                            if (!updatedFields[index].metaAttributes) updatedFields[index].metaAttributes = [];
+                            updatedFields[index].metaAttributes!.push({ key: `meta_${Date.now()}`, label: "", type: "text", options: "" });
+                            setFields(updatedFields);
+                          }}
+                        >
+                          + Add Extra Sub-Column Property (e.g., Classification, Disposal Method)
+                        </Button>
+
+                        {field.metaAttributes?.map((meta, mIdx) => (
+                          <div key={meta.key} className="ml-2 p-2 border border-dashed rounded bg-slate-50 flex flex-wrap sm:flex-nowrap items-center gap-2 animate-in fade-in duration-150">
+                            <Input
+                              placeholder="Sub-column Title (e.g. Classification)"
+                              value={meta.label}
+                              onChange={e => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes![mIdx].label = e.target.value;
+                                setFields(updatedFields);
+                              }}
+                              className="h-8 text-xs bg-white flex-1 min-w-[120px]"
+                            />
+                            
+                            <select
+                              value={meta.type}
+                              onChange={e => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes![mIdx].type = e.target.value as any;
+                                setFields(updatedFields);
+                              }}
+                              className="h-8 border rounded text-xs bg-white px-2 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="text">Text Field</option>
+                              <option value="select">Dropdown Choice</option>
+                            </select>
+
+                            {meta.type === "select" && (
+                              <Input
+                                placeholder="Options (comma-separated: e.g. Hazardous, Non-Hazardous)"
+                                value={meta.options || ""}
+                                onChange={e => {
+                                  const updatedFields = [...fields];
+                                  updatedFields[index].metaAttributes![mIdx].options = e.target.value;
+                                  setFields(updatedFields);
+                                }}
+                                className="h-8 text-xs bg-white flex-1 min-w-[200px]"
+                              />
+                            )}
+
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-500 hover:bg-red-50 shrink-0"
+                              onClick={() => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes = updatedFields[index].metaAttributes!.filter((_, i) => i !== mIdx);
+                                setFields(updatedFields);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => removeField(index)}>
