@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { ArrowLeft, Download, Loader2, FileText, MapPin, Calendar, User, Clock, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +35,25 @@ type SubmissionDetailRow = {
   site_id: string;
   forms: { id: string; title: string; description: string | null; schema: any } | null;
   sites: { id: string; name: string; code: string } | null;
+};
+
+// --- Animation variants, shared across the page ---
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, x: -8 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
 };
 
 function SubmissionDetail() {
@@ -78,7 +98,7 @@ function SubmissionDetail() {
 
   const getExportData = () => {
     if (!data) return [];
-    
+
     const meta = [
       { "Field Name": "Form Title", "Value": data.forms?.title ?? "" },
       { "Field Name": "Site", "Value": `${data.sites?.name ?? ""} (${data.sites?.code ?? ""})` },
@@ -86,7 +106,7 @@ function SubmissionDetail() {
       { "Field Name": "Submitted By", "Value": submittedByName ?? "—" },
       { "Field Name": "Submitted On", "Value": data.submitted_at ? new Date(data.submitted_at).toLocaleString() : "—" },
       { "Field Name": "Status", "Value": data.status },
-      { "Field Name": "", "Value": "" }, 
+      { "Field Name": "", "Value": "" },
       { "Field Name": "--- USER SUBMITTED DATA ---", "Value": "" }
     ];
 
@@ -114,17 +134,17 @@ function SubmissionDetail() {
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(18);
-      pdf.setTextColor(0, 78, 138); 
+      pdf.setTextColor(0, 78, 138);
       pdf.text(data.forms?.title ?? "Environmental Compliance Form", 110, 65);
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      pdf.setTextColor(0, 0, 0); 
-      
+      pdf.setTextColor(0, 0, 0);
+
       pdf.text(`Site: ${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`, 110, 85);
       pdf.text(`Reporting Month: ${data.reporting_month}`, 110, 100);
       pdf.text(`Submitted By: ${submittedByName ?? "—"}`, 110, 115);
-      
+
       pdf.setFont("helvetica", "bold");
       pdf.text(`Status: ${data.status.toUpperCase()}`, 110, 130);
 
@@ -134,28 +154,28 @@ function SubmissionDetail() {
       ]);
 
       autoTable(pdf, {
-        startY: 155, 
+        startY: 155,
         head: [['Field Parameter', 'Reported Value']],
         body: tableBody,
-        theme: 'grid', 
+        theme: 'grid',
         headStyles: {
-          fillColor: [0, 78, 138], 
-          textColor: 255,          
+          fillColor: [0, 78, 138],
+          textColor: 255,
           fontStyle: 'bold',
         },
         styles: {
           font: 'helvetica',
           fontSize: 10,
           cellPadding: 8,
-          lineColor: [200, 200, 200], 
+          lineColor: [200, 200, 200],
           lineWidth: 0.5,
         },
         columnStyles: {
-          0: { cellWidth: 260 }, 
-          1: { cellWidth: 250 }  
+          0: { cellWidth: 260 },
+          1: { cellWidth: 250 }
         },
       });
-      
+
       pdf.save(fileName);
       toast.success("Report PDF generated successfully!");
     } catch (err) {
@@ -172,20 +192,20 @@ function SubmissionDetail() {
       setDownloading(true);
       const ExcelJSModule = await import("exceljs");
       const ExcelJS = ExcelJSModule.default || ExcelJSModule;
-      
+
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Submission Data");
 
       sheet.columns = [
-        { width: 5 },   
-        { width: 45 },  
-        { width: 35 },  
+        { width: 5 },
+        { width: 45 },
+        { width: 35 },
       ];
 
       const titleRow = sheet.addRow(["", (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase()]);
       titleRow.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF004E8A" } };
 
-      sheet.addRow([]); 
+      sheet.addRow([]);
 
       const addMeta = (label: string, value: string) => {
         const row = sheet.addRow(["", label, value]);
@@ -200,12 +220,12 @@ function SubmissionDetail() {
       addMeta("Data sheets filled by:", submittedByName ?? "—");
       addMeta("Form Status:", data?.status?.toUpperCase() ?? "—");
 
-      sheet.addRow([]); 
-      sheet.addRow([]); 
+      sheet.addRow([]);
+      sheet.addRow([]);
 
       const headerRow = sheet.addRow(["", "Parameter / Question", "Reported Value"]);
-      headerRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } }; 
-      
+      headerRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } };
+
       ['B', 'C'].forEach(col => {
         const cell = sheet.getCell(`${col}${headerRow.number}`);
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004E8A' } };
@@ -219,7 +239,7 @@ function SubmissionDetail() {
         const label = field.label || "";
         const val = formatFieldValue(field, values[field.key]);
         const row = sheet.addRow(["", label, val]);
-        
+
         ['B', 'C'].forEach(col => {
           const cell = sheet.getCell(`${col}${row.number}`);
           cell.border = {
@@ -233,16 +253,16 @@ function SubmissionDetail() {
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      
+
       const fileName = `${data?.forms?.title ?? "form"}-${data?.sites?.code ?? "site"}-${data?.reporting_month}.xlsx`.replace(/\s+/g, "_");
-        
+
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
       link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast.success("Styled Excel downloaded successfully!");
     } catch (err) {
       console.error(err);
@@ -262,14 +282,14 @@ function SubmissionDetail() {
         const cleanVal = String(row["Value"]).replace(/"/g, '""');
         return `"${cleanField}","${cleanVal}"`;
       });
-      
+
       const csvContent = [csvHeaders, ...csvRows].join("\n");
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement("a");
       const fileName = `${data?.forms?.title ?? "form"}-${data?.sites?.code ?? "site"}-${data?.reporting_month}.csv`.replace(/\s+/g, "_");
-        
+
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
       link.style.visibility = "hidden";
@@ -303,150 +323,220 @@ function SubmissionDetail() {
 
   return (
     <AppShell>
-      <div className="mb-6 flex items-center justify-between border-b pb-4">
-        <Link
-          to="/authenticated/app"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      <motion.div
+        initial="hidden"
+        animate="show"
+        variants={containerVariants}
+      >
+        <motion.div
+          variants={fadeUp}
+          className="mb-6 flex items-center justify-between border-b pb-4"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <Select
-            value=""
-            onValueChange={(value) => {
-              if (value === "pdf") handleDownloadPdf();
-              if (value === "excel") handleDownloadExcel();
-              if (value === "csv") handleDownloadCsv();
-            }}
+          <Link
+            to="/authenticated/app"
+            className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
-            <SelectTrigger className="w-44 h-9 bg-primary text-primary-foreground border-none shadow-sm hover:opacity-90 font-medium text-xs rounded-lg transition-opacity flex justify-between items-center px-3">
-              <div className="flex items-center gap-1.5">
-                {downloading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-foreground" />
-                ) : (
-                  <Download className="h-3.5 w-3.5 text-primary-foreground" />
+            <motion.span
+              className="inline-flex"
+              whileHover={{ x: -3 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </motion.span>
+            Back to dashboard
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Select
+              value=""
+              onValueChange={(value) => {
+                if (value === "pdf") handleDownloadPdf();
+                if (value === "excel") handleDownloadExcel();
+                if (value === "csv") handleDownloadCsv();
+              }}
+            >
+              <SelectTrigger
+  className="
+    flex h-9 w-44 items-center justify-between
+    rounded-lg
+    border border-[#6BB6E8]
+    bg-[#3A9BDC]
+    px-3
+    text-xs
+    font-semibold
+    text-white
+    shadow-md
+    transition-all
+    duration-300
+    hover:bg-[#2F8FD1]
+    hover:shadow-lg
+    focus:ring-2
+    focus:ring-[#8FD3FF]
+  "
+>
+  <div className="flex items-center gap-1.5">
+    {downloading ? (
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+    ) : (
+      <Download className="h-3.5 w-3.5 text-white" />
+    )}
+    <span className="text-white">
+      {downloading ? "Exporting..." : "Export Options"}
+    </span>
+  </div>
+</SelectTrigger>
+              <SelectContent align="end" className="border bg-card text-foreground shadow-elevated">
+                <SelectItem value="pdf" disabled={downloading} className="cursor-pointer text-xs font-medium">
+                  Download PDF Document
+                </SelectItem>
+                <SelectItem value="excel" className="cursor-pointer text-xs font-medium">
+                  Download Excel Spreadsheet
+                </SelectItem>
+                <SelectItem value="csv" className="cursor-pointer text-xs font-medium">
+                  Download CSV Data Sheet
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </motion.div>
+
+        {/* --- MAIN FORM CARD --- */}
+        <motion.div
+          ref={printRef}
+          variants={fadeUp}
+          className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-card shadow-elevated"
+        >
+          {/* 1. Header — SJVN gradient, topographic pattern from theme */}
+          <div className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8">
+            <div className="relative z-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
+                  <ClipboardList className="h-4 w-4" />
+                  Environmental Compliance Form
+                </div>
+                <h1 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+                  {data.forms?.title}
+                </h1>
+                {data.forms?.description && (
+                  <p className="mt-1.5 max-w-xl text-sm text-primary-foreground/75">
+                    {data.forms.description}
+                  </p>
                 )}
-                <span>{downloading ? "Exporting..." : "Export Options"}</span>
               </div>
-            </SelectTrigger>
-            <SelectContent align="end" className="bg-card text-foreground border shadow-md">
-              <SelectItem value="pdf" disabled={downloading} className="cursor-pointer text-xs font-medium">
-                Download PDF Document
-              </SelectItem>
-              <SelectItem value="excel" className="cursor-pointer text-xs font-medium">
-                Download Excel Spreadsheet
-              </SelectItem>
-              <SelectItem value="csv" className="cursor-pointer text-xs font-medium">
-                Download CSV Data Sheet
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* --- BEAUTIFUL FORM LAYOUT --- */}
-      <div ref={printRef} className="mx-auto max-w-3xl rounded-xl border bg-card shadow-lg overflow-hidden transition-all">
-        
-        {/* 1. Styled Header Section with soft gradient */}
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 sm:p-8 border-b">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
-                <ClipboardList className="h-4 w-4" />
-                Environmental Compliance Form
-              </div>
-              <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                {data.forms?.title}
-              </h1>
-              {data.forms?.description && (
-                <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-                  {data.forms.description}
-                </p>
-              )}
-            </div>
-            <div className="shrink-0">
-              <StatusBadgeLocal status={data.status} />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 sm:p-8">
-          
-          {/* 2. Metadata Mini-Cards Grid */}
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" /> Site
-              </div>
-              <div className="text-sm font-semibold truncate" title={`${data.sites?.name} (${data.sites?.code})`}>
-                {data.sites?.name} <span className="font-normal text-xs text-muted-foreground">({data.sites?.code})</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" /> Reporting Month
-              </div>
-              <div className="text-sm font-semibold">
-                {new Date(data.reporting_month).toLocaleString("default", { month: "long", year: "numeric" })}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <User className="h-3.5 w-3.5" /> Submitted By
-              </div>
-              <div className="text-sm font-semibold truncate" title={submittedByName ?? "—"}>
-                {submittedByName ?? "—"}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" /> Submitted On
-              </div>
-              <div className="text-sm font-semibold">
-                {data.submitted_at ? new Date(data.submitted_at).toLocaleDateString() : "—"}
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="shrink-0"
+              >
+                <StatusBadgeLocal status={data.status} />
+              </motion.div>
             </div>
           </div>
 
-          {/* 3. Striped Data List */}
-          <div className="rounded-xl border shadow-sm overflow-hidden bg-background">
-            <div className="bg-muted/40 px-5 py-3.5 border-b">
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                Reported Data Overview
-              </h3>
-            </div>
-            
-            <div className="divide-y">
-              {fields.map((field: any, index: number) => (
-                <div 
-                  key={field.key} 
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-6 p-5 transition-colors hover:bg-muted/30 ${index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'}`}
-                >
-                  <dt className="text-sm font-medium text-muted-foreground sm:w-1/2 leading-relaxed">
-                    {field.label}
-                  </dt>
-                  <dd className="text-sm font-semibold text-foreground sm:w-1/2 sm:text-right break-words">
-                    {formatFieldValue(field, values[field.key])}
-                  </dd>
+          <div className="p-6 sm:p-8">
+            {/* 2. Metadata mini-cards, staggered */}
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+            >
+              <motion.div
+                variants={fadeUp}
+                whileHover={{ y: -2 }}
+                className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" /> Site
                 </div>
-              ))}
-              
-              {fields.length === 0 && (
-                <div className="p-8 text-center text-sm text-muted-foreground">
-                  This form has no fields defined yet.
+                <div className="truncate text-sm font-semibold" title={`${data.sites?.name} (${data.sites?.code})`}>
+                  {data.sites?.name} <span className="text-xs font-normal text-muted-foreground">({data.sites?.code})</span>
                 </div>
-              )}
+              </motion.div>
+
+              <motion.div
+                variants={fadeUp}
+                whileHover={{ y: -2 }}
+                className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5" /> Reporting Month
+                </div>
+                <div className="text-sm font-semibold">
+                  {new Date(data.reporting_month).toLocaleString("default", { month: "long", year: "numeric" })}
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={fadeUp}
+                whileHover={{ y: -2 }}
+                className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <User className="h-3.5 w-3.5" /> Submitted By
+                </div>
+                <div className="truncate text-sm font-semibold" title={submittedByName ?? "—"}>
+                  {submittedByName ?? "—"}
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={fadeUp}
+                whileHover={{ y: -2 }}
+                className="flex flex-col gap-1.5 rounded-lg border bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" /> Submitted On
+                </div>
+                <div className="font-mono-figures text-sm font-semibold">
+                  {data.submitted_at ? new Date(data.submitted_at).toLocaleDateString() : "—"}
+                </div>
+              </motion.div>
+            </motion.div>
+
+            {/* 3. Data list, rows stagger in one by one */}
+            <div className="overflow-hidden rounded-xl border bg-background shadow-card">
+              <div className="border-b bg-muted/40 px-5 py-3.5">
+                <h3 className="flex items-center gap-2 font-display text-sm font-bold">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Reported Data Overview
+                </h3>
+              </div>
+
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="divide-y"
+              >
+                {fields.map((field: any, index: number) => (
+                  <motion.div
+                    key={field.key}
+                    variants={rowVariants}
+                    className={`flex flex-col justify-between gap-2 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-6 ${
+                      index % 2 === 0 ? "bg-transparent" : "bg-muted/10"
+                    }`}
+                  >
+                    <dt className="text-sm font-medium leading-relaxed text-muted-foreground sm:w-1/2">
+                      {field.label}
+                    </dt>
+                    <dd className="break-words text-sm font-semibold text-foreground sm:w-1/2 sm:text-right">
+                      {formatFieldValue(field, values[field.key])}
+                    </dd>
+                  </motion.div>
+                ))}
+
+                {fields.length === 0 && (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    This form has no fields defined yet.
+                  </div>
+                )}
+              </motion.div>
             </div>
           </div>
-
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AppShell>
   );
 }
@@ -467,9 +557,9 @@ function StatusBadgeLocal({ status }: { status: string }) {
       ? "bg-success/15 text-success"
       : status === "draft"
       ? "bg-blue-500/15 text-blue-600"
-      : "bg-muted text-muted-foreground";
+      : "bg-white/15 text-primary-foreground";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize ${cls}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize backdrop-blur-sm ${cls}`}>
       {status}
     </span>
   );

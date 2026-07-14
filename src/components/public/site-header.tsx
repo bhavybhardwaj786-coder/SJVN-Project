@@ -10,31 +10,68 @@ import {
 import { cn } from "@/lib/utils";
 import sjvnLogoImg from "../../assets/sjvn-logo.jpeg"; 
 import { NAV_ITEMS } from "./site-nav-data";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>(null);
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white shadow-md">
+    <motion.header
+    initial={{ y: -100 }}
+    animate={{ y: 0 }}
+    transition={{
+    duration: 0.8,
+    ease: "easeOut",
+  }}
+  className="sticky top-0 z-50 w-full
+  bg-white/90
+  backdrop-blur-xl
+  border-b border-blue-100
+  shadow-lg"
+  >
       {/* Utility bar (Cleaned up: Removed Admin Login and Search) */}
-      <div className="bg-[#14647f] text-white">
+      <motion.div
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+transition={{ delay: .2 }}
+className="bg-gradient-to-r
+from-[#005BAC]
+via-[#0077B6]
+to-[#0A8F4D]"
+>
         <div className="mx-auto flex h-8 max-w-7xl items-center justify-end px-4">
         </div>
-      </div>
+      </motion.div>
 
       {/* Brand header */}
       <div className="relative overflow-hidden bg-gradient-to-r from-[#ffffff] to-[#e6f0f5]">
         <div className="relative mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 border-b border-gray-200">
           
           {/* UPDATED LOGO IMAGE */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm sm:h-20 sm:w-20 border border-gray-200 p-1.5 z-10">
-            <img 
-              src={sjvnLogoImg} 
-              alt="SJVN Logo" 
-              className="h-full w-full object-contain" 
-            />
-          </div>
+          <motion.div
+
+whileHover={{
+scale:1.08,
+rotate:-3
+}}
+
+transition={{
+type:"spring",
+stiffness:300
+}}
+
+className="flex h-16 w-16
+rounded-xl
+bg-white
+shadow-xl
+border
+border-blue-100
+"
+>
+  <img src={sjvnLogoImg} alt="SJVN Logo" className="h-full w-full object-contain" />
+          </motion.div>
 
           <div className="z-10">
             <h1 className="text-xl font-extrabold leading-tight text-[#095a7d] sm:text-3xl">
@@ -160,6 +197,6 @@ export function SiteHeader() {
           </div>
         )}
       </nav>
-    </header>
+    </motion.header>
   );
 }

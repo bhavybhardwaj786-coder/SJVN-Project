@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { formsService, submissionsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -13,12 +14,26 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/site/forms/$formId")({
   ssr: false,
   component: FillForm,
 });
+
+// --- shared animation variants ---
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.08 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } },
+};
 
 function FillForm() {
   const { formId } = Route.useParams();
@@ -81,7 +96,7 @@ function FillForm() {
     return (
       <AppShell>
         <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </AppShell>
     );
@@ -89,119 +104,163 @@ function FillForm() {
 
   return (
     <AppShell>
-      {/* Outer container keeps the default transparent app background */}
-      <div className="py-8 flex justify-center">
-        
-        {/* The Form Box - Now with the light purple background */}
-        <div className="w-full max-w-[450px] bg-[#eae8f4] p-8 sm:p-10 shadow-md rounded-xl border border-[#d4d4dc]">
-          
-          {/* Dark Purple Title */}
-          <div className="mb-8 text-left">
-            <h2 className="text-2xl font-extrabold text-[#1d1442]">
-              {formDef.title}
-            </h2>
-            {formDef.description && (
-              <p className="text-sm text-[#5a5575] mt-1.5">{formDef.description}</p>
-            )}
-          </div>
-
-          {/* 1-Column Stack Layout */}
-          <div className="space-y-5">
-            {fields.map((field: any) => {
-              const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
-
-              return (
-                <div key={field.key} className="space-y-1.5">
-                  
-                  {/* Grey-purple label above the input */}
-                  {field.type !== "checkbox" && (
-                    <Label className="text-[#5a5575] font-semibold text-sm">
-                      {field.label}{field.required && '*'}
-                    </Label>
-                  )}
-                  
-                  {/* Inputs now use pure white background against the purple box */}
-                  {["text", "number", "date"].includes(field.type) && (
-                    <Input
-                      type={field.type}
-                      disabled={isSubmitted}
-                      value={values[field.key] ?? ""}
-                      onChange={(e) => setField(field.key, e.target.value)}
-                      placeholder={dynamicPlaceholder}
-                      className="bg-white border-[#d4d4dc] text-gray-800 placeholder:text-gray-400 focus-visible:ring-[#1d1442] h-11 rounded-md shadow-sm"
-                    />
-                  )}
-
-                  {field.type === "textarea" && (
-                    <Textarea
-                      disabled={isSubmitted}
-                      value={values[field.key] ?? ""}
-                      onChange={(e) => setField(field.key, e.target.value)}
-                      placeholder={dynamicPlaceholder}
-                      className="bg-white border-[#d4d4dc] text-gray-800 placeholder:text-gray-400 focus-visible:ring-[#1d1442] min-h-[100px] resize-none rounded-md shadow-sm"
-                    />
-                  )}
-
-                  {field.type === "select" && (
-                    <Select
-                      disabled={isSubmitted}
-                      value={values[field.key] ?? ""}
-                      onValueChange={(v) => setField(field.key, v)}
-                    >
-                      <SelectTrigger className="bg-white border-[#d4d4dc] h-11 text-gray-600 rounded-md shadow-sm focus:ring-[#1d1442]">
-                        <SelectValue placeholder="Select an option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {field.options?.map((opt: any) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {field.type === "checkbox" && (
-                    <div className="flex items-center h-11 gap-3 px-4 rounded-md border border-[#d4d4dc] bg-white shadow-sm">
-                      <Checkbox
-                        id={field.key}
-                        disabled={isSubmitted}
-                        checked={!!values[field.key]}
-                        onCheckedChange={(v) => setField(field.key, v)}
-                      />
-                      <label htmlFor={field.key} className="text-sm text-[#5a5575] font-semibold cursor-pointer select-none">
-                         {field.label} {field.required && '*'}
-                      </label>
-                    </div>
+      <div className="flex justify-center py-8">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={containerVariants}
+          className="w-full max-w-[480px]"
+        >
+          {/* --- Card, theme-matched --- */}
+          <div className="overflow-hidden rounded-xl border bg-card shadow-elevated">
+            {/* Header — SJVN gradient, consistent with the rest of the app */}
+            <motion.div
+              variants={fadeUp}
+              className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8"
+            >
+              <div className="relative z-10 flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
+                    <FileText className="h-3.5 w-3.5" />
+                    Monthly Compliance Report
+                  </div>
+                  <h2 className="mt-2 font-display text-2xl font-bold">
+                    {formDef.title}
+                  </h2>
+                  {formDef.description && (
+                    <p className="mt-1.5 text-sm text-primary-foreground/75">
+                      {formDef.description}
+                    </p>
                   )}
                 </div>
-              );
-            })}
-
-            {!isSubmitted && (
-              <div className="pt-6 flex flex-col gap-3">
-                {/* Dark Purple Submit Button */}
-                <Button 
-                  onClick={() => save.mutate(true)} 
-                  disabled={save.isPending}
-                  className="w-full bg-[#1c1340] hover:bg-[#120c29] text-white font-bold h-12 text-[15px] rounded-md shadow-md transition-all active:scale-[0.98]"
-                >
-                  Submit Form
-                </Button>
-                
-                {/* Save Draft Text Button */}
-                <Button 
-                  variant="ghost" 
-                  onClick={() => save.mutate(false)} 
-                  disabled={save.isPending}
-                  className="w-full text-[#5a5575] hover:text-[#1d1442] hover:bg-[#dcd9e8]"
-                >
-                  Save Draft
-                </Button>
+                {isSubmitted && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.3 }}
+                    className="shrink-0"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Submitted
+                    </span>
+                  </motion.div>
+                )}
               </div>
-            )}
+            </motion.div>
+
+            {/* Fields, staggered in */}
+            <div className="p-6 sm:p-8">
+              <motion.div variants={containerVariants} className="space-y-5">
+                {fields.map((field: any) => {
+                  const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
+
+                  return (
+                    <motion.div key={field.key} variants={fadeUp} className="space-y-1.5">
+                      {field.type !== "checkbox" && (
+                        <Label className="text-sm font-semibold text-muted-foreground">
+                          {field.label}{field.required && "*"}
+                        </Label>
+                      )}
+
+                      {["text", "number", "date"].includes(field.type) && (
+                        <Input
+                          type={field.type}
+                          disabled={isSubmitted}
+                          value={values[field.key] ?? ""}
+                          onChange={(e) => setField(field.key, e.target.value)}
+                          placeholder={dynamicPlaceholder}
+                          className="h-11 rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
+                        />
+                      )}
+
+                      {field.type === "textarea" && (
+                        <Textarea
+                          disabled={isSubmitted}
+                          value={values[field.key] ?? ""}
+                          onChange={(e) => setField(field.key, e.target.value)}
+                          placeholder={dynamicPlaceholder}
+                          className="min-h-[100px] resize-none rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
+                        />
+                      )}
+
+                      {field.type === "select" && (
+                        <Select
+                          disabled={isSubmitted}
+                          value={values[field.key] ?? ""}
+                          onValueChange={(v) => setField(field.key, v)}
+                        >
+                          <SelectTrigger className="h-11 rounded-md border bg-background shadow-card transition-colors focus:border-ring">
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.options?.map((opt: any) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {field.type === "checkbox" && (
+                        <div className="flex h-11 items-center gap-3 rounded-md border bg-background px-4 shadow-card">
+                          <Checkbox
+                            id={field.key}
+                            disabled={isSubmitted}
+                            checked={!!values[field.key]}
+                            onCheckedChange={(v) => setField(field.key, v)}
+                          />
+                          <label
+                            htmlFor={field.key}
+                            className="cursor-pointer select-none text-sm font-semibold text-muted-foreground"
+                          >
+                            {field.label} {field.required && "*"}
+                          </label>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+
+                <AnimatePresence>
+                  {!isSubmitted && (
+                    <motion.div
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="show"
+                      exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+                      className="flex flex-col gap-3 pt-6"
+                    >
+                      <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                        <Button
+                          onClick={() => save.mutate(true)}
+                          disabled={save.isPending}
+                          className="h-12 w-full rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
+                        >
+                          {save.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Submit Form"
+                          )}
+                        </Button>
+                      </motion.div>
+
+                      <Button
+                        variant="ghost"
+                        onClick={() => save.mutate(false)}
+                        disabled={save.isPending}
+                        className="w-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        Save Draft
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </AppShell>
   );

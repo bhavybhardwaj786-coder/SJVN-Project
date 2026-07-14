@@ -71,9 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/admin/submissions", label: "Submissions", icon: ClipboardList },
       ]
     : [
-        { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
-        { to: "/submissions", label: "My Submissions", icon: FileStack },
-      ];
+    ];
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -223,12 +221,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div 
           className={cn(
             "mx-auto grid max-w-[1400px] gap-6 px-4 py-6 relative z-10",
-            // If on the user dashboard, use 1 full-width column. Otherwise, keep the 240px sidebar layout.
-            isUserDashboard ? "grid-cols-1" : "lg:grid-cols-[240px_1fr]"
+            // If nav is empty, use a single column (full-width). 
+            // If nav has items, use the sidebar grid layout.
+            nav.length === 0 ? "grid-cols-1" : "lg:grid-cols-[240px_1fr]"
           )}
         >
-          {/* Conditionally render the aside sidebar so it completely disappears on the user dashboard */}
-          {!isUserDashboard && (
+          {/* Sidebar: Only renders if there are items in the nav array */}
+          {nav.length > 0 && (
             <aside className={cn("no-print lg:block", open ? "block" : "hidden")}>
               <nav className="rounded-xl border bg-white/95 backdrop-blur-sm p-3 shadow-sm">
                 <ul className="space-y-0.5">
@@ -258,7 +257,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </aside>
           )}
 
-          <main className="min-w-0">{children}</main>
+          <main className="min-w-0 w-full">{children}</main>
         </div>
       </div>
     </div>
