@@ -54,9 +54,6 @@ function SjvnHeader() {
           </div>
         </motion.div>
 
-<<<<<<< HEAD
-  
-=======
         <motion.div
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
@@ -68,7 +65,6 @@ function SjvnHeader() {
             A Navratna PSU
           </div>
         </motion.div>
->>>>>>> 1a38131 (EDIT)
       </div>
     </header>
   );
