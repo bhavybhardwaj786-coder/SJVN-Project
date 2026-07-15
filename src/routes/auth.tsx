@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, Mail, Lock, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/client";
@@ -19,57 +19,8 @@ type Status = "idle" | "authenticating" | "denied";
 // --- Header ---
 function SjvnHeader() {
   return (
-    <header className="w-full flex flex-col font-sans shadow-sm z-20 relative">
+    <header className="w-full flex flex-col font-sans shadow-sm z-20 relative shrink-0">
       {/* National tricolour strip, consistent with the rest of the site */}
-      <div className="flex h-[3px] w-full">
-        <div className="flex-1 bg-[#FF9933]" />
-        <div className="flex-1 bg-white" />
-        <div className="flex-1 bg-[#138808]" />
-      </div>
-
-      <div className="bg-[#0B4F86] py-2 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-black/10 gap-4">
-        <motion.div
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center gap-4 w-full md:w-auto"
-        >
-          <div className="bg-white p-1.5 rounded border border-white/20 shadow-sm flex-shrink-0">
-            <img
-              src={sjvnLogo}
-              alt="SJVN Logo"
-              className="w-14 h-14 md:w-16 md:h-16 object-contain"
-            />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-tight">
-              SJVN Limited
-            </h1>
-            <p className="text-xs md:text-sm font-medium mt-0.5 text-white/75">
-              (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
-            </p>
-            <p className="text-[10px] md:text-xs text-white/50 mt-0.5">
-              ISO 9001:2015 Certified &middot; CIN: L40101HP1988GOI008409
-            </p>
-          </div>
-        </motion.div>
-
-<<<<<<< HEAD
-  
-=======
-        <motion.div
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="hidden md:flex"
-        >
-          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-full py-1.5 px-4 text-sm font-medium text-white">
-            <ShieldCheck size={16} className="text-white" />
-            A Navratna PSU
-          </div>
-        </motion.div>
->>>>>>> 1a38131 (EDIT)
-      </div>
     </header>
   );
 }
@@ -151,29 +102,31 @@ function LoginCard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
       className="relative w-full max-w-md z-10"
     >
-      <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl backdrop-blur-2xl sm:p-10">
+      {/* Optimized padding (p-6 sm:p-7) to preserve dynamic viewport real estate */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-6 shadow-2xl backdrop-blur-2xl sm:p-7">
         {/* Header */}
-        <div className="mb-2 flex items-center justify-center">
+        <div className="mb-1 flex items-center justify-center">
           <img
             src={sjvnLogo}
             alt="SJVN Logo"
-            className="w-14 h-14 object-contain rounded-lg bg-white/90 p-1"
+            className="w-12 h-12 object-contain rounded-lg bg-white/90 p-1"
           />
         </div>
-        <div className="mb-7 text-center">
-          <h2 className="text-lg font-semibold text-white">Welcome to SJVN EMEMP</h2>
-          <p className="mt-1 text-xs text-white/50">Enter your official credentials to continue</p>
+        <div className="mb-4 text-center">
+          <h2 className="text-base font-semibold text-white sm:text-lg">Welcome to SJVN EMEMP</h2>
+          <p className="mt-0.5 text-xs text-white/50">Enter your official credentials to continue</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Form elements with condensed space-y-3.5 spacing */}
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Email */}
           <div className="group">
-            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
               Username
             </label>
             <div className="relative">
@@ -185,14 +138,14 @@ function LoginCard() {
                 placeholder="username@sjvn.com"
                 autoComplete="username"
                 required
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
+                className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-11 pr-4 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
               />
             </div>
           </div>
 
           {/* Password */}
           <div className="group">
-            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
               Password
             </label>
             <div className="relative">
@@ -204,7 +157,7 @@ function LoginCard() {
                 placeholder="••••••••••"
                 autoComplete="current-password"
                 required
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-3 pl-11 pr-16 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
+                className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-11 pr-16 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
               />
               <button
                 type="button"
@@ -220,7 +173,7 @@ function LoginCard() {
           <button
             type="submit"
             disabled={status === "authenticating"}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F8B6C] py-3.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#12A17E] disabled:opacity-70"
+            className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F8B6C] py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#12A17E] disabled:opacity-70"
           >
             <AnimatePresence mode="wait" initial={false}>
               {status === "authenticating" ? (
@@ -259,7 +212,7 @@ function LoginCard() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-4 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs text-amber-200/90"
+              className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs text-amber-200/90"
             >
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {errorMsg || "Access denied. Credentials could not be verified."}
@@ -268,14 +221,14 @@ function LoginCard() {
         </AnimatePresence>
 
         {/* Restricted access notice */}
-        <div className="mt-7 border-t border-white/10 pt-5">
+        <div className="mt-4 border-t border-white/10 pt-3.5">
           <div className="flex items-start gap-2.5">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300/80" />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">
                 Restricted Access
               </p>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/50">
+              <p className="mt-1 text-[11px] leading-relaxed text-white/50">
                 This portal is exclusively intended for authorized SJVN personnel. Unauthorized
                 access is prohibited and may be monitored.
               </p>
@@ -290,22 +243,18 @@ function LoginCard() {
 // --- Page shell ---
 function AuthPage() {
   return (
-<<<<<<< HEAD
-    <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
-      <div
-        className="flex-1 flex items-center justify-center px-4 relative bg-cover bg-center bg-no-repeat"
-=======
-    <div className="min-h-screen flex flex-col bg-slate-950 overflow-hidden">
+    // Hard locked window via position fixed, ensuring exact layout control
+    <div className="fixed inset-0 h-screen w-screen flex flex-col bg-slate-950 overflow-hidden select-none">
       <SjvnHeader />
 
-      <div
-        className="flex-1 flex items-start justify-center px-4 py-10 bg-cover bg-center bg-no-repeat relative"
->>>>>>> 1a38131 (EDIT)
+      {/* Main Container - perfectly centers the card vertically and horizontally */}
+      <main
+        className="flex-1 flex items-center justify-center px-4 bg-cover bg-center bg-no-repeat relative overflow-hidden"
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-[#0B4F86]/50" />
         <LoginCard />
-      </div>
+      </main>
     </div>
   );
 }
