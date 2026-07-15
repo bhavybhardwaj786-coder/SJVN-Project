@@ -123,6 +123,7 @@ function SuperAdminDashboard() {
               
               <Link 
                 to="/authenticated/users" 
+                search={{ action: "create" }} 
                 className="group flex flex-col p-8 transition-colors hover:bg-slate-50/50"
               >
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-transform group-hover:scale-110">
