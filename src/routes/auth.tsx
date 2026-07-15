@@ -290,17 +290,11 @@ function LoginCard() {
 // --- Page shell ---
 function AuthPage() {
   return (
-<<<<<<< HEAD
-    <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
-      <div
-        className="flex-1 flex items-center justify-center px-4 relative bg-cover bg-center bg-no-repeat"
-=======
     <div className="min-h-screen flex flex-col bg-slate-950 overflow-hidden">
       <SjvnHeader />
 
       <div
         className="flex-1 flex items-start justify-center px-4 py-10 bg-cover bg-center bg-no-repeat relative"
->>>>>>> 1a38131 (EDIT)
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-[#0B4F86]/50" />

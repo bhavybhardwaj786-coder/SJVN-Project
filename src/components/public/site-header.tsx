@@ -1,25 +1,12 @@
-<<<<<<< HEAD
-import { useState } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
-=======
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
->>>>>>> 1a38131 (EDIT)
 import {
   ChevronDown,
   ChevronRight,
   Menu,
   X,
-<<<<<<< HEAD
-  ShieldCheck,
-  Mail,
-  ArrowRight,
-  Zap,
-  Home,
-=======
   LogIn,
   Home as HomeIcon,
->>>>>>> 1a38131 (EDIT)
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -183,77 +170,6 @@ export function SiteHeader() {
       </div>
 
       {/* Brand header */}
-<<<<<<< HEAD
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2.5 border-b border-white/10">
-        
-        {/* LEFT SIDE: Logo & Titles */}
-        <div className="flex items-center gap-4 z-10">
-          {/* Ambient glow behind logo */}
-          <div className="pointer-events-none absolute left-4 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-electric-500/20 blur-2xl" />
-
-          <motion.div
-            whileHover={{ scale: 1.06, rotate: -2 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_24px_rgba(10,132,255,0.35)] sm:h-16 sm:w-16"
-          >
-            <img
-              src={sjvnLogoImg}
-              alt="SJVN Logo"
-              className="h-full w-full object-contain p-1"
-            />
-            <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
-            </span>
-          </motion.div>
-
-          <div className="min-w-0">
-            <h1 className="bg-gradient-to-r from-white via-white to-electric-200 bg-clip-text text-xl font-extrabold leading-tight tracking-tight text-transparent sm:text-3xl">
-              SJVN Limited
-            </h1>
-            <p className="mt-0.5 text-[11px] font-semibold text-white/70 sm:text-sm">
-              (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
-            </p>
-            <p className="mt-0.5 hidden text-[10px] font-medium text-white/40 sm:block">
-              A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
-            </p>
-          </div>
-        </div>
-
-        {/* RIGHT SIDE: Dynamic Breadcrumbs */}
-        <div className="hidden md:flex flex-col items-end gap-2 z-10">
-          <nav className="flex items-center gap-1.5 text-sm font-medium text-white/80 bg-white/5 px-3 py-1.5 rounded-md border border-white/10 shadow-sm backdrop-blur-sm">
-            <Link to="/" className="hover:text-white transition-colors flex items-center gap-1">
-              <Home className="h-3.5 w-3.5 mb-0.5" />
-              Home
-            </Link>
-            
-            {pathSegments.length > 0 && (
-              <span className="text-white/40 text-xs">»</span>
-            )}
-
-            {pathSegments.map((name, index) => {
-              const routeTo = `/${pathSegments.slice(0, index + 1).join("/")}`;
-              const isLast = index === pathSegments.length - 1;
-              const displayName = formatSegmentName(name);
-
-              return (
-                <div key={name} className="flex items-center gap-1.5">
-                  {isLast ? (
-                    <span className="text-emerald-400 font-bold">{displayName}</span>
-                  ) : (
-                    <>
-                      <Link to={routeTo} className="hover:text-white transition-colors">
-                        {displayName}
-                      </Link>
-                      <span className="text-white/40 text-xs">»</span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </nav>
-=======
       <div className="w-full border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-slate-200 bg-white sm:h-16 sm:w-16">
@@ -275,7 +191,6 @@ export function SiteHeader() {
               ISO 9001:2015 Certified &middot; CIN: L40101HP1988GOI008409
             </p>
           </div>
->>>>>>> 1a38131 (EDIT)
         </div>
 
       </div>
