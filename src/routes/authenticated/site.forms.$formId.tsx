@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, FileText, CheckCircle2 } from "lucide-react";
 
+import sjvnLogo from "@/assets/sjvn-logo.jpeg";
+
 export const Route = createFileRoute("/authenticated/site/forms/$formId")({
   ssr: false,
   component: FillForm,

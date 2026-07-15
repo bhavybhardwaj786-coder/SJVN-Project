@@ -1,16 +1,21 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/client";
+import { authService } from "@/services/auth";
 
 export const Route = createFileRoute("/authenticated/admin")({
   ssr: false,
   beforeLoad: async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) throw redirect({ to: "/auth" });
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id);
-    if (!roles?.some((r) => r.role === "admin")) throw redirect({ to: "/app" });
+    const user = await authService.getCurrentUser();
+    
+    // Drop execution if the user session does not exist
+    if (!user) {
+      throw redirect({ to: "/auth" });
+    }
+    
+    // Support access for both standard Administrators and Master Super Admins
+    const hasAdminAccess = user.role === "admin" || user.role === "super_admin";
+    if (!hasAdminAccess) {
+      throw redirect({ to: "/authenticated/site" });
+    }
   },
   component: () => <Outlet />,
 });

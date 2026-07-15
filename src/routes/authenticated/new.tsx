@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus, Trash2, GripVertical, Loader2, ArrowLeft, ArrowRight, Check,
 } from "lucide-react";
@@ -23,10 +23,14 @@ import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/authenticated/new")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { edit?: string } => {
+    return {
+      edit: typeof search.edit === 'string' ? search.edit : undefined,
+    };
+  },
   component: NewForm,
 });
 
-// Icon names must match the ICONS map in app.tsx
 const ICON_OPTIONS = [
   "Droplet", "Wind", "Trash2", "AlertTriangle", "Wallet", "Trees",
   "Fuel", "Volume2", "Waves", "CloudRain", "Leaf", "MapPinned",
@@ -47,6 +51,8 @@ const COMMON_UNITS = [
 ];
 
 type FieldOption = { label: string; value: string };
+type CustomMetaAttribute = { key: string; label: string; type: "text" | "select"; options?: string };
+
 type FormField = {
   key: string;
   label: string;
@@ -54,7 +60,9 @@ type FormField = {
   unit?: string;
   required: boolean;
   options?: FieldOption[];
+  metaAttributes?: CustomMetaAttribute[]; // 👈 ADD THIS LINE ONLY
 };
+
 type SiteRow = { id: string; name: string; code: string };
 
 let fieldCounter = 0;
@@ -82,6 +90,9 @@ const STEPS = [
 function NewForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  
+  const search = Route.useSearch();
+  const editId = search.edit;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -98,6 +109,39 @@ function NewForm() {
   // Step 3 — visibility
   const [visibilityMode, setVisibilityMode] = useState<"all" | "specific">("all");
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
+
+  // 1. Fetch data when editId is available
+  const { data: existingForm, isLoading: isFormLoading } = useQuery({
+    queryKey: ["form-to-edit", editId],
+    queryFn: async () => {
+      if (!editId) return null;
+      const res = await formsService.getFormById(editId);
+      return res.data;
+    },
+    enabled: !!editId,
+  });
+
+  // 2. Hydrate state values when edit query resolves successfully
+  useEffect(() => {
+    if (existingForm) {
+      setTitle(existingForm.title || "");
+      setDescription(existingForm.description || "");
+      setFrequency(existingForm.frequency || "monthly");
+      setIsActive(existingForm.is_active ?? true);
+      
+      if (existingForm.schema) {
+        setIcon(existingForm.schema.icon || ICON_OPTIONS[0]);
+        setFields(existingForm.schema.fields || []);
+      }
+      
+      if (existingForm.site_ids && existingForm.site_ids.length > 0) {
+        setVisibilityMode("specific");
+        setSelectedSiteIds(new Set(existingForm.site_ids));
+      } else {
+        setVisibilityMode("all");
+      }
+    }
+  }, [existingForm]);
 
   const { data: sitesResult, isLoading: sitesLoading } = useQuery({
     queryKey: ["all-sites"],
@@ -195,8 +239,8 @@ function NewForm() {
 
   const goBack = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
 
-  // ---- Create Form Mutation ----
-  const createMutation = useMutation({
+  // ---- Create / Update Form Mutation Handling ----
+  const submitMutation = useMutation({
     mutationFn: async () => {
       const cleanFields = fields.map((f) => ({
         key: f.key,
@@ -209,39 +253,56 @@ function NewForm() {
           : {}),
       }));
 
-      return formsService.createForm({
+      const payload = {
         title: title.trim(),
         description: description.trim() || null,
         schema: { icon, fields: cleanFields },
         is_active: isActive,
         frequency,
-        // null = visible to ALL sites (recommended for most forms)
         site_ids: visibilityMode === "all" ? null : Array.from(selectedSiteIds),
-      });
+      };
+
+      // Branch evaluation logic dynamically relative to transactional state context
+      if (editId) {
+        return formsService.updateForm(editId, payload);
+      } else {
+        return formsService.createForm(payload);
+      }
     },
     onSuccess: (result) => {
       if (result?.error) {
-        toast.error(result.error.message || "Failed to create form");
+        toast.error(result.error.message || "Failed to preserve form definitions");
         return;
       }
 
-      toast.success("Form created successfully! Site users can now fill it.");
+      toast.success(editId ? "Form configurations updated successfully!" : "Form created successfully!");
       queryClient.invalidateQueries({ queryKey: ["admin-all-forms"] });
       navigate({ to: "/authenticated/app" });
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to create form");
+      toast.error(err?.message || "Failed to apply mutations to structural data records");
     },
   });
 
-  const handleCreate = () => {
+  const handleSubmit = () => {
     const err = validateStep3();
     if (err) {
       toast.error(err);
       return;
     }
-    createMutation.mutate();
+    submitMutation.mutate();
   };
+
+  if (editId && isFormLoading) {
+    return (
+      <AppShell>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading form settings...</span>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
   <motion.div
@@ -297,7 +358,7 @@ function NewForm() {
             >
           <Card>
             <CardHeader>
-              <CardTitle>Name the Form</CardTitle>
+              <CardTitle>{editId ? "Modify Form Parameters" : "Name the Form"}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Start with what this form is for. You'll add the actual questions next.
               </p>
@@ -473,6 +534,77 @@ function NewForm() {
                           Required
                         </Label>
                       </div>
+                      {/* Dynamic Sub-Column Attribute Section Block */}
+                      <div className="pt-3 border-t border-slate-100 space-y-2">
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="text-blue-600 font-bold p-0 h-auto text-xs"
+                          onClick={() => {
+                            const updatedFields = [...fields];
+                            if (!updatedFields[index].metaAttributes) updatedFields[index].metaAttributes = [];
+                            updatedFields[index].metaAttributes!.push({ key: `meta_${Date.now()}`, label: "", type: "text", options: "" });
+                            setFields(updatedFields);
+                          }}
+                        >
+                          + Add Extra Sub-Column Property (e.g., Classification, Disposal Method)
+                        </Button>
+
+                        {field.metaAttributes?.map((meta, mIdx) => (
+                          <div key={meta.key} className="ml-2 p-2 border border-dashed rounded bg-slate-50 flex flex-wrap sm:flex-nowrap items-center gap-2 animate-in fade-in duration-150">
+                            <Input
+                              placeholder="Sub-column Title (e.g. Classification)"
+                              value={meta.label}
+                              onChange={e => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes![mIdx].label = e.target.value;
+                                setFields(updatedFields);
+                              }}
+                              className="h-8 text-xs bg-white flex-1 min-w-[120px]"
+                            />
+                            
+                            <select
+                              value={meta.type}
+                              onChange={e => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes![mIdx].type = e.target.value as any;
+                                setFields(updatedFields);
+                              }}
+                              className="h-8 border rounded text-xs bg-white px-2 focus:ring-1 focus:ring-blue-500"
+                            >
+                              <option value="text">Text Field</option>
+                              <option value="select">Dropdown Choice</option>
+                            </select>
+
+                            {meta.type === "select" && (
+                              <Input
+                                placeholder="Options (comma-separated: e.g. Hazardous, Non-Hazardous)"
+                                value={meta.options || ""}
+                                onChange={e => {
+                                  const updatedFields = [...fields];
+                                  updatedFields[index].metaAttributes![mIdx].options = e.target.value;
+                                  setFields(updatedFields);
+                                }}
+                                className="h-8 text-xs bg-white flex-1 min-w-[200px]"
+                              />
+                            )}
+
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-500 hover:bg-red-50 shrink-0"
+                              onClick={() => {
+                                const updatedFields = [...fields];
+                                updatedFields[index].metaAttributes = updatedFields[index].metaAttributes!.filter((_, i) => i !== mIdx);
+                                setFields(updatedFields);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => removeField(index)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -585,9 +717,9 @@ function NewForm() {
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create & Publish Form
+            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+              {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editId ? "Save Changes" : "Create & Publish Form"}
             </Button>
           )}
         </div>

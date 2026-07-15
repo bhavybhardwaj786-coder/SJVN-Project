@@ -22,6 +22,7 @@ import {
   Eye,
   UserPlus,
   ArrowUpRight,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +92,10 @@ function AdminDashboard() {
   const [siteFilter, setSiteFilter] = useState<string>("all");
   const [formFilter, setFormFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // --- Search State ---
+  const [formSearchQuery, setFormSearchQuery] = useState("");
+  const [siteSearchQuery, setSiteSearchQuery] = useState("");
 
   const reportingMonthDate = `${selectedMonth}-01`;
 
@@ -204,6 +209,15 @@ function AdminDashboard() {
     deleteMutation.mutate(formId);
   };
 
+  // --- Filtering Logic for Search Bars with safety checks ---
+  const displayedForms = forms.filter((f: any) =>
+    (f.title || "").toLowerCase().includes(formSearchQuery.toLowerCase())
+  );
+
+  const displayedSites = sites.filter((s: SiteRow) =>
+    (s.name || "").toLowerCase().includes(siteSearchQuery.toLowerCase())
+  );
+
   return (
     <AppShell>
       <motion.div initial="hidden" animate="show" variants={containerVariants}>
@@ -290,15 +304,27 @@ function AdminDashboard() {
 
         {/* --- Forms grid --- */}
         <motion.section variants={fadeUp} className="mt-8">
-          <div className="mb-3 flex items-baseline justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
             <h2 className="font-display text-lg font-semibold">Environmental Forms</h2>
-            <Link
-              to="/authenticated/new"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-card transition-all hover:shadow-glow"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Form
-            </Link>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search forms..."
+                  value={formSearchQuery}
+                  onChange={(e) => setFormSearchQuery(e.target.value)}
+                  className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <Link
+                to="/authenticated/new"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-card transition-all hover:shadow-glow"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Form
+              </Link>
+            </div>
           </div>
 
           {formsLoading ? (
@@ -310,7 +336,7 @@ function AdminDashboard() {
               animate="show"
               className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
-              {forms.map((f: any) => {
+              {displayedForms.map((f: any) => {
                 const Icon = ICONS[f.schema?.icon ?? ""] ?? FileText;
 
                 return (
@@ -360,17 +386,34 @@ function AdminDashboard() {
                   </motion.div>
                 );
               })}
+              {displayedForms.length === 0 && (
+                <p className="text-sm text-muted-foreground col-span-full">
+                  No forms match your search.
+                </p>
+              )}
             </motion.div>
           )}
         </motion.section>
 
         {/* --- Site submission matrix --- */}
         <motion.section variants={fadeUp} className="mt-8">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="font-display text-lg font-semibold">Site Submission Matrix</h2>
-            <span className="text-xs text-muted-foreground">
-              Who has submitted what, this month
-            </span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Site Submission Matrix</h2>
+              <span className="text-xs text-muted-foreground">
+                Who has submitted what, this month
+              </span>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search sites by name..."
+                value={siteSearchQuery}
+                onChange={(e) => setSiteSearchQuery(e.target.value)}
+                className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
@@ -397,8 +440,8 @@ function AdminDashboard() {
                       <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                     </td>
                   </tr>
-                ) : sites.length ? (
-                  sites.map((site) => (
+                ) : displayedSites.length > 0 ? (
+                  displayedSites.map((site) => (
                     <tr key={site.id} className="border-t transition-colors hover:bg-muted/30">
                       <td className="sticky left-0 z-10 bg-card px-4 py-3 font-medium">
                         {site.name}
@@ -440,7 +483,7 @@ function AdminDashboard() {
                       colSpan={activeForms.length + 1}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      No sites found.
+                      No sites match your search.
                     </td>
                   </tr>
                 )}
@@ -516,7 +559,7 @@ function AdminDashboard() {
                       <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                     </td>
                   </tr>
-                ) : filteredSubmissions.length ? (
+                ) : filteredSubmissions.length > 0 ? (
                   filteredSubmissions.map((r) => (
                     <tr key={r.id} className="group border-t transition-colors hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">

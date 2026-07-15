@@ -1,79 +1,71 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
   try {
-    const authHeader = req.headers.get("Authorization")!;
-    const anonClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    const { data: { user } } = await anonClient.auth.getUser();
-    if (!user) return json({ error: "Not authenticated" }, 401);
+    const authHeader = req.headers.get('Authorization')!
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
+    
+    if (authError || !user) throw new Error('Unauthorized operational request')
 
-    const { data: superAdmin } = await anonClient
-      .from("super_admins")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (!superAdmin) return json({ error: "Forbidden: super_admin only" }, 403);
+    // Confirm execution origin holds administrative privileges
+    const { data: isSuperAdmin } = await supabaseClient.from('super_admins').select('id').eq('id', user.id).maybeSingle()
+    const { data: isAdmin } = await supabaseClient.from('admins').select('id').eq('id', user.id).maybeSingle()
+    
+    if (!isSuperAdmin && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
 
-    const { role, email, password, full_name, site_id } = await req.json();
-    if (!["admin", "site_user"].includes(role)) return json({ error: "Invalid role" }, 400);
-    if (!email || !password || !full_name) return json({ error: "Missing fields" }, 400);
-    if (password.length < 8) return json({ error: "Password must be at least 8 characters" }, 400);
+    const { role, email, password, full_name, site_id, designation } = await req.json()
 
-    const table = role === "admin" ? "admins" : "site_users";
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
+    // 1. Register base user authentication credentials
+    const { data: authUser, error: createError } = await supabaseClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
-    });
-    if (createErr) return json({ error: createErr.message }, 400);
+      email_confirm: true
+    })
 
-    const profileRow: Record<string, unknown> = {
-      id: created.user.id,
-      full_name,
-      email,
-      is_active: true,
-    };
-    if (role === "site_user") {
-      if (!site_id) {
-        await adminClient.auth.admin.deleteUser(created.user.id);
-        return json({ error: "site_id is required for site users" }, 400);
-      }
-      profileRow.site_id = site_id;
+    if (createError) throw createError
+
+    // 2. Map structural profiles based on administrative targets
+    if (role === 'admin') {
+      const { error } = await supabaseClient.from('admins').insert({ id: authUser.user.id, full_name, is_active: true })
+      if (error) throw error
+    } else if (role === 'site_user') {
+      const { error } = await supabaseClient.from('site_users').insert({ 
+        id: authUser.user.id, 
+        full_name, 
+        site_id, 
+        designation,
+        is_active: true 
+      })
+      if (error) throw error
     }
 
-    const { error: insertErr } = await adminClient.from(table).insert(profileRow);
-    if (insertErr) {
-      await adminClient.auth.admin.deleteUser(created.user.id); // rollback orphaned auth user
-      return json({ error: insertErr.message }, 400);
-    }
+    return new Response(JSON.stringify({ success: true, userId: authUser.user.id }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
 
-    return json({ success: true, id: created.user.id });
-  } catch (e) {
-    return json({ error: String(e) }, 500);
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
-});
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
+})

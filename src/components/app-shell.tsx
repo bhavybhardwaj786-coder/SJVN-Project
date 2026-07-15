@@ -171,7 +171,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#eaeff2] to-transparent" />
           </div>
         )}
-
         {/* 4. Dashboard Content layer (z-10) */}
         <div 
           className={cn(
