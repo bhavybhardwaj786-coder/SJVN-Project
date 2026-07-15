@@ -106,54 +106,53 @@ function FillForm() {
 
   return (
     <AppShell>
-      <div className="flex justify-center py-8">
+      {/* -mt-6 -mb-6 removes the top and bottom gaps.
+        w-[100vw] and translate-x bypasses the AppShell max-width to stretch 100% 
+      */}
+      <div className="-mt-6 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2">
         <motion.div
           initial="hidden"
           animate="show"
           variants={containerVariants}
-          className="w-full max-w-[480px]"
+          className="w-full"
         >
-          {/* --- Card, theme-matched --- */}
-          <div className="overflow-hidden rounded-xl border bg-card shadow-elevated">
-            {/* Header — SJVN gradient, consistent with the rest of the app */}
-            <motion.div
-              variants={fadeUp}
-              className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8"
-            >
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
-                    <FileText className="h-3.5 w-3.5" />
-                    Monthly Compliance Report
-                  </div>
-                  <h2 className="mt-2 font-display text-2xl font-bold">
-                    {formDef.title}
-                  </h2>
-                  {formDef.description && (
-                    <p className="mt-1.5 text-sm text-primary-foreground/75">
-                      {formDef.description}
-                    </p>
-                  )}
-                </div>
-                {isSubmitted && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, duration: 0.3 }}
-                    className="shrink-0"
-                  >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Submitted
-                    </span>
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
+          {/* Removed rounded corners and borders so it sits completely flush */}
+          <div className="bg-card min-h-screen">
+            {/* Header — Plain text, aligned with form fields */}
+<motion.div
+  variants={fadeUp}
+  className="px-6 pt-8 sm:px-10 sm:pt-10"
+>
+  <div className="flex items-start justify-between gap-4">
+    <div>
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+        <FileText className="h-3.5 w-3.5" />
+        Monthly Compliance Report
+      </div>
+      <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
+        {formDef.title}
+      </h2>
+    </div>
+    
+    {isSubmitted && (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        className="shrink-0"
+      >
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Submitted
+        </span>
+      </motion.div>
+    )}
+  </div>
+</motion.div>
 
             {/* Fields, staggered in */}
-            <div className="p-6 sm:p-8">
-              <motion.div variants={containerVariants} className="space-y-5">
+            <div className="p-6 sm:p-10">
+              <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {fields.map((field: any) => {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
 
@@ -225,20 +224,29 @@ function FillForm() {
                   );
                 })}
 
-                <AnimatePresence>
+               <AnimatePresence>
                   {!isSubmitted && (
                     <motion.div
                       variants={fadeUp}
                       initial="hidden"
                       animate="show"
                       exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
-                      className="flex flex-col gap-3 pt-6"
+                      className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 mt-4 border-t border-border/50"
                     >
-                      <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => save.mutate(false)}
+                        disabled={save.isPending}
+                        className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        Save Draft
+                      </Button>
+
+                      <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
                         <Button
                           onClick={() => save.mutate(true)}
                           disabled={save.isPending}
-                          className="h-12 w-full rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
+                          className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
                         >
                           {save.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -247,15 +255,6 @@ function FillForm() {
                           )}
                         </Button>
                       </motion.div>
-
-                      <Button
-                        variant="ghost"
-                        onClick={() => save.mutate(false)}
-                        disabled={save.isPending}
-                        className="w-full text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        Save Draft
-                      </Button>
                     </motion.div>
                   )}
                 </AnimatePresence>
