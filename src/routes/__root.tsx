@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// 1. Add this import at the top of your file with the others:
 import { SiteHeader } from "@/components/public/site-header";
 import {
   Outlet,
@@ -118,6 +119,8 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
@@ -125,8 +128,8 @@ function RootComponent() {
   // 1. Get the current route location
   const location = useLocation();
   
-  // 2. Check if the user is on the /auth page
-  const isAuthPage = location.pathname.startsWith('/auth');
+  // 2. Check if the user is inside the authenticated dashboard area
+  const isDashboardRoute = location.pathname.startsWith("/authenticated");
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -140,9 +143,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-svh flex-col bg-background">
-        {/* 3. Conditionally render the header based on the route */}
-        {!isAuthPage && <SiteHeader />}
-        <main id="main" className="flex-1">
+        
+        {/* 3. Conditionally render the header: only show if NOT on a dashboard route */}
+        {!isDashboardRoute && <SiteHeader />}
+        
+        <main id="main" className="flex-1 flex flex-col">
           <Outlet />
         </main>
       </div>
