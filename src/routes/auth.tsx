@@ -47,7 +47,7 @@ const childVariants = {
 function SjvnHeader() {
   return (
     <header className="w-full flex flex-col font-sans shadow-sm z-20 relative">
-      <div className="bg-[#14647f] py-2 px-4 md:px-8 flex justify-end items-center h-8"></div>
+      
 
       <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4">
         <motion.div 
@@ -148,11 +148,11 @@ function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-900 overflow-hidden">
       <SjvnHeader />
       
       <div
-        className="flex-1 flex items-center justify-center px-4 py-12 bg-cover bg-center bg-no-repeat relative"
+        className="flex-1 flex items-start justify-center px-4 py-8 bg-cover bg-center bg-no-repeat relative"
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
         {/* Cinematic rich dark gradient overlay */}
