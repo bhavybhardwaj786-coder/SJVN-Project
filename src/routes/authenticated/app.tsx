@@ -97,6 +97,8 @@ function AdminDashboard() {
   const [formSearchQuery, setFormSearchQuery] = useState("");
   const [siteSearchQuery, setSiteSearchQuery] = useState("");
 
+  const [activeView, setActiveView] = useState<"forms" | "matrix">("forms");
+
   const reportingMonthDate = `${selectedMonth}-01`;
 
   const { data: formsResult, isLoading: formsLoading } = useQuery({
@@ -302,315 +304,223 @@ function AdminDashboard() {
           </select>
         </motion.section>
 
-        {/* --- Forms grid --- */}
-        <motion.section variants={fadeUp} className="mt-8">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="font-display text-lg font-semibold">Environmental Forms</h2>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search forms..."
-                  value={formSearchQuery}
-                  onChange={(e) => setFormSearchQuery(e.target.value)}
-                  className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-              <Link
-                to="/authenticated/new"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-card transition-all hover:shadow-glow"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Form
-              </Link>
-            </div>
-          </div>
-
-          {formsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading forms…</p>
-          ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+{/* --- View Toggle Tabs --- */}
+        <motion.section variants={fadeUp} className="mt-8 flex justify-center">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm dark:bg-slate-900 dark:border-slate-800">
+            <button
+              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+                activeView === "forms"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              onClick={() => setActiveView("forms")}
             >
-              {displayedForms.map((f: any) => {
-                const Icon = ICONS[f.schema?.icon ?? ""] ?? FileText;
-
-                return (
-                  <motion.div
-                    key={f.id}
-                    variants={fadeUp}
-                    whileHover={{ y: -3 }}
-                    className="card-lift group rounded-xl border bg-card p-5 shadow-card hover:card-lift-hover"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="grid h-11 w-11 place-items-center rounded-lg bg-primary-soft text-brand">
-                        <Icon className="h-5 w-5" />
-                      </div>
-
-                      {!f.is_active && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="mt-4 font-display text-base font-semibold">{f.title}</h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {f.description || "No description"}
-                    </p>
-
-                    <div className="mt-4 flex gap-2">
-                      <Link
-                        to="/authenticated/new"
-                        search={{ edit: f.id }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Link>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(f.id, f.title)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-              {displayedForms.length === 0 && (
-                <p className="text-sm text-muted-foreground col-span-full">
-                  No forms match your search.
-                </p>
-              )}
-            </motion.div>
-          )}
-        </motion.section>
-
-        {/* --- Site submission matrix --- */}
-        <motion.section variants={fadeUp} className="mt-8">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold">Site Submission Matrix</h2>
-              <span className="text-xs text-muted-foreground">
-                Who has submitted what, this month
-              </span>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search sites by name..."
-                value={siteSearchQuery}
-                onChange={(e) => setSiteSearchQuery(e.target.value)}
-                className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="sticky left-0 z-10 bg-muted/60 px-4 py-3">
-                    Site
-                  </th>
-                  {activeForms.map((f: any) => (
-                    <th key={f.id} className="px-4 py-3 text-center">
-                      {f.title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {submissionsLoading ? (
-                  <tr>
-                    <td
-                      colSpan={activeForms.length + 1}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
-                      <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                    </td>
-                  </tr>
-                ) : displayedSites.length > 0 ? (
-                  displayedSites.map((site) => (
-                    <tr key={site.id} className="border-t transition-colors hover:bg-muted/30">
-                      <td className="sticky left-0 z-10 bg-card px-4 py-3 font-medium">
-                        {site.name}
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({site.code})
-                        </span>
-                      </td>
-
-                      {activeForms.map((f: any) => {
-                        const submission = submissionMap.get(
-                          `${site.id}__${f.id}`
-                        );
-                        const status = submission?.status ?? "not_submitted";
-
-                        return (
-                          <td key={f.id} className="px-4 py-3 text-center">
-                            <div className="flex flex-col items-center gap-1.5">
-                              <StatusBadge status={status} />
-                              {submission && (
-                                <Link
-                                  to="/authenticated/$submissionId"
-                                  params={{ submissionId: submission.id }}
-                                  className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
-                                  style={{ color: "var(--current)" }}
-                                >
-                                  <Eye className="h-3 w-3" />
-                                  View
-                                </Link>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={activeForms.length + 1}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
-                      No sites match your search.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              Edit Forms
+            </button>
+            <button
+              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+                activeView === "matrix"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              onClick={() => setActiveView("matrix")}
+            >
+              Site Submissions Matrix
+            </button>
           </div>
         </motion.section>
 
-        {/* --- All submissions --- */}
-        <motion.section variants={fadeUp} className="mt-8">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold">All Submissions</h2>
-
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={siteFilter}
-                onChange={(e) => setSiteFilter(e.target.value)}
-                className="rounded-lg border bg-card px-3 py-1.5 text-xs shadow-card"
-              >
-                <option value="all">All Sites</option>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={formFilter}
-                onChange={(e) => setFormFilter(e.target.value)}
-                className="rounded-lg border bg-card px-3 py-1.5 text-xs shadow-card"
-              >
-                <option value="all">All Forms</option>
-                {forms.map((f: any) => (
-                  <option key={f.id} value={f.id}>
-                    {f.title}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border bg-card px-3 py-1.5 text-xs shadow-card"
-              >
-                <option value="all">All Statuses</option>
-                <option value="submitted">Submitted</option>
-                <option value="draft">Draft</option>
-                <option value="not_submitted">Not Submitted</option>
-              </select>
+        {/* --- Forms grid --- */}
+        {activeView === "forms" && (
+          <motion.section variants={fadeUp} className="mt-8">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <h2 className="font-display text-lg font-semibold">Environmental Forms</h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search forms..."
+                    value={formSearchQuery}
+                    onChange={(e) => setFormSearchQuery(e.target.value)}
+                    className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                <Link
+                  to="/authenticated/new"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-card transition-all hover:shadow-glow"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Form
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Form</th>
-                  <th className="px-4 py-3">Site</th>
-                  <th className="px-4 py-3">Submitted By</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Submitted On</th>
-                  <th className="px-4 py-3 text-right">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissionsLoading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-muted-foreground"
+            {formsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading forms…</p>
+            ) : (
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              >
+                {displayedForms.map((f: any) => {
+                  const Icon = ICONS[f.schema?.icon ?? ""] ?? FileText;
+
+                  return (
+                    <motion.div
+                      key={f.id}
+                      variants={fadeUp}
+                      whileHover={{ y: -3 }}
+                      className="card-lift group rounded-xl border bg-card p-5 shadow-card hover:card-lift-hover"
                     >
-                      <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                    </td>
-                  </tr>
-                ) : filteredSubmissions.length > 0 ? (
-                  filteredSubmissions.map((r) => (
-                    <tr key={r.id} className="group border-t transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-3 font-medium">
-                        {r.forms?.title ?? "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.sites?.name ?? "—"}
-                        {r.sites?.code && (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({r.sites.code})
+                      <div className="flex items-start justify-between">
+                        <div className="grid h-11 w-11 place-items-center rounded-lg bg-primary-soft text-brand">
+                          <Icon className="h-5 w-5" />
+                        </div>
+
+                        {!f.is_active && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            Inactive
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {userNameMap.get(r.user_id) ?? "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="px-4 py-3 font-mono-figures text-xs text-muted-foreground">
-                        {r.submitted_at
-                          ? new Date(r.submitted_at).toLocaleString()
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      </div>
+
+                      <h3 className="mt-4 font-display text-base font-semibold">{f.title}</h3>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {f.description || "No description"}
+                      </p>
+
+                      <div className="mt-4 flex gap-2">
                         <Link
-                          to="/authenticated/$submissionId"
-                          params={{ submissionId: r.id }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+                          to="/authenticated/new"
+                          search={{ edit: f.id }}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted"
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                          <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
                         </Link>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
-                      No submissions match the selected filters.
-                    </td>
-                  </tr>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(f.id, f.title)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+                {displayedForms.length === 0 && (
+                  <p className="text-sm text-muted-foreground col-span-full">
+                    No forms match your search.
+                  </p>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </motion.section>
+              </motion.div>
+            )}
+          </motion.section>
+        )}
+
+        {/* --- Site submission matrix --- */}
+        {activeView === "matrix" && (
+          <motion.section variants={fadeUp} className="mt-8">
+            <div className="mb-8 flex flex-col items-center justify-center gap-3">
+              <h2 className="font-display text-2xl font-bold">Site Lookup</h2>
+              <p className="text-sm text-muted-foreground text-center">
+                Search for a specific project site to view its compliance logs for this month.
+              </p>
+              <div className="relative mt-2 w-full max-w-2xl">
+                <Search className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Enter site name..."
+                  value={siteSearchQuery}
+                  onChange={(e) => setSiteSearchQuery(e.target.value)}
+                  className="h-14 w-full rounded-2xl border-2 border-muted/60 bg-card pl-14 pr-6 text-lg shadow-sm transition-all focus-visible:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+                />
+              </div>
+            </div>
+
+            {/* Hide the table completely if the search bar is empty */}
+            {siteSearchQuery.trim() === "" ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-16 text-center shadow-sm">
+                <MapPinned className="mb-4 h-10 w-10 text-muted-foreground/30" />
+                <h3 className="text-lg font-semibold text-foreground">Waiting for search</h3>
+                <p className="text-sm text-muted-foreground">
+                  Type a site name above to view its submission matrix.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="sticky left-0 z-10 bg-muted/60 px-4 py-3">Site</th>
+                      {activeForms.map((f: any) => (
+                        <th key={f.id} className="px-4 py-3 text-center">{f.title}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissionsLoading ? (
+                      <tr>
+                        <td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">
+                          <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                        </td>
+                      </tr>
+                    ) : displayedSites.length > 0 ? (
+                      displayedSites.map((site) => (
+                        <tr key={site.id} className="border-t transition-colors hover:bg-muted/30">
+                          <td className="sticky left-0 z-10 bg-card px-4 py-3 font-medium">
+                            {site.name}
+                            <span className="ml-1 text-xs text-muted-foreground">({site.code})</span>
+                          </td>
+
+                          {activeForms.map((f: any) => {
+                            const submission = submissionMap.get(`${site.id}__${f.id}`);
+                            const status = submission?.status ?? "not_submitted";
+
+                            return (
+                              <td key={f.id} className="px-4 py-3 text-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <StatusBadge status={status} />
+                                  {submission && (
+                                    <Link
+                                      to="/authenticated/$submissionId"
+                                      params={{ submissionId: submission.id }}
+                                      className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                                      style={{ color: "var(--current)" }}
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                      View
+                                    </Link>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">
+                          No sites match your search "{siteSearchQuery}".
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.section>
+        )}
+
+        {/* --- All submissions --- */}
+        
       </motion.div>
     </AppShell>
   );
