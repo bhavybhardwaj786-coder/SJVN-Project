@@ -118,41 +118,37 @@ function FillForm() {
         >
           {/* Removed rounded corners and borders so it sits completely flush */}
           <div className="bg-card min-h-screen">
-            {/* Header — SJVN gradient, consistent with the rest of the app */}
-            <motion.div
-              variants={fadeUp}
-              className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8"
-            >
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
-                    <FileText className="h-3.5 w-3.5" />
-                    Monthly Compliance Report
-                  </div>
-                  <h2 className="mt-2 font-display text-2xl font-bold">
-                    {formDef.title}
-                  </h2>
-                  {formDef.description && (
-                    <p className="mt-1.5 text-sm text-primary-foreground/75">
-                      {formDef.description}
-                    </p>
-                  )}
-                </div>
-                {isSubmitted && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, duration: 0.3 }}
-                    className="shrink-0"
-                  >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Submitted
-                    </span>
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
+            {/* Header — Plain text, aligned with form fields */}
+<motion.div
+  variants={fadeUp}
+  className="px-6 pt-8 sm:px-10 sm:pt-10"
+>
+  <div className="flex items-start justify-between gap-4">
+    <div>
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+        <FileText className="h-3.5 w-3.5" />
+        Monthly Compliance Report
+      </div>
+      <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
+        {formDef.title}
+      </h2>
+    </div>
+    
+    {isSubmitted && (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        className="shrink-0"
+      >
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Submitted
+        </span>
+      </motion.div>
+    )}
+  </div>
+</motion.div>
 
             {/* Fields, staggered in */}
             <div className="p-6 sm:p-10">
