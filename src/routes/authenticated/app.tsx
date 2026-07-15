@@ -97,7 +97,7 @@ function AdminDashboard() {
   const [formSearchQuery, setFormSearchQuery] = useState("");
   const [siteSearchQuery, setSiteSearchQuery] = useState("");
 
-  const [activeView, setActiveView] = useState<"forms" | "matrix">("forms");
+  const [activeView, setActiveView] = useState<"forms" | "matrix">("matrix");
 
   const reportingMonthDate = `${selectedMonth}-01`;
 
@@ -305,8 +305,19 @@ function AdminDashboard() {
         </motion.section>
 
 {/* --- View Toggle Tabs --- */}
+        {/* --- View Toggle Tabs --- */}
         <motion.section variants={fadeUp} className="mt-8 flex justify-center">
           <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm dark:bg-slate-900 dark:border-slate-800">
+            <button
+              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+                activeView === "matrix"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              onClick={() => setActiveView("matrix")}
+            >
+              Site Submissions
+            </button>
             <button
               className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
                 activeView === "forms"
@@ -316,16 +327,6 @@ function AdminDashboard() {
               onClick={() => setActiveView("forms")}
             >
               Edit Forms
-            </button>
-            <button
-              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
-                activeView === "matrix"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              onClick={() => setActiveView("matrix")}
-            >
-              Site Submissions Matrix
             </button>
           </div>
         </motion.section>
@@ -433,6 +434,7 @@ function AdminDashboard() {
               <p className="text-sm text-muted-foreground text-center">
                 Search for a specific project site to view its compliance logs for this month.
               </p>
+              
               <div className="relative mt-2 w-full max-w-2xl">
                 <Search className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -443,15 +445,32 @@ function AdminDashboard() {
                   className="h-14 w-full rounded-2xl border-2 border-muted/60 bg-card pl-14 pr-6 text-lg shadow-sm transition-all focus-visible:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
                 />
               </div>
+
+              {/* Quick-Select Site Pills */}
+              <div className="mt-4 flex max-w-3xl flex-wrap justify-center gap-2">
+                {sites.map((site) => (
+                  <button
+                    key={site.id}
+                    onClick={() => setSiteSearchQuery(site.name)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      siteSearchQuery.toLowerCase() === site.name.toLowerCase()
+                        ? "border-primary bg-primary text-primary-foreground shadow-md"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {site.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Hide the table completely if the search bar is empty */}
             {siteSearchQuery.trim() === "" ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-16 text-center shadow-sm">
                 <MapPinned className="mb-4 h-10 w-10 text-muted-foreground/30" />
-                <h3 className="text-lg font-semibold text-foreground">Waiting for search</h3>
+                <h3 className="text-lg font-semibold text-foreground">Waiting for selection</h3>
                 <p className="text-sm text-muted-foreground">
-                  Type a site name above to view its submission matrix.
+                  Type a site name above or click one of the quick-select buttons to view its matrix.
                 </p>
               </div>
             ) : (
