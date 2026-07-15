@@ -70,8 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/admin/forms", label: "Forms", icon: FormInput },
         { to: "/admin/submissions", label: "Submissions", icon: ClipboardList },
       ]
-    : [
-    ];
+    : [];
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -81,15 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    // Changed to a flex column layout with a solid gray background base
     <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
       
-      {/* 1. Top gov strip */}
-      <div className="bg-[#14647f] text-white text-[11px] no-print relative z-20 py-1.5 px-4 md:px-8 flex justify-between items-center h-8">
-        <span className="font-medium">Government of India · SJVN Limited</span>
-        <span className="hidden sm:inline">EMEMP · Secure Portal</span>
-      </div>
-
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
         <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4 relative z-10">
@@ -119,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
               </p>
               <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
-                A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
+                ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
               </p>
             </div>
           </div>
@@ -130,13 +122,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Shield className="h-3.5 w-3.5" /> Administrator
               </span>
             )}
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full py-1.5 px-4 shadow-sm text-sm font-semibold text-gray-800">
-              <ShieldCheck size={16} className="text-[#095a7d]" />
-              A Navratna PSU
-            </div>
           </div>
         </div>
-{/* Bottom Navigation Teal Bar */}
+
+        {/* Bottom Navigation Teal Bar */}
         <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
           
           {/* 1. Left Side: Home Icon */}
@@ -146,51 +135,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           </div>
 
-          {/* 2. Middle: Continuous Infinite Marquee */}
+          {/* 2. Middle: Static Title Text */}
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
-            {/* CSS Animation for Seamless Infinite Loop */}
-            <style>{`
-              .marquee-wrapper {
-                display: flex;
-                width: 100%;
-                overflow: hidden;
-              }
-              .marquee-content {
-                display: flex;
-                flex-shrink: 0;
-                /* Adjust the '30s' here to make it scroll faster or slower */
-                animation: scroll 30s linear infinite;
-              }
-              .marquee-wrapper:hover .marquee-content {
-                animation-play-state: paused;
-              }
-              @keyframes scroll {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-100%); }
-              }
-            `}</style>
-            
-            <div className="marquee-wrapper text-[#ffb600] text-sm font-bold tracking-wide drop-shadow-sm">
-              {/* First Track */}
-              <div className="marquee-content">
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-              </div>
-              {/* Second Track (Exact Duplicate for the seamless loop behind the first one) */}
-              <div className="marquee-content">
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-                <span className="pr-16">Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal</span>
-              </div>
+            <div className="text-white text-sm font-semibold whitespace-nowrap">
+              Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal
             </div>
           </div>
 
           {/* 3. Right Side: User Info & Sign Out */}
           <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-[#3a8da6]">
             <div className="hidden text-right md:block text-white">
-              <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user.email}</div>
-              <div className="text-[10px] text-white/80">{me?.user.email}</div>
+              <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user?.email}</div>
+              <div className="text-[10px] text-white/80">{me?.user?.email}</div>
             </div>
 
             <button 
@@ -211,9 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {isUserDashboard && (
           <div className="absolute top-0 left-0 w-full h-[450px] z-0 overflow-hidden shadow-sm">
             <HeroCarousel />
-            {/* White translucent fade overlay so black text is highly readable */}
             <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]" />
-            {/* Gradient mask to blend the bottom edge of the image cleanly into the gray page */}
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#eaeff2] to-transparent" />
           </div>
         )}
@@ -221,12 +175,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div 
           className={cn(
             "mx-auto grid max-w-[1400px] gap-6 px-4 py-6 relative z-10",
-            // If nav is empty, use a single column (full-width). 
-            // If nav has items, use the sidebar grid layout.
             nav.length === 0 ? "grid-cols-1" : "lg:grid-cols-[240px_1fr]"
           )}
         >
-          {/* Sidebar: Only renders if there are items in the nav array */}
+          {/* Sidebar */}
           {nav.length > 0 && (
             <aside className={cn("no-print lg:block", open ? "block" : "hidden")}>
               <nav className="rounded-xl border bg-white/95 backdrop-blur-sm p-3 shadow-sm">
