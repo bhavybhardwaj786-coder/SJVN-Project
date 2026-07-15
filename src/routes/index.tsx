@@ -61,31 +61,21 @@ function HomePage() {
       <main className="flex-1">
         <HeroCarousel />
 
-        {/* Stats Section */}
-        <section className="bg-[#095a7d] overflow-hidden"> 
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show" // Starts animation as soon as the element enters the viewport
-            viewport={{ once: true, margin: "-100px" }} // Triggers only once for professional smoothness
-            className="mx-auto grid max-w-7xl grid-cols-2 gap-px px-4 py-8 lg:grid-cols-4"
-          >
-            {stats.map((s) => (
-              <motion.div 
-                key={s.label} 
-                variants={itemVariants}
-                whileHover={{ scale: 1.05 }} // Subtle, satisfying hover scale
-                className="px-2 text-center text-white cursor-pointer"
-              >
-                <p className="text-2xl font-extrabold text-[#ffb600] sm:text-4xl">
-                  {s.value}
-                </p>
-                <p className="mt-1 text-xs font-medium sm:text-sm text-white/90">
-                  {s.label}
-                </p>
-              </motion.div>
-            ))}
-          </motion.div>
+        {/* Updated Information Section */}
+        <section className="bg-[#095a7d] text-white py-10 px-4">
+          <div className="mx-auto max-w-4xl text-center flex flex-col items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-bold">SJVN Limited</h2>
+            <p className="text-sm md:text-base opacity-90">
+              (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
+            </p>
+            <p className="text-sm opacity-80">
+              Corporate Office, Shanan, Shimla, Himachal Pradesh 171006
+            </p>
+            <div className="flex flex-col md:flex-row gap-4 mt-2 font-medium">
+              <p>+91 177 2660 075</p>
+              <a href="mailto:info@sjvn.nic.in" className="hover:underline">info@sjvn.nic.in</a>
+            </div>
+          </div>
         </section>
       </main>
     </div>

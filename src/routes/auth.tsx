@@ -76,17 +76,7 @@ function SjvnHeader() {
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="hidden md:flex"
-        >
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full py-1.5 px-4 shadow-sm text-sm font-semibold text-gray-800">
-            <ShieldCheck size={16} className="text-[#095a7d]" />
-            A Navratna PSU
-          </div>
-        </motion.div>
+      
       </div>
 
       <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12">

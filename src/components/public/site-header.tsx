@@ -85,11 +85,6 @@ border-blue-100
             </p>
           </div>
           
-          <div className="ml-auto hidden items-center gap-2 lg:flex z-10">
-            <span className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-semibold text-gray-800 shadow-sm">
-              <ShieldCheck className="h-4 w-4 text-[#095a7d]" /> A Navratna PSU
-            </span>
-          </div>
         </div>
       </div>
 
