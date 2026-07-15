@@ -15,8 +15,8 @@ export function SjvnLogo({ className }: SjvnLogoProps) {
       aria-label="SJVN emblem"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect x="4" y="4" width="92" height="92" rx="10" fill="#0e6ea3" />
-      <rect x="4" y="4" width="92" height="92" rx="10" fill="none" stroke="#0a5580" strokeWidth="2" />
+      <rect x="7" y="7" width="100" height="92" rx="10" fill="#0e6ea3" />
+      <rect x="7" y="7" width="100" height="92" rx="10" fill="none" stroke="#0a5580" strokeWidth="2" />
       <path
         d="M50 16 C50 16 74 44 74 62 A24 24 0 1 1 26 62 C26 44 50 16 50 16 Z"
         fill="#ffffff"

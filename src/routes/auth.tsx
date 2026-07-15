@@ -1,14 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Home, ShieldCheck, Lock, Mail, Loader2, Eye, EyeOff } from "lucide-react";
+import { Home, ShieldCheck, User as UserIcon, Mail, Lock, ArrowRight, Fingerprint, AlertTriangle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 // IMPORT YOUR IMAGES HERE
 import sjvnLogo from "../assets/sjvn-logo.jpeg";
@@ -19,38 +15,16 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const cardContainerVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.6,
-      ease: [0.16, 1, 0.3, 1],
-      when: "beforeChildren",
-      staggerChildren: 0.08,
-    }
-  }
-};
+type Status = "idle" | "authenticating" | "denied";
 
-const childVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    transition: { duration: 0.4, ease: "easeOut" } 
-  }
-};
-
-// --- Redesigned Header Component ---
+// --- Header (unchanged from backend version) ---
 function SjvnHeader() {
   return (
     <header className="w-full flex flex-col font-sans shadow-sm z-20 relative">
       
 
-      <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4">
-        <motion.div 
+      <div className="bg-gradient-to-r from-slate-950 via-[#0d2436] to-[#1a2942] py-1 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4">
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
@@ -76,35 +50,37 @@ function SjvnHeader() {
           </div>
         </motion.div>
 
-      
-      </div>
-
-      <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12">
-        <div className="h-full flex items-center pr-4 border-r border-[#3a8da6]">
-          <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Home">
-            <Home size={20} />
-          </Link>
-        </div>
-        <div>
-          <button className="bg-[#ffb600] cursor-default text-black font-bold py-1.5 px-6 rounded text-sm shadow-sm opacity-90">
-            Sign in
-          </button>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="hidden md:flex"
+        >
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full py-1.5 px-4 shadow-sm text-sm font-semibold text-gray-800">
+            <ShieldCheck size={16} className="text-[#095a7d]" />
+            A Navratna PSU
+          </div>
+        </motion.div>
       </div>
     </header>
   );
 }
 
-function AuthPage() {
+// --- Glassmorphic Login Card (UI from LoginCard.tsx, wired to real Supabase auth) ---
+function LoginCard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Toggle Password visibility State
+  const [showPwd, setShowPwd] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  async function handleLogin(e: React.FormEvent) {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    if (status === "authenticating") return;
+
+    setStatus("authenticating");
+    setErrorMsg(null);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -113,34 +89,217 @@ function AuthPage() {
       });
 
       if (error) {
+        setErrorMsg(error.message);
         toast.error(error.message);
+        setStatus("denied");
+        setTimeout(() => setStatus("idle"), 2600);
         return;
       }
 
       const userId = data.user.id;
 
-      const { data: superAdmin } = await supabase.from("super_admins").select("id, full_name").eq("id", userId).single();
-      if (superAdmin) { navigate({ to: "/authenticated/supadmin" }); return; }
+      const { data: superAdmin } = await supabase
+        .from("super_admins")
+        .select("id, full_name")
+        .eq("id", userId)
+        .single();
+      if (superAdmin) {
+        navigate({ to: "/authenticated/supadmin" });
+        return;
+      }
 
-      const { data: admin } = await supabase.from("admins").select("id, full_name").eq("id", userId).single();
-      if (admin) { navigate({ to: "/authenticated/app" }); return; }
+      const { data: admin } = await supabase
+        .from("admins")
+        .select("id, full_name")
+        .eq("id", userId)
+        .single();
+      if (admin) {
+        navigate({ to: "/authenticated/app" });
+        return;
+      }
 
-      const { data: siteUser } = await supabase.from("site_users").select("id, full_name").eq("id", userId).single();
-      if (siteUser) { navigate({ to: "/authenticated/site" }); return; }
+      const { data: siteUser } = await supabase
+        .from("site_users")
+        .select("id, full_name")
+        .eq("id", userId)
+        .single();
+      if (siteUser) {
+        navigate({ to: "/authenticated/site" });
+        return;
+      }
 
+      setErrorMsg("No role assigned to this account.");
       toast.error("No role assigned to this account.");
+      setStatus("denied");
+      setTimeout(() => setStatus("idle"), 2600);
       await supabase.auth.signOut();
     } catch (err) {
+      setErrorMsg("Something went wrong");
       toast.error("Something went wrong");
-    } finally {
-      setLoading(false);
+      setStatus("denied");
+      setTimeout(() => setStatus("idle"), 2600);
     }
-  }
+  };
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900 overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] as const }}
+      className="relative w-full max-w-md z-10"
+    >
+      {/* Animated glowing border halo */}
+      <motion.div
+        className="absolute -inset-px rounded-[28px] opacity-60 blur-md"
+        style={{
+          background:
+            "linear-gradient(130deg, rgba(10,132,255,0.5), rgba(16,185,129,0.3), rgba(10,132,255,0.1))",
+        }}
+        animate={{ opacity: [0.35, 0.65, 0.35], rotate: [0, 2, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="glass glow-border relative rounded-[26px] p-8 sm:p-10">
+        {/* Header */}
+        <div className="mb-2 flex items-center justify-center">
+          <img
+            src={sjvnLogo}
+            alt="SJVN Logo"
+            className="w-14 h-14 object-contain rounded-lg mr-3"
+          />
+        </div>
+        <div className="mb-7 text-center">
+          <h2 className="font-display text-lg font-semibold text-white">Welcome to SJVN EMEMP</h2>
+          <p className="mt-1 text-xs text-white/45">Enter your official credentials to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Email */}
+          <div className="group">
+            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+              Username
+            </label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35 transition-colors group-focus-within:text-electric-300" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="username@sjvn.com"
+                autoComplete="username"
+                required
+                className="glass-input w-full rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-white/25 outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="group">
+            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35 transition-colors group-focus-within:text-electric-300" />
+              <input
+                type={showPwd ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••"
+                autoComplete="current-password"
+                required
+                className="glass-input w-full rounded-xl py-3 pl-11 pr-16 text-sm text-white placeholder-white/25 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wider text-white/40 transition hover:text-electric-300"
+              >
+                {showPwd ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <motion.button
+            type="submit"
+            disabled={status === "authenticating"}
+            whileHover={{ scale: 1.015 }}
+            whileTap={{ scale: 0.985 }}
+            className="group relative mt-2 w-full overflow-hidden rounded-xl py-3.5 font-medium text-white shadow-glow transition disabled:opacity-80"
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-electric-600 via-electric-500 to-emerald2-500 bg-[length:200%_100%] animate-gradient-pan" />
+            <span className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 bg-gradient-to-r from-emerald2-500 via-electric-500 to-electric-600 bg-[length:200%_100%] animate-gradient-pan" />
+            <span className="relative flex items-center justify-center gap-2 text-sm tracking-wide">
+              <AnimatePresence mode="wait" initial={false}>
+                {status === "authenticating" ? (
+                  <motion.span
+                    key="loading"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Authenticating…
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="idle"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex items-center gap-2"
+                  >
+                    Sign In
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </span>
+          </motion.button>
+        </form>
+
+        {/* Denied notice */}
+        <AnimatePresence>
+          {status === "denied" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs text-amber-200/90"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {errorMsg || "Access denied. Credentials could not be verified."}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Restricted access notice */}
+        <div className="mt-7 border-t border-white/10 pt-5">
+          <div className="flex items-start gap-2.5">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300/80" />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">
+                Restricted Access
+              </p>
+              <p className="mt-1.5 text-xs leading-relaxed text-white/45">
+                This portal is exclusively intended for authorized SJVN personnel. Unauthorized
+                access is prohibited and may be monitored.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Page shell (unchanged structure from backend version) ---
+function AuthPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-900 overflow-hidden">
       <SjvnHeader />
-      
+
       <div
         className="flex-1 flex items-start justify-center px-4 py-8 bg-cover bg-center bg-no-repeat relative"
         style={{ backgroundImage: `url(${heroBackground})` }}
@@ -148,191 +307,7 @@ function AuthPage() {
         {/* Cinematic rich dark gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/90 via-slate-950/70 to-blue-900/35" />
 
-        {/* Animated Login Glass Card with dynamic border color shifting */}
-        <motion.div 
-          variants={cardContainerVariants}
-          initial="hidden"
-          animate="visible"
-          className="w-full max-w-md bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-[0_20px_50px_rgba(9,90,125,0.25)] border border-white/60 relative z-10"
-        >
-          {/* Card Header Section */}
-          <div className="text-center mb-6">
-            <motion.div 
-              variants={childVariants}
-              whileHover={{ rotate: 360, scale: 1.08 }}
-              transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="inline-block cursor-pointer"
-            >
-              <motion.img 
-                src={sjvnLogo} 
-                alt="SJVN Logo" 
-                className="mx-auto w-16 h-16 object-contain mb-3 rounded-xl shadow-md border-2 border-transparent"
-                animate={{ 
-                  borderColor: ["#227b96", "#ffb600", "#095a7d", "#227b96"] 
-                }}
-                transition={{ 
-                  duration: 6, 
-                  repeat: Infinity, 
-                  ease: "linear" 
-                }}
-              />
-            </motion.div>
-            
-            {/* Smooth color-changing title gradient */}
-            <motion.h4 
-              variants={childVariants}
-              className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-[#095a7d] via-[#227b96] to-[#095a7d] tracking-tight"
-              animate={{
-                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              style={{ backgroundSize: "200% auto" }}
-            >
-              Welcome to SJVN EMEMP
-            </motion.h4>
-            <motion.p 
-              variants={childVariants}
-              className="text-xs text-muted-foreground mt-1"
-            >
-              Environmental Management & Monitoring Portal
-            </motion.p>
-          </div>
-
-          <motion.div variants={childVariants}>
-            <Tabs defaultValue="login" className="mt-4">
-              <TabsList className="grid w-full grid-cols-1 mb-6 bg-slate-100/80 p-1 rounded-lg">
-                <TabsTrigger 
-                  value="login" 
-                  className="rounded-md font-semibold text-sm py-2"
-                >
-                  Secure Access
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Username Field with active color glow */}
-                  <div className="space-y-1.5 relative">
-                    <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Email or Username
-                    </Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                      <motion.div
-                        whileFocus={{ scale: 1.01 }}
-                        className="rounded-lg"
-                      >
-                        <Input 
-                          id="email" 
-                          type="email" 
-                          value={email} 
-                          onChange={(e) => setEmail(e.target.value)} 
-                          placeholder="username@sjvn.nic.in" 
-                          required 
-                          className="pl-10 h-11 border-slate-200 focus-visible:ring-[#227b96] focus-visible:ring-2 focus-visible:border-transparent transition-all rounded-lg" 
-                        />
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  {/* Password Field with active color glow & Eye show/hide trigger */}
-                  <div className="space-y-1.5 relative">
-                    <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                      <motion.div
-                        whileFocus={{ scale: 1.01 }}
-                        className="rounded-lg"
-                      >
-                        <Input 
-                          id="password" 
-                          type={showPassword ? "text" : "password"} 
-                          value={password} 
-                          onChange={(e) => setPassword(e.target.value)} 
-                          placeholder="••••••••" 
-                          required 
-                          className="pl-10 pr-10 h-11 border-slate-200 focus-visible:ring-[#227b96] focus-visible:ring-2 focus-visible:border-transparent transition-all rounded-lg" 
-                        />
-                      </motion.div>
-                      
-                      {/* Password Visibility Toggle Switch */}
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        <AnimatePresence mode="wait" initial={false}>
-                          <motion.div
-                            key={showPassword ? "eye-open" : "eye-closed"}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.15 }}
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </motion.div>
-                        </AnimatePresence>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dynamic Color-shifting Gradient Login Button */}
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }} 
-                    whileTap={{ scale: 0.98 }}
-                    className="pt-2"
-                  >
-                    <motion.button 
-                      type="submit" 
-                      className="w-full h-11 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-[#227b96] via-[#095a7d] to-[#14647f]"
-                      style={{ backgroundSize: "200% auto" }}
-                      animate={{
-                        backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                      }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Authenticating...
-                        </>
-                      ) : (
-                        "Sign In to Account"
-                      )}
-                    </motion.button>
-                  </motion.div>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </motion.div>
-
-          {/* Footer Assistance Block with shifting links */}
-          <motion.p 
-            variants={childVariants}
-            className="text-center text-xs text-slate-400 mt-6 pt-5 border-t border-slate-100"
-          >
-            Authorized Access Only. Having trouble?{" "}
-            <motion.a 
-              href="#" 
-              className="text-[#227b96] font-semibold transition-colors inline-block"
-              whileHover={{ scale: 1.05, color: "#ffb600" }}
-            >
-              Contact System Admin
-            </motion.a>
-          </motion.p>
-        </motion.div>
+        <LoginCard />
       </div>
     </div>
   );
