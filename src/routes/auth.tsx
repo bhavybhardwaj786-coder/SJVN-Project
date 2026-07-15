@@ -50,17 +50,7 @@ function SjvnHeader() {
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="hidden md:flex"
-        >
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full py-1.5 px-4 shadow-sm text-sm font-semibold text-gray-800">
-            <ShieldCheck size={16} className="text-[#095a7d]" />
-            A Navratna PSU
-          </div>
-        </motion.div>
+  
       </div>
     </header>
   );
@@ -294,11 +284,11 @@ function LoginCard() {
   );
 }
 
-// --- Page shell (unchanged structure from backend version) ---
+// --- Page shell ---
 function AuthPage() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-900 overflow-hidden">
-      <SjvnHeader />
+      {/* We removed the <SjvnHeader /> component from here */}
 
       <div
         className="flex-1 flex items-start justify-center px-4 py-8 bg-cover bg-center bg-no-repeat relative"
