@@ -252,7 +252,7 @@ function SiteDashboard() {
                           }`}
                           onClick={() => goToForm(id)}
                         >
-                          {status === "submitted" ? "View" : status === "draft" ? "Continue" : "Submit Form"}
+                          {status === "submitted" ? "View Form" : status === "draft" ? "Continue" : "Fill Form"}
                           <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </Button>
                       </div>
