@@ -139,6 +139,7 @@ function AdminDashboard() {
           sites(id, name, code)
         `)
         .eq("reporting_month", reportingMonthDate)
+        .eq("status", "submitted") // <-- ADD THIS LINE TO HIDE DRAFTS
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
