@@ -33,11 +33,14 @@ async function fetchMe() {
       .select("site_id, sites(id, code, name, location)")
       .eq("user_id", user.id),
   ]);
-  const isAdmin = !!roles?.some((r) => r.role === "admin");
+  const isAdmin = !!roles?.some((r) => r.role === "admin" || r.role === "super_admin");
+  const isSuperAdmin = !!roles?.some((r) => r.role === "super_admin"); // <-- Add this line
+  
   return {
     user,
     profile,
     isAdmin,
+    isSuperAdmin, // <-- Add this line
     sites: (assignments ?? []).map((a) => a.sites).filter(Boolean) as {
       id: string;
       code: string;
@@ -62,13 +65,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isUserDashboard = pathname === "/authenticated/site" || pathname === "/authenticated/site/";
 
-  const nav = me?.isAdmin
+  const nav = me?.isSuperAdmin
     ? [
-        { to: "/admin", label: "Admin Dashboard", icon: LayoutDashboard, exact: true },
-        { to: "/admin/sites", label: "Sites", icon: Building2 },
-        { to: "/admin/users", label: "Users", icon: Users },
-        { to: "/admin/forms", label: "Forms", icon: FormInput },
-        { to: "/admin/submissions", label: "Submissions", icon: ClipboardList },
+        { to: "/authenticated/supadmin", label: "Super Admin Dashboard", icon: ShieldCheck, exact: true },
+        { to: "/authenticated/users", label: "User Management", icon: Users },
+      ]
+    : me?.isAdmin
+    ? [
+        { to: "/authenticated/app", label: "Admin Dashboard", icon: LayoutDashboard, exact: true },
+        { to: "/authenticated/new", label: "Form Builder", icon: FormInput },
       ]
     : [];
 
@@ -80,13 +85,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   // --- Dynamic Breadcrumb Logic ---
+// 1. Create a dynamic dashboard link based on their role
+  const dashboardLink = me?.isSuperAdmin 
+  ? "/authenticated/supadmin" 
+  : me?.isAdmin 
+  ? "/authenticated/app" 
+  : "/authenticated/site";
+
   const pathSegments = pathname.split("/").filter(Boolean);
-  const breadcrumbs = pathSegments.filter((item) => item !== "authenticated");
+  
+  // 2. Add "users" to the exclusion list so it doesn't show up in the breadcrumb
+  const breadcrumbs = pathSegments.filter((item) => !["authenticated", "site", "forms", "users"].includes(item));
   
   const formatSegmentName = (str: string) => {
     if (!str) return "";
     if (str.length > 24 && str.includes("-")) return "Details"; 
     return str.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  };
+
+  // ADD THIS FUNCTION HERE:
+  const handleDashboardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (me?.isSuperAdmin) {
+      navigate({ to: "/authenticated/supadmin" });
+    } else if (me?.isAdmin) {
+      navigate({ to: "/authenticated/app" });
+    } else {
+      navigate({ to: "/authenticated/site" });
+    }
   };
 
   return (
@@ -133,10 +159,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             
             {/* Inline Breadcrumb Navigator */}
             <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
-              <Link to="/authenticated/site" className="hover:text-[#095a7d] transition-colors flex items-center gap-1">
-                <Home className="h-3.5 w-3.5 mb-0.5" />
-                Home
-              </Link>
+  
+              {/* REPLACE THE LINK WITH THIS: */}
+              <a 
+                href="#" 
+                onClick={handleDashboardClick}
+                className="hover:text-[#095a7d] transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5 mb-0.5" />
+                Dashboard
+              </a>
               
               {breadcrumbs.length > 0 && (
                 <span className="text-gray-400 text-xs">»</span>
