@@ -1,12 +1,11 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Home, ShieldCheck, User as UserIcon, Mail, Lock, ArrowRight, Fingerprint, AlertTriangle, Loader2 } from "lucide-react";
+import { ShieldCheck, Mail, Lock, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/client";
 
-// IMPORT YOUR IMAGES HERE
 import sjvnLogo from "../assets/sjvn-logo.jpeg";
 import heroBackground from "../assets/hero-transmission.jpeg";
 
@@ -17,46 +16,65 @@ export const Route = createFileRoute("/auth")({
 
 type Status = "idle" | "authenticating" | "denied";
 
-// --- Header (unchanged from backend version) ---
+// --- Header ---
 function SjvnHeader() {
   return (
     <header className="w-full flex flex-col font-sans shadow-sm z-20 relative">
-      
+      {/* National tricolour strip, consistent with the rest of the site */}
+      <div className="flex h-[3px] w-full">
+        <div className="flex-1 bg-[#FF9933]" />
+        <div className="flex-1 bg-white" />
+        <div className="flex-1 bg-[#138808]" />
+      </div>
 
-      <div className="bg-gradient-to-r from-slate-950 via-[#0d2436] to-[#1a2942] py-1 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4">
+      <div className="bg-[#0B4F86] py-2 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-black/10 gap-4">
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
           className="flex items-center gap-4 w-full md:w-auto"
         >
-          <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
+          <div className="bg-white p-1.5 rounded border border-white/20 shadow-sm flex-shrink-0">
             <img
               src={sjvnLogo}
               alt="SJVN Logo"
-              className="w-16 h-16 md:w-[72px] md:h-[72px] object-contain"
+              className="w-14 h-14 md:w-16 md:h-16 object-contain"
             />
           </div>
-          <div className="flex flex-col text-gray-800">
-            <h1 className="text-2xl md:text-[28px] font-extrabold text-[#095a7d] tracking-tight leading-tight">
+          <div className="flex flex-col">
+            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-tight">
               SJVN Limited
             </h1>
-            <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
-              (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
+            <p className="text-xs md:text-sm font-medium mt-0.5 text-white/75">
+              (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
             </p>
-            <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
-              A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
+            <p className="text-[10px] md:text-xs text-white/50 mt-0.5">
+              ISO 9001:2015 Certified &middot; CIN: L40101HP1988GOI008409
             </p>
           </div>
         </motion.div>
 
+<<<<<<< HEAD
   
+=======
+        <motion.div
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="hidden md:flex"
+        >
+          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-full py-1.5 px-4 text-sm font-medium text-white">
+            <ShieldCheck size={16} className="text-white" />
+            A Navratna PSU
+          </div>
+        </motion.div>
+>>>>>>> 1a38131 (EDIT)
       </div>
     </header>
   );
 }
 
-// --- Glassmorphic Login Card (UI from LoginCard.tsx, wired to real Supabase auth) ---
+// --- Login Card ---
 function LoginCard() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -133,44 +151,33 @@ function LoginCard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] as const }}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
       className="relative w-full max-w-md z-10"
     >
-      {/* Animated glowing border halo */}
-      <motion.div
-        className="absolute -inset-px rounded-[28px] opacity-60 blur-md"
-        style={{
-          background:
-            "linear-gradient(130deg, rgba(10,132,255,0.5), rgba(16,185,129,0.3), rgba(10,132,255,0.1))",
-        }}
-        animate={{ opacity: [0.35, 0.65, 0.35], rotate: [0, 2, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <div className="glass glow-border relative rounded-[26px] p-8 sm:p-10">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-8 shadow-2xl backdrop-blur-2xl sm:p-10">
         {/* Header */}
         <div className="mb-2 flex items-center justify-center">
           <img
             src={sjvnLogo}
             alt="SJVN Logo"
-            className="w-14 h-14 object-contain rounded-lg mr-3"
+            className="w-14 h-14 object-contain rounded-lg bg-white/90 p-1"
           />
         </div>
         <div className="mb-7 text-center">
-          <h2 className="font-display text-lg font-semibold text-white">Welcome to SJVN EMEMP</h2>
-          <p className="mt-1 text-xs text-white/45">Enter your official credentials to continue</p>
+          <h2 className="text-lg font-semibold text-white">Welcome to SJVN EMEMP</h2>
+          <p className="mt-1 text-xs text-white/50">Enter your official credentials to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email */}
           <div className="group">
-            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
               Username
             </label>
             <div className="relative">
-              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35 transition-colors group-focus-within:text-electric-300" />
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40 transition-colors duration-150 group-focus-within:text-[#3FC1A0]" />
               <input
                 type="email"
                 value={email}
@@ -178,18 +185,18 @@ function LoginCard() {
                 placeholder="username@sjvn.com"
                 autoComplete="username"
                 required
-                className="glass-input w-full rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-white/25 outline-none"
+                className="w-full rounded-lg border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
               />
             </div>
           </div>
 
           {/* Password */}
           <div className="group">
-            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+            <label className="mb-2 block text-[11px] font-medium uppercase tracking-[0.16em] text-white/50">
               Password
             </label>
             <div className="relative">
-              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35 transition-colors group-focus-within:text-electric-300" />
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40 transition-colors duration-150 group-focus-within:text-[#3FC1A0]" />
               <input
                 type={showPwd ? "text" : "password"}
                 value={password}
@@ -197,12 +204,12 @@ function LoginCard() {
                 placeholder="••••••••••"
                 autoComplete="current-password"
                 required
-                className="glass-input w-full rounded-xl py-3 pl-11 pr-16 text-sm text-white placeholder-white/25 outline-none"
+                className="w-full rounded-lg border border-white/10 bg-white/5 py-3 pl-11 pr-16 text-sm text-white placeholder-white/30 outline-none transition-colors duration-150 focus:border-[#3FC1A0]/60"
               />
               <button
                 type="button"
                 onClick={() => setShowPwd((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wider text-white/40 transition hover:text-electric-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wider text-white/45 transition-colors duration-150 hover:text-[#3FC1A0]"
               >
                 {showPwd ? "Hide" : "Show"}
               </button>
@@ -210,43 +217,39 @@ function LoginCard() {
           </div>
 
           {/* Submit */}
-          <motion.button
+          <button
             type="submit"
             disabled={status === "authenticating"}
-            whileHover={{ scale: 1.015 }}
-            whileTap={{ scale: 0.985 }}
-            className="group relative mt-2 w-full overflow-hidden rounded-xl py-3.5 font-medium text-white shadow-glow transition disabled:opacity-80"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F8B6C] py-3.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-[#12A17E] disabled:opacity-70"
           >
-            <span className="absolute inset-0 bg-gradient-to-r from-electric-600 via-electric-500 to-emerald2-500 bg-[length:200%_100%] animate-gradient-pan" />
-            <span className="absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 bg-gradient-to-r from-emerald2-500 via-electric-500 to-electric-600 bg-[length:200%_100%] animate-gradient-pan" />
-            <span className="relative flex items-center justify-center gap-2 text-sm tracking-wide">
-              <AnimatePresence mode="wait" initial={false}>
-                {status === "authenticating" ? (
-                  <motion.span
-                    key="loading"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="flex items-center gap-2"
-                  >
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Authenticating…
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="idle"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="flex items-center gap-2"
-                  >
-                    Sign In
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </span>
-          </motion.button>
+            <AnimatePresence mode="wait" initial={false}>
+              {status === "authenticating" ? (
+                <motion.span
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-2"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Authenticating…
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="idle"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="flex items-center gap-2"
+                >
+                  Sign In
+                  <ArrowRight className="h-4 w-4" />
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
         </form>
 
         {/* Denied notice */}
@@ -256,7 +259,7 @@ function LoginCard() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs text-amber-200/90"
+              className="mt-4 flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-xs text-amber-200/90"
             >
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {errorMsg || "Access denied. Credentials could not be verified."}
@@ -272,7 +275,7 @@ function LoginCard() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200/80">
                 Restricted Access
               </p>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/45">
+              <p className="mt-1.5 text-xs leading-relaxed text-white/50">
                 This portal is exclusively intended for authorized SJVN personnel. Unauthorized
                 access is prohibited and may be monitored.
               </p>
@@ -287,14 +290,20 @@ function LoginCard() {
 // --- Page shell ---
 function AuthPage() {
   return (
+<<<<<<< HEAD
     <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
       <div
         className="flex-1 flex items-center justify-center px-4 relative bg-cover bg-center bg-no-repeat"
+=======
+    <div className="min-h-screen flex flex-col bg-slate-950 overflow-hidden">
+      <SjvnHeader />
+
+      <div
+        className="flex-1 flex items-start justify-center px-4 py-10 bg-cover bg-center bg-no-repeat relative"
+>>>>>>> 1a38131 (EDIT)
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
-        {/* Cinematic rich dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/90 via-slate-950/70 to-blue-900/35" />
-
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-[#0B4F86]/50" />
         <LoginCard />
       </div>
     </div>

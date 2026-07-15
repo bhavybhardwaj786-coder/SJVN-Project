@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // 1. Add this import at the top of your file with the others:
 import { SiteHeader } from "@/components/public/site-header";
+import { SiteFooter } from "@/components/public/site-footer";
 import {
   Outlet,
   Link,
@@ -150,8 +151,22 @@ function RootComponent() {
         <main id="main" className="flex-1 flex flex-col">
           <Outlet />
         </main>
+        <SiteFooter />
       </div>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
   );
+
+  return (
+  <QueryClientProvider client={queryClient}>
+    <div className="flex min-h-svh flex-col bg-background">
+      {!isAuthPage && <SiteHeader />}
+      <main id="main" className="flex-1">
+        <Outlet />
+      </main>
+      {!isAuthPage && <SiteFooter />}
+    </div>
+    <Toaster position="top-right" richColors />
+  </QueryClientProvider>
+);
 }
