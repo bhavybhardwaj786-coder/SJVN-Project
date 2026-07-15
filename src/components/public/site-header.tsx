@@ -154,11 +154,15 @@ export function SiteHeader() {
   const pathname = location.pathname;
   const pathSegments = pathname.split("/").filter(Boolean);
   
-  const formatSegmentName = (str: string) => {
-    if (!str) return "";
-    if (str.length > 24 && str.includes("-")) return "Details"; 
-    return str.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-  };
+const formatSegmentName = (str: string) => {
+  if (!str) return "";
+  
+  // 1. Add this override line right here:
+  if (str.toLowerCase() === "auth") return "Login";
+  
+  if (str.length > 24 && str.includes("-")) return "Details"; 
+  return str.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+};
 
   return (
     <header className="sticky top-0 z-50 w-full">
