@@ -287,11 +287,9 @@ function LoginCard() {
 // --- Page shell ---
 function AuthPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 overflow-hidden">
-      {/* We removed the <SjvnHeader /> component from here */}
-
+    <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
       <div
-        className="flex-1 flex items-start justify-center px-4 py-8 bg-cover bg-center bg-no-repeat relative"
+        className="flex-1 flex items-center justify-center px-4 relative bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
         {/* Cinematic rich dark gradient overlay */}

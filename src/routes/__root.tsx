@@ -128,8 +128,8 @@ function RootComponent() {
   // 1. Get the current route location
   const location = useLocation();
   
-  // 2. Check if the user is on the /auth page
-  
+  // 2. Check if the user is inside the authenticated dashboard area
+  const isDashboardRoute = location.pathname.startsWith("/authenticated");
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -143,9 +143,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-svh flex-col bg-background">
-        {/* 3. Conditionally render the header based on the route */}
-        <SiteHeader />
-        <main id="main" className="flex-1">
+        
+        {/* 3. Conditionally render the header: only show if NOT on a dashboard route */}
+        {!isDashboardRoute && <SiteHeader />}
+        
+        <main id="main" className="flex-1 flex flex-col">
           <Outlet />
         </main>
       </div>
