@@ -346,20 +346,23 @@ function SubmissionDetail() {
         <motion.div
           ref={printRef}
           variants={fadeUp}
-          className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-card shadow-elevated"
+          // 1. Removed mx-auto, max-w-3xl, and rounded-xl to allow it to stretch fully.
+          // 2. Added the same w-[100vw] breakout trick used on the form fill page.
+          className="-mt-2 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2 bg-card min-h-screen border-t"
         >
-          <div className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8">
-            <div className="relative z-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          {/* We removed the bg-gradient-hero to match the clean white look of the 3rd screenshot */}
+          <div className="px-6 pt-8 sm:px-10 sm:pt-10">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div>
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
-                  <ClipboardList className="h-4 w-4" />
-                  Environmental Compliance Form
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  Monthly Compliance Report
                 </div>
-                <h1 className="mt-2 font-display text-2xl font-bold tracking-tight sm:text-3xl">
+                <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                   {data.forms?.title}
                 </h1>
                 {data.forms?.description && (
-                  <p className="mt-1.5 max-w-xl text-sm text-primary-foreground/75">
+                  <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
                     {data.forms.description}
                   </p>
                 )}
@@ -375,7 +378,7 @@ function SubmissionDetail() {
             </div>
           </div>
 
-          <div className="p-6 sm:p-8">
+          <div className="p-6 sm:p-10">
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -496,7 +499,8 @@ function StatusBadgeLocal({ status }: { status: string }) {
       ? "bg-success/15 text-success"
       : status === "draft"
       ? "bg-blue-500/15 text-blue-600"
-      : "bg-white/15 text-primary-foreground";
+      : "bg-muted text-muted-foreground"; // Changed from white text so it is visible on the new white background!
+      
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize backdrop-blur-sm ${cls}`}>
       {status}
