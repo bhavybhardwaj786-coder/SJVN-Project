@@ -79,12 +79,24 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   }
 
+  // --- Dynamic Breadcrumb Logic ---
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const breadcrumbs = pathSegments.filter((item) => item !== "authenticated");
+  
+  const formatSegmentName = (str: string) => {
+    if (!str) return "";
+    if (str.length > 24 && str.includes("-")) return "Details"; 
+    return str.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  };
+
   return (
     <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
       
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
         <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4 relative z-10">
+          
+          {/* Left Side: Logo and Titles */}
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Button
               variant="ghost"
@@ -116,7 +128,42 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-3">
+          {/* Right Side: Breadcrumbs and Admin Badge */}
+          <div className="hidden md:flex flex-col items-end gap-2">
+            
+            {/* Inline Breadcrumb Navigator */}
+            <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
+              <Link to="/authenticated/site" className="hover:text-[#095a7d] transition-colors flex items-center gap-1">
+                <Home className="h-3.5 w-3.5 mb-0.5" />
+                Home
+              </Link>
+              
+              {breadcrumbs.length > 0 && (
+                <span className="text-gray-400 text-xs">»</span>
+              )}
+
+              {breadcrumbs.map((name, index) => {
+                const routeTo = `/authenticated/${breadcrumbs.slice(0, index + 1).join("/")}`;
+                const isLast = index === breadcrumbs.length - 1;
+                const displayName = formatSegmentName(name);
+
+                return (
+                  <div key={name} className="flex items-center gap-1.5">
+                    {isLast ? (
+                      <span className="text-[#095a7d] font-bold">{displayName}</span>
+                    ) : (
+                      <>
+                        <Link to={routeTo} className="hover:text-[#095a7d] transition-colors">
+                          {displayName}
+                        </Link>
+                        <span className="text-gray-400 text-xs">»</span>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </nav>
+
             {me?.isAdmin && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">
                 <Shield className="h-3.5 w-3.5" /> Administrator
@@ -128,21 +175,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Bottom Navigation Teal Bar */}
         <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
           
-          {/* 1. Left Side: Home Icon */}
           <div className="h-full flex items-center pr-4 border-r border-[#3a8da6] shrink-0">
             <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
               <Home size={20} />
             </Link>
           </div>
 
-          {/* 2. Middle: Static Title Text */}
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
             <div className="text-white text-sm font-semibold whitespace-nowrap">
               Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal
             </div>
           </div>
 
-          {/* 3. Right Side: User Info & Sign Out */}
           <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-[#3a8da6]">
             <div className="hidden text-right md:block text-white">
               <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user?.email}</div>
@@ -171,6 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#eaeff2] to-transparent" />
           </div>
         )}
+        
         {/* 4. Dashboard Content layer (z-10) */}
         <div 
           className={cn(

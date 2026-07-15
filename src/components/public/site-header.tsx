@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import {
   ChevronDown,
   Menu,
@@ -8,6 +8,7 @@ import {
   Mail,
   ArrowRight,
   Zap,
+  Home,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -18,6 +19,17 @@ import { motion, AnimatePresence } from "framer-motion";
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>(null);
+  
+  // --- Dynamic Breadcrumb Logic ---
+  const location = useLocation();
+  const pathname = location.pathname;
+  const pathSegments = pathname.split("/").filter(Boolean);
+  
+  const formatSegmentName = (str: string) => {
+    if (!str) return "";
+    if (str.length > 24 && str.includes("-")) return "Details"; 
+    return str.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  };
 
   return (
     <motion.header
@@ -45,43 +57,77 @@ export function SiteHeader() {
       </motion.div>
 
       {/* Brand header */}
-      <div className="relative mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 border-b border-white/10">
-        {/* Ambient glow behind logo */}
-        <div className="pointer-events-none absolute left-4 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-electric-500/20 blur-2xl" />
+      <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2.5 border-b border-white/10">
+        
+        {/* LEFT SIDE: Logo & Titles */}
+        <div className="flex items-center gap-4 z-10">
+          {/* Ambient glow behind logo */}
+          <div className="pointer-events-none absolute left-4 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-electric-500/20 blur-2xl" />
 
-        <motion.div
-          whileHover={{ scale: 1.06, rotate: -2 }}
-          transition={{ type: "spring", stiffness: 300 }}
-          className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_24px_rgba(10,132,255,0.35)] sm:h-16 sm:w-16"
-        >
-          <img
-            src={sjvnLogoImg}
-            alt="SJVN Logo"
-            className="h-full w-full object-contain p-1"
-          />
-          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
-          </span>
-        </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.06, rotate: -2 }}
+            transition={{ type: "spring", stiffness: 300 }}
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_24px_rgba(10,132,255,0.35)] sm:h-16 sm:w-16"
+          >
+            <img
+              src={sjvnLogoImg}
+              alt="SJVN Logo"
+              className="h-full w-full object-contain p-1"
+            />
+            <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-slate-950" />
+            </span>
+          </motion.div>
 
-        <div className="z-10 min-w-0">
-          <h1 className="bg-gradient-to-r from-white via-white to-electric-200 bg-clip-text text-xl font-extrabold leading-tight tracking-tight text-transparent sm:text-3xl">
-            SJVN Limited
-          </h1>
-          <p className="mt-0.5 text-[11px] font-semibold text-white/70 sm:text-sm">
-            (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
-          </p>
-          <p className="mt-0.5 hidden text-[10px] font-medium text-white/40 sm:block">
-            A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
-          </p>
+          <div className="min-w-0">
+            <h1 className="bg-gradient-to-r from-white via-white to-electric-200 bg-clip-text text-xl font-extrabold leading-tight tracking-tight text-transparent sm:text-3xl">
+              SJVN Limited
+            </h1>
+            <p className="mt-0.5 text-[11px] font-semibold text-white/70 sm:text-sm">
+              (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
+            </p>
+            <p className="mt-0.5 hidden text-[10px] font-medium text-white/40 sm:block">
+              A Navratna PSU · ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
+            </p>
+          </div>
         </div>
 
-        <div className="ml-auto hidden items-center gap-2.5 lg:flex z-10">
-          <span className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white/90 shadow-sm backdrop-blur-sm">
-            <ShieldCheck className="h-4 w-4 text-electric-300" /> A Navratna PSU
-          </span>
+        {/* RIGHT SIDE: Dynamic Breadcrumbs */}
+        <div className="hidden md:flex flex-col items-end gap-2 z-10">
+          <nav className="flex items-center gap-1.5 text-sm font-medium text-white/80 bg-white/5 px-3 py-1.5 rounded-md border border-white/10 shadow-sm backdrop-blur-sm">
+            <Link to="/" className="hover:text-white transition-colors flex items-center gap-1">
+              <Home className="h-3.5 w-3.5 mb-0.5" />
+              Home
+            </Link>
+            
+            {pathSegments.length > 0 && (
+              <span className="text-white/40 text-xs">»</span>
+            )}
+
+            {pathSegments.map((name, index) => {
+              const routeTo = `/${pathSegments.slice(0, index + 1).join("/")}`;
+              const isLast = index === pathSegments.length - 1;
+              const displayName = formatSegmentName(name);
+
+              return (
+                <div key={name} className="flex items-center gap-1.5">
+                  {isLast ? (
+                    <span className="text-emerald-400 font-bold">{displayName}</span>
+                  ) : (
+                    <>
+                      <Link to={routeTo} className="hover:text-white transition-colors">
+                        {displayName}
+                      </Link>
+                      <span className="text-white/40 text-xs">»</span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
         </div>
+
       </div>
 
       {/* Primary nav */}
