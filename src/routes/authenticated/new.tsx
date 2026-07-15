@@ -19,6 +19,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
+import { motion } from "framer-motion";
+
 export const Route = createFileRoute("/authenticated/new")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>): { edit?: string } => {
@@ -303,6 +305,12 @@ function NewForm() {
   }
 
   return (
+  <motion.div
+  initial={{opacity:0}}
+  animate={{opacity:1}}
+  exit={{opacity:0}}
+  transition={{duration:0.5}}
+  >
     <AppShell>
       <button
         onClick={() => navigate({ to: "/authenticated/app" })}
@@ -340,6 +348,14 @@ function NewForm() {
 
         {/* Step 1: Form Details */}
         {step === 1 && (
+          <motion.div
+          initial={{opacity:0,y:40}}
+          animate={{opacity:1,y:0}}
+          transition={{
+            duration:0.5,
+            ease:"easeOut"
+            }}
+            >
           <Card>
             <CardHeader>
               <CardTitle>{editId ? "Modify Form Parameters" : "Name the Form"}</CardTitle>
@@ -402,6 +418,7 @@ function NewForm() {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
         )}
 
         {/* Step 2: Questions */}
@@ -679,6 +696,13 @@ function NewForm() {
         )}
 
         {/* Navigation */}
+      <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+      duration: 0.5,
+      ease: "easeOut",
+      }}>
         <div className="flex justify-between">
           <Button
             variant="outline"
@@ -699,7 +723,9 @@ function NewForm() {
             </Button>
           )}
         </div>
+        </motion.div>
       </div>
     </AppShell>
+  </motion.div>
   );
 }

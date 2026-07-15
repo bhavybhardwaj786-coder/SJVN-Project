@@ -71,8 +71,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         { to: "/admin/submissions", label: "Submissions", icon: ClipboardList },
       ]
     : [
-
-      ];
+    ];
 
   async function signOut() {
     await queryClient.cancelQueries();

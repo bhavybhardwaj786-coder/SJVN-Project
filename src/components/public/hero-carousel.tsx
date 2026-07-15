@@ -6,6 +6,8 @@ import heroHydro from "@/assets/hero-hydro.jpeg";
 import heroGreen from "@/assets/hero-green.jpeg";
 import heroTransmission from "@/assets/hero-transmission.jpeg";
 
+import { motion, AnimatePresence } from "framer-motion";
+
 interface Slide {
   image: string;
   eyebrow: string;
@@ -14,7 +16,7 @@ interface Slide {
 }
 
 const slides: Slide[] = [
-  {
+    {
     image: heroHydro,
     eyebrow: "Clean Hydro Power",
     title: "Powering the Nation with Himalayan Rivers",
@@ -50,7 +52,19 @@ export function HeroCarousel() {
 
   return (
     <section className="relative h-[340px] w-full overflow-hidden sm:h-[440px] lg:h-[520px]">
-      {slides.map((slide, i) => (
+      <AnimatePresence mode="wait">
+        <motion.div
+        key={slides[index].title}
+        initial={{ opacity: 0, scale: 1.08 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 1.05 }}
+        transition={{
+          duration: 1,
+          ease: "easeInOut",
+        }}
+        className="absolute inset-0"
+        >
+        {slides.map((slide, i) => (
         <div
           key={slide.title}
           className={cn(
@@ -59,7 +73,14 @@ export function HeroCarousel() {
           )}
           aria-hidden={i !== index}
         >
-          <img
+          <motion.img
+          initial={{ scale: 1.15 }}
+          animate={{ scale: 1 }}
+          transition={{
+            duration: 7,
+            ease: "linear",
+          }}
+
             src={slide.image}
             alt={slide.title}
             width={1600}
@@ -67,10 +88,20 @@ export function HeroCarousel() {
             className="h-full w-full object-cover"
             fetchPriority={i === 0 ? "high" : "low"}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-brand-strong/85 via-brand-strong/50 to-transparent" />
+          <div
+  className="absolute inset-0 bg-gradient-to-r from-[#004A99]/90 via-[#005BAC]/70 to-[#00843D]/35"
+/>
           <div className="absolute inset-0 flex items-center">
             <div className="mx-auto w-full max-w-7xl px-4">
-              <div className="max-w-xl text-brand-foreground">
+              <motion.div
+              initial={{ x: -80, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{
+              delay: 0.3,
+              duration: 0.8,
+              ease: "easeOut",}}
+            className="max-w-xl rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl p-8 text-white"
+            >
                 <span className="inline-block rounded bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold-foreground">
                   {slide.eyebrow}
                 </span>
@@ -80,11 +111,13 @@ export function HeroCarousel() {
                 <p className="mt-3 text-sm text-brand-foreground/90 sm:text-lg">
                   {slide.text}
                 </p>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>
-      ))}
+        ))}
+        </motion.div>
+      </AnimatePresence>
 
       <button
         onClick={prev}
