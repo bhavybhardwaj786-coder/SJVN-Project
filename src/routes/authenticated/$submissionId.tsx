@@ -37,7 +37,6 @@ type SubmissionDetailRow = {
   sites: { id: string; name: string; code: string } | null;
 };
 
-// --- Animation variants, shared across the page ---
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -96,29 +95,7 @@ function SubmissionDetail() {
   const fields = data?.forms?.schema?.fields || [];
   const values = data?.data || {};
 
-  const getExportData = () => {
-    if (!data) return [];
-
-    const meta = [
-      { "Field Name": "Form Title", "Value": data.forms?.title ?? "" },
-      { "Field Name": "Site", "Value": `${data.sites?.name ?? ""} (${data.sites?.code ?? ""})` },
-      { "Field Name": "Reporting Month", "Value": data.reporting_month },
-      { "Field Name": "Submitted By", "Value": submittedByName ?? "—" },
-      { "Field Name": "Submitted On", "Value": data.submitted_at ? new Date(data.submitted_at).toLocaleString() : "—" },
-      { "Field Name": "Status", "Value": data.status },
-      { "Field Name": "", "Value": "" },
-      { "Field Name": "--- USER SUBMITTED DATA ---", "Value": "" }
-    ];
-
-    const dynamicFields = fields.map((field: any) => ({
-      "Field Name": field.label,
-      "Value": formatFieldValue(field, values[field.key])
-    }));
-
-    return [...meta, ...dynamicFields];
-  };
-
-  // --- NATIVE PDF GENERATOR WITH AUTOTABLE & LOGO ---
+  // --- REFINED PDF GENERATOR (RIGHT-ALIGNED METADATA & CENTERED TABLE) ---
   const handleDownloadPdf = async () => {
     if (!data) return;
     setDownloading(true);
@@ -129,32 +106,44 @@ function SubmissionDetail() {
       const { default: autoTable } = await import("jspdf-autotable");
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
 
-      pdf.addImage(sjvnLogo, "JPEG", 40, 40, 50, 75);
+      // 1. Logo placement on the left
+      pdf.addImage(sjvnLogo, "JPEG", 40, 40, 75, 100);
+
+      // 2. Text layout shifts fully to the right side of the page
+      const rightSideX = pageWidth - 230; 
+
+      // Main Header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(22);
+      pdf.setTextColor(0, 78, 138);
+      pdf.text("SJVN Limited", rightSideX, 60);
 
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
+      pdf.setFontSize(14); // Reduced font size for the Form Title
       pdf.setTextColor(0, 78, 138);
-      pdf.text(data.forms?.title ?? "Environmental Compliance Form", 110, 65);
+      const formTitle = data.forms?.title ?? "Environmental Compliance Form";
+      pdf.text(formTitle, rightSideX, 80);
 
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(11);
+      pdf.setTextColor(80, 80, 80);
 
-      pdf.text(`Site: ${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`, 110, 85);
-      pdf.text(`Reporting Month: ${data.reporting_month}`, 110, 100);
-      pdf.text(`Submitted By: ${submittedByName ?? "—"}`, 110, 115);
+      // Tightly spaced metadata lines
+      pdf.text(`Site: ${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`, rightSideX, 100);
+      pdf.text(`Reporting Month: ${data.reporting_month}`, rightSideX, 115);
+      pdf.text(`Submitted By: ${submittedByName ?? "—"}`, rightSideX, 130);
 
-      pdf.setFont("helvetica", "bold");
-      pdf.text(`Status: ${data.status.toUpperCase()}`, 110, 130);
 
       const tableBody = fields.map((field: any) => [
         field.label || "",
         formatFieldValue(field, values[field.key])
       ]);
 
+      // 4. Center table headers, data columns, and entire table wrapper
       autoTable(pdf, {
-        startY: 155,
+        startY: 190,
         head: [['Field Parameter', 'Reported Value']],
         body: tableBody,
         theme: 'grid',
@@ -162,6 +151,7 @@ function SubmissionDetail() {
           fillColor: [0, 78, 138],
           textColor: 255,
           fontStyle: 'bold',
+          halign: 'center' // Centers Header Texts
         },
         styles: {
           font: 'helvetica',
@@ -171,9 +161,10 @@ function SubmissionDetail() {
           lineWidth: 0.5,
         },
         columnStyles: {
-          0: { cellWidth: 260 },
-          1: { cellWidth: 250 }
+          0: { cellWidth: 250, halign: 'center' }, // Centers parameter text
+          1: { cellWidth: 250, halign: 'center' }  // Centers number values
         },
+        margin: { left: (pageWidth - 500) / 2 } // Centers the entire table body horizontally on the page
       });
 
       pdf.save(fileName);
@@ -186,7 +177,6 @@ function SubmissionDetail() {
     }
   };
 
-  // --- STYLED EXCEL GENERATOR ---
   const handleDownloadExcel = async () => {
     try {
       setDownloading(true);
@@ -218,7 +208,6 @@ function SubmissionDetail() {
       addMeta("Date of Reporting:", data?.submitted_at ? new Date(data.submitted_at).toLocaleDateString() : "—");
       addMeta("Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
       addMeta("Data sheets filled by:", submittedByName ?? "—");
-      addMeta("Form Status:", data?.status?.toUpperCase() ?? "—");
 
       sheet.addRow([]);
       sheet.addRow([]);
@@ -263,43 +252,12 @@ function SubmissionDetail() {
       link.click();
       document.body.removeChild(link);
 
-      toast.success("Styled Excel downloaded successfully!");
+      toast.success("Excel downloaded successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Could not generate Excel file");
     } finally {
       setDownloading(false);
-    }
-  };
-
-  // --- CSV GENERATOR ---
-  const handleDownloadCsv = () => {
-    try {
-      const exportRows = getExportData();
-      const csvHeaders = ["Field Name", "Value"].join(",");
-      const csvRows = exportRows.map(row => {
-        const cleanField = String(row["Field Name"]).replace(/"/g, '""');
-        const cleanVal = String(row["Value"]).replace(/"/g, '""');
-        return `"${cleanField}","${cleanVal}"`;
-      });
-
-      const csvContent = [csvHeaders, ...csvRows].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      const fileName = `${data?.forms?.title ?? "form"}-${data?.sites?.code ?? "site"}-${data?.reporting_month}.csv`.replace(/\s+/g, "_");
-
-      link.setAttribute("href", url);
-      link.setAttribute("download", fileName);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("CSV downloaded successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not generate CSV file");
     }
   };
 
@@ -352,39 +310,27 @@ function SubmissionDetail() {
               onValueChange={(value) => {
                 if (value === "pdf") handleDownloadPdf();
                 if (value === "excel") handleDownloadExcel();
-                if (value === "csv") handleDownloadCsv();
               }}
             >
               <SelectTrigger
-  className="
-    flex h-9 w-44 items-center justify-between
-    rounded-lg
-    border border-[#6BB6E8]
-    bg-[#3A9BDC]
-    px-3
-    text-xs
-    font-semibold
-    text-white
-    shadow-md
-    transition-all
-    duration-300
-    hover:bg-[#2F8FD1]
-    hover:shadow-lg
-    focus:ring-2
-    focus:ring-[#8FD3FF]
-  "
->
-  <div className="flex items-center gap-1.5">
-    {downloading ? (
-      <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-    ) : (
-      <Download className="h-3.5 w-3.5 text-white" />
-    )}
-    <span className="text-white">
-      {downloading ? "Exporting..." : "Export Options"}
-    </span>
-  </div>
-</SelectTrigger>
+                className="
+                  flex h-9 w-44 items-center justify-between
+                  rounded-lg border border-[#6BB6E8] bg-[#3A9BDC] px-3
+                  text-xs font-semibold text-white shadow-md transition-all duration-300
+                  hover:bg-[#2F8FD1] hover:shadow-lg focus:ring-2 focus:ring-[#8FD3FF]
+                "
+              >
+                <div className="flex items-center gap-1.5">
+                  {downloading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5 text-white" />
+                  )}
+                  <span className="text-white">
+                    {downloading ? "Exporting..." : "Export Options"}
+                  </span>
+                </div>
+              </SelectTrigger>
               <SelectContent align="end" className="border bg-card text-foreground shadow-elevated">
                 <SelectItem value="pdf" disabled={downloading} className="cursor-pointer text-xs font-medium">
                   Download PDF Document
@@ -392,21 +338,16 @@ function SubmissionDetail() {
                 <SelectItem value="excel" className="cursor-pointer text-xs font-medium">
                   Download Excel Spreadsheet
                 </SelectItem>
-                <SelectItem value="csv" className="cursor-pointer text-xs font-medium">
-                  Download CSV Data Sheet
-                </SelectItem>
               </SelectContent>
             </Select>
           </div>
         </motion.div>
 
-        {/* --- MAIN FORM CARD --- */}
         <motion.div
           ref={printRef}
           variants={fadeUp}
           className="mx-auto max-w-3xl overflow-hidden rounded-xl border bg-card shadow-elevated"
         >
-          {/* 1. Header — SJVN gradient, topographic pattern from theme */}
           <div className="relative overflow-hidden bg-gradient-hero p-6 text-primary-foreground sm:p-8">
             <div className="relative z-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div>
@@ -435,7 +376,6 @@ function SubmissionDetail() {
           </div>
 
           <div className="p-6 sm:p-8">
-            {/* 2. Metadata mini-cards, staggered */}
             <motion.div
               variants={containerVariants}
               initial="hidden"
@@ -495,7 +435,6 @@ function SubmissionDetail() {
               </motion.div>
             </motion.div>
 
-            {/* 3. Data list, rows stagger in one by one */}
             <div className="overflow-hidden rounded-xl border bg-background shadow-card">
               <div className="border-b bg-muted/40 px-5 py-3.5">
                 <h3 className="flex items-center gap-2 font-display text-sm font-bold">

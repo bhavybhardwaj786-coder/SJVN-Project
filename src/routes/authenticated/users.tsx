@@ -87,31 +87,38 @@ function UserManagement() {
 
   return (
     <AppShell>
-      <section className="flex items-center justify-between">
+      <section className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Manage Users</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-black tracking-tighter text-slate-900" style={{ fontFamily: "'Inter', 'Segoe UI', 'Arial Black', sans-serif" }}>
+            Manage Users
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Create and manage admin and site user accounts.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={() => setShowCreate(true)} className="bg-blue-600 hover:bg-blue-700 font-bold shadow-md">
           <UserPlus className="mr-1.5 h-4 w-4" />
           New User
         </Button>
       </section>
 
-      <div className="mt-6 inline-flex rounded-lg border bg-card p-1 shadow-card">
+      {/* Styled Navigation Tabs */}
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
         <button
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${
-            activeTab === "admin" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+          className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+            activeTab === "admin" 
+              ? "bg-blue-600 text-white shadow-sm" 
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
           onClick={() => setActiveTab("admin")}
         >
-          Admins
+          Administrators
         </button>
         <button
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${
-            activeTab === "site_user" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+          className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+            activeTab === "site_user" 
+              ? "bg-blue-600 text-white shadow-sm" 
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
           onClick={() => setActiveTab("site_user")}
         >
@@ -119,56 +126,59 @@ function UserManagement() {
         </button>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border bg-card shadow-card">
+      {/* Modern High-Contrast Data Grid */}
+      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-in fade-in duration-300">
         <table className="w-full text-sm">
-          <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
+          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500 font-bold border-b border-slate-200">
             <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              {activeTab === "site_user" && <th className="px-4 py-3">Site</th>}
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-5 py-4 text-slate-700">Name</th>
+              <th className="px-5 py-4 text-slate-700">Email</th>
+              {activeTab === "site_user" && <th className="px-5 py-4 text-slate-700">Site Location</th>}
+              <th className="px-5 py-4 text-slate-700">Account Status</th>
+              <th className="px-5 py-4 text-right text-slate-700">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                <td colSpan={5} className="px-5 py-12 text-center text-slate-400">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-blue-600" />
                 </td>
               </tr>
             ) : rows && rows.length ? (
               rows.map((u: any) => (
-                <tr key={u.id} className="border-t">
-                  <td className="px-4 py-3 font-medium">{u.full_name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
+                <tr key={u.id} className="hover:bg-slate-50/40 transition-colors">
+                  <td className="px-5 py-4 font-bold text-slate-900">{u.full_name}</td>
+                  <td className="px-5 py-4 text-slate-600 font-medium">{u.email}</td>
                   {activeTab === "site_user" && (
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {u.sites?.name ?? "—"}
+                    <td className="px-5 py-4 text-slate-700 font-semibold">
+                      {u.sites?.name ? `${u.sites.name} (${u.sites.code})` : <span className="text-red-500 text-xs">Unassigned</span>}
                     </td>
                   )}
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-4">
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        u.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        u.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"
                       }`}
                     >
                       {u.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-5 py-4 text-right">
                     <div className="inline-flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm"
                         onClick={() => setResetTarget({ id: u.id, name: u.full_name })}
+                        title="Reset Password"
                       >
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className={u.is_active ? "text-destructive hover:bg-destructive/10" : "text-success"}
+                        className={u.is_active ? "border-red-200 text-red-600 hover:bg-red-50 shadow-sm" : "border-emerald-200 text-emerald-600 hover:bg-emerald-50 shadow-sm"}
                         onClick={() =>
                           toggleActiveMutation.mutate({
                             table: activeTab === "admin" ? "admins" : "site_users",
@@ -185,8 +195,8 @@ function UserManagement() {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  No {activeTab === "admin" ? "admins" : "site users"} yet.
+                <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-400 font-medium">
+                  No {activeTab === "admin" ? "administrators" : "site users"} mapped to the directory yet.
                 </td>
               </tr>
             )}
@@ -218,7 +228,7 @@ function CreateUserModal({
   onClose,
   onCreated,
 }: {
-  sites: { id: string; name: string; code: string }[];
+  sites: any[];
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -238,10 +248,10 @@ function CreateUserModal({
         site_id: role === "site_user" ? siteId : undefined,
       }),
     onSuccess: () => {
-      toast.success("User created");
+      toast.success("User configuration created successfully");
       onCreated();
     },
-    onError: (err: any) => toast.error(err?.message || "Failed to create user"),
+    onError: (err: any) => toast.error(err?.message || "Failed to create account profile"),
   });
 
   const canSubmit =
@@ -251,32 +261,33 @@ function CreateUserModal({
     (role === "admin" || siteId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-elevated">
-        <h2 className="text-lg font-semibold">New User</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl scale-in duration-200">
+        <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Provision New Account</h2>
+        <p className="text-xs text-slate-500 mt-1">Issue access permissions inside the security bucket.</p>
 
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Role</label>
+        <div className="mt-5 space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800">Operational Permission Tier</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
-              className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
             >
-              <option value="admin">Admin</option>
+              <option value="admin">System Admin</option>
               <option value="site_user">Site User</option>
             </select>
           </div>
 
           {role === "site_user" && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Site</label>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-800">Assigned Station Location</label>
               <select
                 value={siteId}
                 onChange={(e) => setSiteId(e.target.value)}
-                className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
               >
-                <option value="">Select a site…</option>
+                <option value="">Select a site location...</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} ({s.code})
@@ -286,49 +297,52 @@ function CreateUserModal({
             </div>
           )}
 
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800">Full Name</label>
             <input
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              placeholder="e.g. Digvijay Thakur"
+              className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Email</label>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800">Official Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              placeholder="name@sjvn.com"
+              className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
             />
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Password</label>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-800">Access Password</label>
             <input
               type="text"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Minimum 8 characters"
-              className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Share this password with the user directly. It won't be shown again here.
+            <p className="mt-1.5 text-[11px] text-slate-500 leading-normal bg-slate-50 border border-slate-100 p-2.5 rounded">
+              ⚠️ Note: Provide this key to the target employee directly. The password record will hash instantly and encrypt for safety.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} className="border-slate-300 text-slate-700 font-bold h-10 px-4">
             Cancel
           </Button>
           <Button
             disabled={!canSubmit || createMutation.isPending}
             onClick={() => createMutation.mutate()}
+            className="bg-blue-600 hover:bg-blue-700 font-bold h-10 px-4 shadow-sm"
           >
-            {createMutation.isPending ? "Creating…" : "Create User"}
+            {createMutation.isPending ? "Issuing..." : "Create User"}
           </Button>
         </div>
       </div>
@@ -348,35 +362,36 @@ function ResetPasswordModal({
   const resetMutation = useMutation({
     mutationFn: () => usersService.resetPassword(target.id, password),
     onSuccess: () => {
-      toast.success("Password reset");
+      toast.success("Security configuration overwritten successfully");
       onClose();
     },
-    onError: (err: any) => toast.error(err?.message || "Failed to reset password"),
+    onError: (err: any) => toast.error(err?.message || "Failed to alter credential record"),
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-elevated">
-        <h2 className="text-lg font-semibold">Reset Password</h2>
-        <p className="mt-1 text-sm text-muted-foreground">for {target.name}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-2xl scale-in duration-200">
+        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Overwrite Password</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Updating security token key mapping for <span className="font-bold text-slate-700">{target.name}</span></p>
 
         <input
           type="text"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="New password (min 8 characters)"
-          className="mt-4 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+          placeholder="Enter new token (min 8 keys)"
+          className="mt-4 w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
         />
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
+        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} className="border-slate-300 text-slate-700 font-bold">
             Cancel
           </Button>
           <Button
             disabled={password.length < 8 || resetMutation.isPending}
             onClick={() => resetMutation.mutate()}
+            className="bg-blue-600 hover:bg-blue-700 font-bold shadow-sm"
           >
-            {resetMutation.isPending ? "Saving…" : "Reset Password"}
+            {resetMutation.isPending ? "Overwriting..." : "Reset Password"}
           </Button>
         </div>
       </div>
