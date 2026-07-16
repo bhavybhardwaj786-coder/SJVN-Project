@@ -92,13 +92,24 @@ function SubmissionDetail() {
     queryKey: ["submission-user-name", data?.user_id],
     queryFn: async () => {
       if (!data?.user_id) return null;
-      const { data: u, error } = await supabase
+      
+      // 1. First, try to fetch from site_users table
+      const { data: siteUser, error: siteErr } = await supabase
         .from("site_users")
         .select("full_name")
         .eq("id", data.user_id)
         .maybeSingle();
-      if (error) throw error;
-      return u?.full_name ?? null;
+      
+      if (siteUser?.full_name) return siteUser.full_name;
+
+      // 2. Fallback: If not found, look up the contractor directory table
+      const { data: contractorUser, error: contractErr } = await supabase
+        .from("contractors")
+        .select("full_name")
+        .eq("id", data.user_id)
+        .maybeSingle();
+
+      return contractorUser?.full_name ?? "Unknown Submitter";
     },
     enabled: !!data?.user_id,
   });

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { supabase } from "@/integrations/client";
 
 import {
   FileText,
@@ -96,11 +97,23 @@ function ContractorDashboard() {
 
   const reportingMonthDate = `${selectedMonth}-01`;
 
+  // Import statement to add at the top of contractor.index_2.tsx if missing:
+  // import { supabase } from "@/integrations/client";
+
   const { data: submissionsResult } = useQuery({
-    queryKey: ["submissions-by-month", reportingMonthDate, currentUser?.site_id],
-    queryFn: () =>
-      submissionsService.getSubmissionsByMonth(reportingMonthDate, currentUser?.site_id),
-    enabled: !!currentUser?.site_id,
+    queryKey: ["submissions-by-month", reportingMonthDate, currentUser?.site_id, currentUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("id, form_id, status")
+        .eq("reporting_month", reportingMonthDate)
+        .eq("site_id", currentUser?.site_id)
+        .eq("user_id", currentUser?.id); // 👈 Fix: Check for your own contractor data footprint
+
+      if (error) throw error;
+      return { data };
+    },
+    enabled: !!currentUser?.site_id && !!currentUser?.id,
   });
 
   const submissions = submissionsResult?.data || [];
