@@ -213,6 +213,15 @@ export function SiteHeader() {
 
   const isAuthenticated = !!user;
 
+  // Compute dynamic dashboard link target based on user roles
+  const getDashboardTarget = () => {
+    const role = user?.user_metadata?.role;
+    if (role === "superadmin") return "/authenticated/supadmin";
+    if (role === "admin") return "/authenticated/app";
+    if (role === "site_user" || role === "site") return "/authenticated/site";
+    return "/";
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full shrink-0">
       {/* National tricolour strip */}
@@ -250,16 +259,6 @@ export function SiteHeader() {
           {/* Left Side: Navigation Links */}
           <div className="flex items-center h-full">
             <ul className="hidden items-stretch h-full xl:flex">
-              {NAV_ITEMS && NAV_ITEMS.length > 0 && (
-                <li className="flex items-center">
-                  <Link 
-                    to="/" 
-                    className="flex h-full items-center px-4 text-[13px] font-medium text-white/85 hover:text-white"
-                  >
-                    Home
-                  </Link>
-                </li>
-              )}
               {NAV_ITEMS && NAV_ITEMS.slice(1).map((item) => (
                 <li
                   key={item.label}
@@ -306,13 +305,13 @@ export function SiteHeader() {
           </div>
 
           {/* Right Side: Breadcrumbs + Actions (Login/Logout/Dashboard) */}
-          <div className="hidden h-full items-center gap-3 xl:flex">
+          <div className="ml-auto hidden h-full items-center gap-3 xl:flex">
             <SiteBreadcrumb isAuthenticated={isAuthenticated} />
 
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
-                  to={dashboardTarget}
+                  to={getDashboardTarget()}
                   className="flex h-8 items-center gap-1.5 rounded bg-[#3FC1A0] px-3 text-xs font-semibold text-slate-900 transition-colors duration-150 hover:bg-[#32a88a]"
                 >
                   <LayoutDashboard className="h-3.5 w-3.5" />
@@ -348,6 +347,44 @@ export function SiteHeader() {
             Menu
           </button>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileOpen && (
+          <div className="border-t border-white/10 bg-[#0B4F86] px-4 py-3 xl:hidden">
+            <div className="flex flex-col gap-3">
+              {/* Mobile actions */}
+              {isAuthenticated ? (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to={getDashboardTarget()}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex h-9 items-center justify-center gap-1.5 rounded bg-[#3FC1A0] text-xs font-semibold text-slate-900"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex h-9 items-center justify-center gap-1.5 rounded bg-red-600 text-xs font-semibold text-white"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/auth"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex h-9 items-center justify-center gap-1.5 rounded bg-[#0F8B6C] text-xs font-semibold text-white"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Login
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Mobile breadcrumb bar */}
         <div className="flex items-center border-t border-white/10 bg-black/10 px-4 py-2 xl:hidden">
