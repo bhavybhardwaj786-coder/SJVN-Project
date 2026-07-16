@@ -134,11 +134,12 @@ function SiteDashboard() {
   ];
 
   const goToForm = (formId: string) =>
-    navigate({
-      to: "/authenticated/site/forms/$formId",
-      params: { formId },
-      search: { period: selectedMonth },
-    });
+  navigate({
+    to: "/authenticated/site/forms/$formId",
+    params: { formId },
+    // Makes sure the URL retains the exact active selected month state configuration!
+    search: { period: selectedMonth }, 
+  });
 
   return (
     <AppShell>

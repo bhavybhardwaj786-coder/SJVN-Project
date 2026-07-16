@@ -147,10 +147,14 @@ function SubmissionDetail() {
       pdf.text(`Submitted By: ${submittedByName ?? "—"}`, rightSideX, 130);
 
 
-      const tableBody = fields.map((field: any) => [
-        field.label || "",
-        formatFieldValue(field, values[field.key])
-      ]);
+      const tableBody = fields.map((field: any) => {
+        const filesCount = values[`${field.key}_files`]?.length || 0;
+        const attachmentText = filesCount > 0 ? `(${filesCount} Doc Attached)` : '';
+        return [
+          field.label || "",
+          `${formatFieldValue(field, values[field.key])} ${attachmentText}`.trim()
+        ];
+      });
 
       // 4. Center table headers, data columns, and entire table wrapper
       autoTable(pdf, {
@@ -236,9 +240,11 @@ function SubmissionDetail() {
       });
 
       fields.forEach((field: any) => {
-        const label = field.label || "";
-        const val = formatFieldValue(field, values[field.key]);
-        const row = sheet.addRow(["", label, val]);
+      const label = field.label || "";
+      const filesCount = values[`${field.key}_files`]?.length || 0;
+      const attachmentText = filesCount > 0 ? ` [Has ${filesCount} Attachment(s)]` : '';
+      const val = `${formatFieldValue(field, values[field.key])}${attachmentText}`;
+      const row = sheet.addRow(["", label, val]);
 
         ['B', 'C'].forEach(col => {
           const cell = sheet.getCell(`${col}${row.number}`);
@@ -450,11 +456,16 @@ function SubmissionDetail() {
             </motion.div>
 
             <div className="overflow-hidden rounded-xl border bg-background shadow-card">
-              <div className="border-b bg-muted/40 px-5 py-3.5">
-                <h3 className="flex items-center gap-2 font-display text-sm font-bold">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  Reported Data Overview
-                </h3>
+              <div className="hidden sm:flex border-b bg-muted/10 px-5 py-2.5 text-xs uppercase tracking-wider select-none">
+                <div className="w-1/3">
+                  <span className="font-bold text-black">Parameter Type</span>
+                </div>
+                <div className="w-1/3 text-center">
+                  <span className="font-bold text-black">Verification Attachments</span>
+                </div>
+                <div className="w-1/3 text-right">
+                  <span className="font-bold text-black">Reported Value</span>
+                </div>
               </div>
 
               <motion.div
@@ -464,36 +475,60 @@ function SubmissionDetail() {
                 className="divide-y"
               >
                 {fields.map((field: any, index: number) => {
-                  const fileUrl = values[`${field.key}_file`] ?? null;
-                  const fileName = values[`${field.key}_filename`] ?? "Evidence Document";
+                  // Retrieve the array of uploaded file objects for this specific parameter question key
+                  const attachedFilesArray = values[`${field.key}_files`] || [];
 
                   return (
                     <motion.div
                       key={field.key}
                       variants={rowVariants}
-                      className={`flex flex-col justify-between gap-2 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-6 ${
+                      className={`flex flex-col gap-4 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:justify-between ${
                         index % 2 === 0 ? "bg-transparent" : "bg-muted/10"
                       }`}
                     >
-                      <dt className="text-sm font-medium leading-relaxed text-muted-foreground sm:w-1/3">
+                      {/* Column 1: Field Parameter Title */}
+                      <dt className="text-sm font-medium leading-relaxed text-slate-800 sm:w-1/3">
                         {field.label}
                       </dt>
                       
-                      <dd className="flex flex-col sm:items-end gap-2 text-sm font-semibold text-foreground sm:w-2/3 sm:text-right">
-                        <span>{formatFieldValue(field, values[field.key])}</span>
+                      {/* Column 2: Verically Stacked Attachments Section */}
+                      <div className="flex flex-col gap-1.5 sm:w-1/3 sm:items-center sm:justify-center">
+                        {/* Mobile helper badge header label (Hidden on Desktop table widths) */}
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:hidden mb-0.5">
+                          Attachments:
+                        </span>
                         
-                        {/* Display inline link dynamically if an evidence file was attached to this parameter */}
-                        {fileUrl && (
-                          <a 
-                            href={fileUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="inline-flex items-center gap-1 text-xs rounded bg-slate-100 hover:bg-[#eaf3f6] border border-slate-200 px-2 py-1 text-[#095a7d] transition-all font-bold w-fit sm:ml-auto"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            {fileName}
-                          </a>
+                        {attachedFilesArray.length > 0 ? (
+                          // flex-col elements stack perfectly one over the other vertically 
+                          <div className="flex flex-col gap-1.5 items-stretch sm:items-center w-full">
+                            {attachedFilesArray.map((fileObj: { url: string; name: string }, fIdx: number) => (
+                              <a 
+                                key={fIdx}
+                                href={fileObj.url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold rounded bg-slate-100 hover:bg-[#eaf3f6] border border-slate-200 px-3 py-1.5 text-[#095a7d] transition-all max-w-[245px] w-full"
+                                title={fileObj.name}
+                              >
+                                <ExternalLink className="h-3 w-3 shrink-0 text-[#095a7d]/70" />
+                                <span className="truncate">{fileObj.name || `File ${fIdx + 1}`}</span>
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs italic text-muted-foreground/50 text-left sm:text-center w-full">— No Attachments —</span>
                         )}
+                      </div>
+                      
+                      {/* Column 3: Value Output Label Section */}
+                      <dd className="flex flex-col sm:w-1/3 sm:text-right">
+                        {/* Mobile helper badge header label (Hidden on Desktop table widths) */}
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:hidden mb-0.5">
+                          Value:
+                        </span>
+                        <span className="text-sm font-semibold text-slate-900 font-mono-figures">
+                          {formatFieldValue(field, values[field.key])}
+                        </span>
                       </dd>
                     </motion.div>
                   );
