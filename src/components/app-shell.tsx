@@ -118,7 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
-        <div className="bg-gradient-to-r from-white to-[#dceaf0] py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-gray-200 gap-4 relative z-10">
+        <div className="bg-gradient-to-r from-white to-sky-50 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-sky-100 gap-4 relative z-10">
           {/* Left Side: Logo and Titles */}
           <div className="flex items-center gap-4 w-full md:w-auto">
             <Button
@@ -140,7 +140,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 />
               </div>
               <div className="flex flex-col text-gray-800">
-                <h1 className="text-2xl md:text-[28px] font-extrabold text-[#095a7d] tracking-tight leading-tight">
+                <h1 className="text-2xl md:text-[28px] font-extrabold text-blue-700 tracking-tight leading-tight">
                   SJVN Limited
                 </h1>
                 <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
@@ -158,7 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
               <Link
                 to={dashboardLink}
-                className="hover:text-[#095a7d] transition-colors flex items-center gap-1 cursor-pointer"
+                className="hover:text-blue-700 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <LayoutDashboard className="h-3.5 w-3.5 mb-0.5" />
                 Dashboard
@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 return (
                   <div key={name} className="flex items-center gap-1.5">
                     <span className="text-gray-400 text-xs">»</span>
-                    <span className="text-[#095a7d] font-bold">{displayName}</span>
+                    <span className="text-blue-700 font-bold">{displayName}</span>
                   </div>
                 );
               })}
@@ -191,8 +191,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         {/* Bottom Navigation Teal Bar */}
-        <div className="bg-[#227b96] px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
-          <div className="h-full flex items-center pr-4 border-r border-[#3a8da6] shrink-0">
+        {/* Bottom Navigation Bar */}
+        <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
+          <div className="h-full flex items-center pr-4 border-r border-white/25 shrink-0">
             <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
               <Home size={20} />
             </Link>
@@ -204,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-[#3a8da6]">
+          <div className="flex items-center gap-4 shrink-0 pl-4 border-l border-white/25">
             <div className="hidden text-right md:block text-white">
               <div className="text-xs font-semibold">{me?.profile?.full_name ?? me?.user?.email}</div>
               <div className="text-[10px] text-white/80">{me?.user?.email}</div>
@@ -252,7 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           className={cn(
                             "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
                             active
-                              ? "bg-[#eaf3f6] text-[#095a7d] font-bold"
+                              ? "bg-sky-50 text-blue-700 font-bold"
                               : "text-foreground/80 hover:bg-muted hover:text-foreground",
                           )}
                         >
