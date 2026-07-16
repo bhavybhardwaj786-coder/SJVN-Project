@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -58,19 +57,6 @@ const statusStyles: Record<
     label: "Pending",
     Icon: AlertCircle,
   },
-};
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05, delayChildren: 0.05 },
-  },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
 };
 
 function SiteDashboard() {
@@ -157,32 +143,27 @@ function SiteDashboard() {
     <AppShell>
       {/* Container breaks out of standard padding to apply the full background gradient */}
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={containerVariants}
-          className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
-        >
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          
           {/* Hero Section */}
-          <motion.section variants={fadeUp} className="flex">
+          <section className="flex">
             <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
                 Site Portal
               </p>
               <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-                Environmental Compliance Dashboard
+                Business Responsibility and Sustainability Reporting
               </h1>
               <p className="mt-1 text-sm text-sky-50">
                 Complete and submit monthly environmental compliance reports.
               </p>
             </div>
-          </motion.section>
+          </section>
 
           {/* Stats Grid */}
-          <motion.section variants={containerVariants} className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
-              <motion.div
-                variants={fadeUp}
+              <div
                 key={label}
                 className={`rounded-xl bg-gradient-to-br ${tint} p-4 ring-1`}
               >
@@ -191,12 +172,12 @@ function SiteDashboard() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <p className="mt-2 text-2xl font-semibold">{value}</p>
-              </motion.div>
+              </div>
             ))}
-          </motion.section>
+          </section>
 
           {/* Reporting Month Selector */}
-          <motion.section variants={fadeUp} className="mt-6 flex">
+          <section className="mt-6 flex">
             <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
               <Calendar className="h-4 w-4 text-sky-600" />
               <label
@@ -213,16 +194,16 @@ function SiteDashboard() {
                 className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
             </div>
-          </motion.section>
+          </section>
 
           {/* Forms Grid */}
-          <motion.section variants={fadeUp} className="mt-6">
+          <section className="mt-6 pb-12">
             {formsLoading ? (
                <p className="text-sm text-slate-500 font-medium p-4">Loading forms...</p>
             ) : requiredForms.length === 0 ? (
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
-              <motion.div variants={containerVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {requiredForms.map(({ id, name, description, icon: Icon }) => {
                   const originalStatus = getOriginalStatus(id);
                   
@@ -235,8 +216,7 @@ function SiteDashboard() {
                   const s = statusStyles[mappedStatus];
 
                   return (
-                    <motion.article
-                      variants={fadeUp}
+                    <article
                       key={id}
                       className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md"
                     >
@@ -270,13 +250,13 @@ function SiteDashboard() {
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </motion.article>
+                    </article>
                   );
                 })}
-              </motion.div>
+              </div>
             )}
-          </motion.section>
-        </motion.div>
+          </section>
+        </div>
       </div>
     </AppShell>
   );
