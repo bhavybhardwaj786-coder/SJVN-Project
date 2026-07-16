@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { formsService } from "@/services";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
