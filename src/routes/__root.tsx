@@ -131,6 +131,8 @@ function RootComponent() {
   
   // 2. Check if the user is inside the authenticated dashboard area
   const isDashboardRoute = location.pathname.startsWith("/authenticated");
+  // 2b. Check if this is the login page — only this route needs the no-scroll viewport lock
+  const isAuthRoute = location.pathname === "/auth";
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
@@ -143,9 +145,18 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex h-svh flex-col bg-background overflow-hidden">
+      <div
+        className={
+          isAuthRoute
+            ? "flex h-svh flex-col bg-background overflow-hidden"
+            : "flex min-h-svh flex-col bg-background"
+        }
+      >
         {!isDashboardRoute && <SiteHeader />}
-        <main id="main" className="flex-1 min-h-0 flex flex-col">
+        <main
+          id="main"
+          className={isAuthRoute ? "flex-1 min-h-0 flex flex-col" : "flex-1 flex flex-col"}
+        >
           <Outlet />
         </main>
         <SiteFooter />
