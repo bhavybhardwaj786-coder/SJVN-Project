@@ -1,26 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useState } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  Wind,
+  FileText,
   Droplet,
+  Wind,
   Trash2,
   AlertTriangle,
   Wallet,
@@ -31,7 +20,10 @@ import {
   CloudRain,
   Leaf,
   MapPinned,
-  FileText,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
   ArrowRight,
 } from "lucide-react";
 
@@ -45,12 +37,34 @@ const ICON_MAP: Record<string, any> = {
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned,
 };
 
-// --- shared animation variants ---
+type MappedStatus = "completed" | "in-progress" | "pending";
+
+const statusStyles: Record<
+  MappedStatus,
+  { pill: string; label: string; Icon: typeof CheckCircle2 }
+> = {
+  completed: {
+    pill: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    label: "Completed",
+    Icon: CheckCircle2,
+  },
+  "in-progress": {
+    pill: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    label: "In Progress",
+    Icon: Clock,
+  },
+  pending: {
+    pill: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+    label: "Pending",
+    Icon: AlertCircle,
+  },
+};
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.07, delayChildren: 0.05 },
+    transition: { staggerChildren: 0.05, delayChildren: 0.05 },
   },
 };
 
@@ -61,13 +75,14 @@ const fadeUp = {
 
 function SiteDashboard() {
   const navigate = useNavigate();
+  // We use the native YYYY-MM format for the input type="month"
   const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7) // "2026-07"
+    new Date().toISOString().slice(0, 7)
   );
 
   const { data: currentUser } = useCurrentUser();
 
-  // Forms this site user is allowed to see (RLS already filters by site)
+  // 1. Data Fetching Logic
   const { data: formsResult, isLoading: formsLoading } = useQuery({
     queryKey: ["active-forms"],
     queryFn: () => formsService.getActiveForms(),
@@ -76,11 +91,11 @@ function SiteDashboard() {
   const requiredForms = (formsResult?.data || []).map((f: any) => ({
     id: f.id,
     name: f.title,
+    description: f.description || "Monthly compliance report",
     icon: ICON_MAP[f.schema?.icon] || FileText,
   }));
 
-  // Submissions for the selected month, for this site
-  const reportingMonthDate = `${selectedMonth}-01`; // "2026-07" -> "2026-07-01"
+  const reportingMonthDate = `${selectedMonth}-01`;
 
   const { data: submissionsResult } = useQuery({
     queryKey: ["submissions-by-month", reportingMonthDate, currentUser?.site_id],
@@ -91,16 +106,45 @@ function SiteDashboard() {
 
   const submissions = submissionsResult?.data || [];
 
-  const getStatus = (formId: string) => {
+  const getOriginalStatus = (formId: string) => {
     const sub = submissions.find((s: any) => s.form_id === formId);
     return sub?.status || "Not Started";
   };
 
-  const submitted = requiredForms.filter((f) => getStatus(f.id) === "submitted").length;
-  const draft = requiredForms.filter((f) => getStatus(f.id) === "draft").length;
-  const pending = requiredForms.filter(
-    (f) => getStatus(f.id) === "pending" || getStatus(f.id) === "Not Started"
+  // 2. Statistics Calculation
+  const total = requiredForms.length;
+  const completedCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "submitted").length;
+  const inProgressCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "draft").length;
+  const pendingCount = requiredForms.filter(
+    (f) => getOriginalStatus(f.id) === "pending" || getOriginalStatus(f.id) === "Not Started"
   ).length;
+
+  const stats = [
+    {
+      label: "Total Forms",
+      value: total,
+      Icon: FileText,
+      tint: "from-sky-50 to-blue-50 text-sky-700 ring-sky-100",
+    },
+    {
+      label: "Completed",
+      value: completedCount,
+      Icon: CheckCircle2,
+      tint: "from-emerald-50 to-teal-50 text-emerald-700 ring-emerald-100",
+    },
+    {
+      label: "In Progress",
+      value: inProgressCount,
+      Icon: Clock,
+      tint: "from-amber-50 to-yellow-50 text-amber-700 ring-amber-100",
+    },
+    {
+      label: "Pending",
+      value: pendingCount,
+      Icon: AlertCircle,
+      tint: "from-sky-50 to-indigo-50 text-sky-700 ring-sky-100",
+    },
+  ];
 
   const goToForm = (formId: string) =>
     navigate({
@@ -111,159 +155,129 @@ function SiteDashboard() {
 
   return (
     <AppShell>
-      <motion.div
-        initial="hidden"
-        animate="show"
-        variants={containerVariants}
-        className="space-y-8"
-      >
-        {/* --- Hero, matching the admin dashboard's gradient system --- */}
+      {/* Container breaks out of standard padding to apply the full background gradient */}
+      <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
         <motion.div
-          variants={fadeUp}
-          className="relative overflow-hidden rounded-2xl bg-gradient-hero p-6 text-primary-foreground shadow-elevated sm:p-8"
+          initial="hidden"
+          animate="show"
+          variants={containerVariants}
+          className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
         >
-          <div className="relative z-10">
-            <div className="text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
-              Site Portal
+          {/* Hero Section */}
+          <motion.section variants={fadeUp} className="flex">
+            <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
+                Site Portal
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+                Environmental Compliance Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-sky-50">
+                Complete and submit monthly environmental compliance reports.
+              </p>
             </div>
-            <h1 className="mt-1.5 font-display text-2xl font-bold sm:text-3xl">
-              Environmental Compliance Dashboard
-            </h1>
-            <p className="mt-1.5 max-w-md text-sm text-primary-foreground/75">
-              Complete and submit monthly environmental compliance reports.
-            </p>
-          </div>
-        </motion.div>
+          </motion.section>
 
-        {/* --- Month selector --- */}
-        <motion.div variants={fadeUp}>
-          <Card className="card-lift hover:card-lift-hover">
-            <CardHeader>
-              <CardTitle className="font-display text-base">Select Reporting Month</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-72 transition-colors focus-visible:border-ring">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const d = new Date();
-                    d.setMonth(d.getMonth() - i);
-                    const value = d.toISOString().slice(0, 7);
-                    return (
-                      <SelectItem key={value} value={value}>
-                        {d.toLocaleString("default", { month: "long", year: "numeric" })}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-        </motion.div>
+          {/* Stats Grid */}
+          <motion.section variants={containerVariants} className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {stats.map(({ label, value, Icon, tint }) => (
+              <motion.div
+                variants={fadeUp}
+                key={label}
+                className={`rounded-xl bg-gradient-to-br ${tint} p-4 ring-1`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{label}</span>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <p className="mt-2 text-2xl font-semibold">{value}</p>
+              </motion.div>
+            ))}
+          </motion.section>
 
-        {/* --- Stat cards, mono tabular figures, staggered in --- */}
-        <motion.div variants={containerVariants} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <motion.div variants={fadeUp} whileHover={{ y: -2 }}>
-            <Card className="card-lift shadow-card hover:card-lift-hover">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono-figures text-3xl font-semibold">{requiredForms.length}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Total Forms</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-          <motion.div variants={fadeUp} whileHover={{ y: -2 }}>
-            <Card className="card-lift shadow-card hover:card-lift-hover">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono-figures text-3xl font-semibold text-success">{submitted}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Submitted</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-          <motion.div variants={fadeUp} whileHover={{ y: -2 }}>
-            <Card className="card-lift shadow-card hover:card-lift-hover">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono-figures text-3xl font-semibold text-warning">{pending}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Pending</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-          <motion.div variants={fadeUp} whileHover={{ y: -2 }}>
-            <Card className="card-lift shadow-card hover:card-lift-hover">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono-figures text-3xl font-semibold text-gradient-brand">{draft}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Draft</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </motion.div>
+          {/* Reporting Month Selector */}
+          <motion.section variants={fadeUp} className="mt-6 flex">
+            <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
+              <Calendar className="h-4 w-4 text-sky-600" />
+              <label
+                htmlFor="reporting-month"
+                className="text-sm font-medium text-slate-700 whitespace-nowrap"
+              >
+                Reporting Month
+              </label>
+              <input
+                id="reporting-month"
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              />
+            </div>
+          </motion.section>
 
-        {/* --- Required forms grid --- */}
-        <motion.div variants={fadeUp}>
-          <h2 className="mb-4 font-display text-xl font-semibold">Required Monthly Forms</h2>
+          {/* Forms Grid */}
+          <motion.section variants={fadeUp} className="mt-6">
+            {formsLoading ? (
+               <p className="text-sm text-slate-500 font-medium p-4">Loading forms...</p>
+            ) : requiredForms.length === 0 ? (
+               <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
+            ) : (
+              <motion.div variants={containerVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {requiredForms.map(({ id, name, description, icon: Icon }) => {
+                  const originalStatus = getOriginalStatus(id);
+                  
+                  // Map database status to UI status
+                  const mappedStatus: MappedStatus = 
+                    originalStatus === "submitted" ? "completed" 
+                    : originalStatus === "draft" ? "in-progress" 
+                    : "pending";
 
-          {formsLoading ? (
-            <p className="text-muted-foreground">Loading forms…</p>
-          ) : requiredForms.length === 0 ? (
-            <p className="text-muted-foreground">
-              No forms have been assigned yet.
-            </p>
-          ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-              className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              {requiredForms.map(({ id, name, icon: Icon }) => {
-                const status = getStatus(id);
-                return (
-                  <motion.div key={id} variants={fadeUp} whileHover={{ y: -3 }}>
-                    <Card className="card-lift flex h-full flex-col justify-between shadow-card hover:card-lift-hover">
-                      <CardContent className="flex flex-1 flex-col gap-4 pt-6">
-                        <div className="flex items-start justify-between">
-                          <div className="grid h-11 w-11 place-items-center rounded-lg bg-primary-soft text-brand">
+                  const s = statusStyles[mappedStatus];
+
+                  return (
+                    <motion.article
+                      variants={fadeUp}
+                      key={id}
+                      className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-blue-100 text-sky-700">
                             <Icon className="h-5 w-5" />
                           </div>
-                          <Badge
-                            variant={
-                              status === "submitted" ? "default"
-                              : status === "draft" ? "secondary"
-                              : "outline"
-                            }
-                          >
-                            {status}
-                          </Badge>
+                          <h3 className="text-sm font-semibold text-slate-800 leading-tight">
+                            {name}
+                          </h3>
                         </div>
-                        <div>
-                          <h3 className="font-display font-semibold leading-snug">{name}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Monthly compliance report
-                          </p>
-                        </div>
-                      </CardContent>
-                      <div className="p-6 pt-0">
-                        <Button
-                          variant={status === "submitted" ? "outline" : "default"}
-                          className={`group w-full transition-shadow ${
-                            status === "submitted" ? "" : "hover:shadow-glow"
-                          }`}
-                          onClick={() => goToForm(id)}
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${s.pill}`}
                         >
-                          {status === "submitted" ? "View Form" : status === "draft" ? "Continue" : "Fill Form"}
-                          <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                        </Button>
+                          <s.Icon className="h-3 w-3" />
+                          {s.label}
+                        </span>
                       </div>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
+
+                      <p className="mt-3 text-xs text-slate-600 line-clamp-2 flex-1">
+                        {description}
+                      </p>
+
+                      <div className="mt-5 flex items-center gap-2">
+                        <button 
+                          onClick={() => goToForm(id)}
+                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:from-sky-600 hover:to-blue-700"
+                        >
+                          {mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </motion.article>
+                  );
+                })}
+              </motion.div>
+            )}
+          </motion.section>
         </motion.div>
-      </motion.div>
+      </div>
     </AppShell>
   );
 }
