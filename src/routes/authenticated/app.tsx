@@ -9,7 +9,9 @@ import {
   FileText, Loader2, Plus, Pencil, Eye, UserPlus,
   Search, Download, FileSpreadsheet, FileIcon,
   ListChecks,CheckCircle2, Layers,
-  ChevronDown, Sliders,FolderDown,AlertCircle,Clock, type LucideIcon,
+  ChevronDown, Sliders,FolderDown,AlertCircle,Clock,
+  ChevronDown, Sliders, type LucideIcon,
+  Users, LayoutGrid, ArrowLeft, FolderDown,
 } from "lucide-react";
 
 
@@ -188,6 +190,12 @@ function AdminDashboard() {
   const [formSearchQuery, setFormSearchQuery] = useState("");
   const [siteSearchQuery, setSiteSearchQuery] = useState("");
   const [activeView, setActiveView] = useState<"matrix" | "forms">("matrix");
+
+  // NEW: once a site is selected, choose whether to browse its submissions
+  // grouped by form ("site") or grouped by who submitted them ("contractor").
+  const [siteViewMode, setSiteViewMode] = useState<"site" | "contractor">("site");
+  // NEW: which contractor is currently drilled into, when in contractor mode.
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
   
   // State to handle loading spinners on export buttons
   const [exportingSiteId, setExportingSiteId] = useState<string | null>(null);
@@ -233,6 +241,40 @@ function AdminDashboard() {
   });
   const submissions = submissionsResult || [];
 
+  // NEW: resolve contractor display names via a direct lookup against the
+  // `contractors` table, keyed on the user_ids seen in this month's submissions.
+  // Tries the common name-column variants since the exact column name wasn't confirmed.
+  const submitterIds = useMemo(
+    () => Array.from(new Set(submissions.map((s) => s.user_id).filter(Boolean))),
+    [submissions]
+  );
+
+  const { data: contractorRows } = useQuery({
+    queryKey: ["contractor-names", submitterIds],
+    queryFn: async () => {
+      if (submitterIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("contractors")
+        .select("*")
+        .in("id", submitterIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: submitterIds.length > 0,
+  });
+
+  const contractorNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (contractorRows || []).forEach((row: any) => {
+      const name =
+        row.full_name || row.name || row.contractor_name || row.company_name || null;
+      if (!name) return;
+      if (row.id) map.set(row.id, name);
+      if (row.user_id) map.set(row.user_id, name);
+    });
+    return map;
+  }, [contractorRows]);
+
   const submissionMap = useMemo(() => {
     const map = new Map<string, SubmissionRow>();
     submissions.forEach((s) => {
@@ -267,6 +309,33 @@ function AdminDashboard() {
   });
 
   const totalSubmitted = isSiteSelected ? contextualSubmissions.length : submissions.length;
+
+  // NEW: contractors who submitted something for the selected site this month,
+  // with a count of how many forms each one submitted.
+  const siteContractors = useMemo(() => {
+    if (!selectedSiteObj) return [];
+    const byUser = new Map<string, { id: string; name: string; count: number }>();
+    contextualSubmissions.forEach((s) => {
+      const id = s.user_id;
+      if (!id) return;
+      const name = contractorNameMap.get(id) || "Unnamed Contractor";
+      const existing = byUser.get(id);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        byUser.set(id, { id, name, count: 1 });
+      }
+    });
+    return Array.from(byUser.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [contextualSubmissions, selectedSiteObj, contractorNameMap]);
+
+  // NEW: when drilled into a contractor, only that contractor's submissions
+  const contractorSubmissions = useMemo(() => {
+    if (!selectedContractorId) return [];
+    return contextualSubmissions.filter((s) => s.user_id === selectedContractorId);
+  }, [contextualSubmissions, selectedContractorId]);
+
+  const selectedContractor = siteContractors.find((c) => c.id === selectedContractorId) || null;
 
   const displayedForms = forms.filter((f: any) =>
     (f.title || "").toLowerCase().includes(formSearchQuery.toLowerCase())
@@ -455,6 +524,14 @@ function AdminDashboard() {
     }
   };
 
+  // NEW: whenever the selected site changes, reset the contractor drill-down
+  // so stale selections from a previous site don't linger.
+  const handleSelectSite = (name: string) => {
+    setSiteSearchQuery(name);
+    setSiteViewMode("site");
+    setSelectedContractorId(null);
+  };
+
   return (
     <AppShell>
       <motion.div initial="hidden" animate="show" variants={containerVariants}>
@@ -518,8 +595,8 @@ function AdminDashboard() {
                     {/* Inner Button Content Box Layer */}
                     <span className="relative flex items-center justify-between w-full h-full bg-white rounded-[7px] px-3 text-xs font-bold text-slate-700 select-none transition-colors group-hover:bg-slate-50">
                       <span className="truncate">
-                        {sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())
-                          ? `${sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())?.name} (${sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())?.code})`
+                        {selectedSiteObj
+                          ? `${selectedSiteObj.name} (${selectedSiteObj.code})`
                           : "Choose Project Site"}
                       </span>
                       <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform group-data-[state=open]:rotate-180" />
@@ -529,7 +606,7 @@ function AdminDashboard() {
                 
                 <DropdownMenuContent align="start" className="w-[240px] max-h-60 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-lg p-1 z-[60]">
                   <DropdownMenuItem 
-                    onClick={() => setSiteSearchQuery("")}
+                    onClick={() => handleSelectSite("")}
                     className="cursor-pointer text-xs font-semibold text-slate-500 hover:bg-slate-50 px-2 py-2 rounded"
                   >
                     -- Clear Selection --
@@ -537,7 +614,7 @@ function AdminDashboard() {
                   {sites.map((site) => (
                     <DropdownMenuItem
                       key={site.id}
-                      onClick={() => setSiteSearchQuery(site.name)}
+                      onClick={() => handleSelectSite(site.name)}
                       className={`cursor-pointer text-xs font-bold text-slate-700 hover:bg-[#eaf3f6] hover:text-[#095a7d] px-2 py-2 rounded mt-0.5 transition-colors ${
                         siteSearchQuery.toLowerCase() === site.name.toLowerCase() ? "bg-[#eaf3f6] text-[#095a7d]" : ""
                       }`}
@@ -581,7 +658,6 @@ function AdminDashboard() {
           </motion.div>
 
           {/* Card 4: Direct Edit Forms Action Trigger Shortcut */}
-          {/* Card 4: Direct Edit Forms Action Trigger Shortcut */}
           <motion.div 
             variants={fadeUp} 
             whileHover={{ y: -2 }}
@@ -599,15 +675,11 @@ function AdminDashboard() {
           </motion.div>
         </motion.section>
 
-
-
-
-
         {/* --- Lower Component Section View Rendering Block --- */}
 {activeView === "matrix" && siteSearchQuery.trim() !== "" && (
   <motion.section variants={fadeUp} className="mt-8 space-y-4">
     
-    {/* Form Info Row: Shows the selected site name and its combined export action wrapper */}
+    {/* Form Info Row: Shows the selected site name, the view switcher, and combined export */}
     {displayedSites.map((site) => (
       <div key={site.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-white shadow-sm">
         <div>
@@ -616,28 +688,62 @@ function AdminDashboard() {
             {site.name} <span className="text-sm font-semibold text-muted-foreground">({site.code})</span>
           </h3>
         </div>
-        
-        {/* Combined Export Trigger */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-10 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 shrink-0 shadow-sm">
-              {exportingSiteId === site.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
-              Export All Forms Combined
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 bg-white border-slate-200 shadow-xl p-1 rounded-lg">
-            <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded">
-              <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF Report
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded mt-0.5">
-              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel Sheet
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* NEW: Site vs Contractor view switcher */}
+          <div className="inline-flex rounded-lg border bg-slate-50 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setSiteViewMode("site");
+                setSelectedContractorId(null);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                siteViewMode === "site"
+                  ? "bg-white text-[#095a7d] shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Form of the Site
+            </button>
+            <button
+              type="button"
+              onClick={() => setSiteViewMode("contractor")}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                siteViewMode === "contractor"
+                  ? "bg-white text-[#095a7d] shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Form of the Contractor
+            </button>
+          </div>
+
+          {/* Combined Export Trigger */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-10 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 shrink-0 shadow-sm">
+                {exportingSiteId === site.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+                Export All Forms Combined
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 bg-white border-slate-200 shadow-xl p-1 rounded-lg">
+              <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded">
+                <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF Report
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded mt-0.5">
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel Sheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     ))}
 
-    {/* Re-pivoted Vertical Forms Log Grid */}
+    {/* ---- SITE VIEW: existing forms x status matrix, unchanged ---- */}
+    {siteViewMode === "site" && (
     <div className="overflow-hidden rounded-xl border bg-card shadow-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
@@ -651,14 +757,13 @@ function AdminDashboard() {
         <tbody className="divide-y divide-slate-100">
           {submissionsLoading ? (
             <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground"> {/* 👈 Changed from 3 to 4 */}
+                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
                 </td>
               </tr>
           ) : displayedSites.length > 0 && activeForms.length > 0 ? (
             displayedSites.map((site) => (
               activeForms.map((f: any) => {
-                // Inside activeForms.map((f: any) => { ... })
                 const submission = submissionMap.get(`${site.id}__${f.id}`);
                 const status = submission?.status ?? "not_submitted";
 
@@ -687,7 +792,7 @@ function AdminDashboard() {
                           {zippingId === submission.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <FolderDown className="h-3.5 w-3.5" /> // 👈 CHANGED THIS FROM FolderDownload to FolderDown
+                            <FolderDown className="h-3.5 w-3.5" />
                           )}
                           Download ZIP
                         </Button>
@@ -726,6 +831,129 @@ function AdminDashboard() {
         </tbody>
       </table>
     </div>
+    )}
+
+    {/* ---- CONTRACTOR VIEW: grouped by who submitted, drill down per contractor ---- */}
+    {siteViewMode === "contractor" && (
+      <div className="space-y-4">
+        {!selectedContractor ? (
+          <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+            {submissionsLoading ? (
+              <div className="px-6 py-12 text-center">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+              </div>
+            ) : siteContractors.length > 0 ? (
+              <div className="divide-y divide-slate-100">
+                {siteContractors.map((contractor) => (
+                  <button
+                    key={contractor.id}
+                    type="button"
+                    onClick={() => setSelectedContractorId(contractor.id)}
+                    className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors hover:bg-slate-50/40"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eaf3f6] text-[#095a7d] font-bold text-sm shrink-0">
+                        {contractor.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-800 text-sm">{contractor.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {contractor.count} form{contractor.count !== 1 ? "s" : ""} submitted
+                        </div>
+                      </div>
+                    </div>
+                    <Eye className="h-4 w-4 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="px-6 py-12 text-center text-muted-foreground font-medium">
+                No contractors have submitted forms for this site yet.
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setSelectedContractorId(null)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Contractors
+            </button>
+
+            <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
+                  <tr>
+                    <th className="px-6 py-3.5 font-bold text-slate-500">
+                      Forms Submitted by {selectedContractor.name}
+                    </th>
+                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Compliance Status</th>
+                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Download Attachments</th>
+                    <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Download Report</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {contractorSubmissions.length > 0 ? (
+                    contractorSubmissions.map((submission) => (
+                      <tr key={submission.id} className="transition-colors hover:bg-slate-50/40">
+                        <td className="px-6 py-4">
+                          <div className="font-bold text-slate-800 text-sm">
+                            {submission.forms?.title ?? "Untitled Form"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <StatusBadge status={submission.status} />
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={zippingId === submission.id}
+                            onClick={() =>
+                              handleDownloadAttachmentsZip(
+                                submission,
+                                submission.sites?.name || "",
+                                submission.forms?.title || ""
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
+                          >
+                            {zippingId === submission.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <FolderDown className="h-3.5 w-3.5" />
+                            )}
+                            Download ZIP
+                          </Button>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Link
+                            to="/authenticated/$submissionId"
+                            params={{ submissionId: submission.id }}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View Report
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
+                        No submissions found for this contractor.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    )}
   </motion.section>
 )}
 
