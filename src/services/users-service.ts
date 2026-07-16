@@ -30,12 +30,20 @@ export const usersService = {
       .order("full_name");
   },
 
+   async listContractors() {
+    return supabase
+      .from("contractors")
+      .select("*, sites(id, name, code)")
+      .order("full_name");
+  },
+
   createUser(payload: {
-    role: "admin" | "site_user";
+    role: "admin" | "site_user" | "contractor";
     email: string;
     password: string;
     full_name: string;
     site_id?: string;
+    designation?: string;
   }) {
     return authedFetch("create-user", payload);
   },

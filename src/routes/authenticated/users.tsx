@@ -22,8 +22,8 @@ export const Route = createFileRoute("/authenticated/users")({
 });
 
 // 2. Added super_admin to the types
-type Role = "super_admin" | "admin" | "site_user";
-type TabRole = "admin" | "site_user";
+type Role = "super_admin" | "admin" | "site_user" | "contractor";
+type TabRole = "admin" | "site_user" | "contractor";
 
 function UserManagement() {
   const { data: currentUser } = useCurrentUser();
@@ -62,8 +62,14 @@ function UserManagement() {
     enabled: isSuperAdmin,
   });
 
+  const { data: contractors, isLoading: contractorsLoading } = useQuery({
+  queryKey: ["manage-contractors"],
+  queryFn: () => usersService.listContractors().then((r) => r.data || []),
+  enabled: isSuperAdmin,
+  });
+
   const toggleActiveMutation = useMutation({
-    mutationFn: ({ table, id, is_active }: { table: "admins" | "site_users"; id: string; is_active: boolean }) =>
+    mutationFn: ({ table, id, is_active }: { table: "admins" | "site_users" | "contractors"; id: string; is_active: boolean }) =>
       usersService.setActive(table, id, is_active),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manage-admins"] });
@@ -95,8 +101,8 @@ function UserManagement() {
     );
   }
 
-  const rows = activeTab === "admin" ? admins : siteUsers;
-  const loading = activeTab === "admin" ? adminsLoading : siteUsersLoading;
+  const rows = activeTab === "admin" ? admins : activeTab === "site_user" ? siteUsers : contractors;
+  const loading = activeTab === "admin" ? adminsLoading : activeTab === "site_user" ? siteUsersLoading : contractorsLoading;
 
   return (
     <AppShell>
@@ -164,6 +170,16 @@ function UserManagement() {
             >
               Site Users
             </button>
+            <button
+              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
+                activeTab === "contractor" 
+                  ? "bg-blue-600 text-white shadow-sm" 
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+              onClick={() => setActiveTab("contractor")}
+            >
+              Contractors
+            </button>
           </div>
 
           {/* Data Grid */}
@@ -174,7 +190,7 @@ function UserManagement() {
                   <th className="px-5 py-4 text-slate-700">Name</th>
                   <th className="px-5 py-4 text-slate-700">Email</th>
                   {activeTab === "admin" && <th className="px-5 py-4 text-slate-700">Role</th>}
-                  {activeTab === "site_user" && <th className="px-5 py-4 text-slate-700">Site Location</th>}
+                  {activeTab === "site_user" || activeTab === "contractor" && <th className="px-5 py-4 text-slate-700">Site Location</th>}
                   <th className="px-5 py-4 text-slate-700">Status</th>
                   <th className="px-5 py-4 text-right text-slate-700">Actions</th>
                 </tr>
@@ -231,7 +247,7 @@ function UserManagement() {
                             className={u.is_active ? "border-red-200 text-red-600 shadow-sm hover:bg-red-50" : "border-emerald-200 text-emerald-600 shadow-sm hover:bg-emerald-50"}
                             onClick={() =>
                               toggleActiveMutation.mutate({
-                                table: activeTab === "admin" ? "admins" : "site_users",
+                                table: activeTab === "admin" ? "admins" : activeTab === "site_users" ? "site_users" : "contractors",
                                 id: u.id,
                                 is_active: !u.is_active,
                               })
@@ -287,7 +303,7 @@ function CreateUserInlineForm({
         full_name: fullName,
         email,
         password,
-        site_id: role === "site_user" ? siteId : undefined,
+        site_id: role === "site_user" || role === "contractor" ? siteId : undefined,
       }),
     onSuccess: () => {
       toast.success("User configuration created successfully");
@@ -300,7 +316,7 @@ function CreateUserInlineForm({
     fullName.trim() &&
     email.trim() &&
     password.length >= 8 &&
-    (role !== "site_user" || siteId);
+    (role !== "site_user" && role !== "contractor" || siteId);
 
   return (
     <div>
@@ -316,6 +332,7 @@ function CreateUserInlineForm({
               <option value="super_admin">Super Administrator</option>
               <option value="admin">System Administrator</option>
               <option value="site_user">Site Operator</option>
+              <option value="contractor">Contractor</option>
             </select>
           </div>
 
@@ -342,7 +359,7 @@ function CreateUserInlineForm({
         </div>
 
         <div className="space-y-4">
-          {role === "site_user" && (
+          {role === "site_user" || role === "contractor" && (
             <div className="space-y-1 animate-in fade-in duration-200">
               <label className="text-xs font-bold text-slate-800">Assigned Station Location</label>
               <select

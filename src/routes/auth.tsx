@@ -1,7 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Mail, Lock, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
+import { 
+  Mail,
+  Lock,
+  ArrowRight,
+  AlertTriangle,
+  Loader2,
+  ShieldCheck,
+  } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/client";
@@ -21,6 +28,51 @@ function SjvnHeader() {
   return (
     <header className="w-full flex flex-col font-sans shadow-sm z-20 relative shrink-0">
       {/* National tricolour strip, consistent with the rest of the site */}
+      <div className="flex h-[3px] w-full">
+        <div className="flex-1 bg-[#FF9933]" />
+        <div className="flex-1 bg-white" />
+        <div className="flex-1 bg-[#138808]" />
+      </div>
+
+      <div className="bg-[#0B4F86] py-2 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-black/10 gap-4">
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-center gap-4 w-full md:w-auto"
+        >
+          <div className="bg-white p-1.5 rounded border border-white/20 shadow-sm flex-shrink-0">
+            <img
+              src={sjvnLogo}
+              alt="SJVN Logo"
+              className="w-14 h-14 md:w-16 md:h-16 object-contain"
+            />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-tight">
+              SJVN Limited
+            </h1>
+            <p className="text-xs md:text-sm font-medium mt-0.5 text-white/75">
+              (A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh)
+            </p>
+            <p className="text-[10px] md:text-xs text-white/50 mt-0.5">
+              ISO 9001:2015 Certified &middot; CIN: L40101HP1988GOI008409
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          className="hidden md:flex"
+        >
+          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-full py-1.5 px-4 text-sm font-medium text-white">
+            <ShieldCheck size={16} className="text-white" />
+            A Navratna PSU
+          </div>
+        </motion.div>
+      </div>
     </header>
   );
 }
@@ -84,6 +136,17 @@ function LoginCard() {
         .single();
       if (siteUser) {
         navigate({ to: "/authenticated/site" });
+        return;
+      }
+
+
+      const { data: contractor } = await supabase
+        .from("contractors")
+        .select("id, full_name")
+        .eq("id", userId)
+        .single();
+      if (contractor) {
+        navigate({ to: "/authenticated/contractor" });
         return;
       }
 
@@ -243,18 +306,16 @@ function LoginCard() {
 // --- Page shell ---
 function AuthPage() {
   return (
-    // Hard locked window via position fixed, ensuring exact layout control
-    <div className="fixed inset-0 h-screen w-screen flex flex-col bg-slate-950 overflow-hidden select-none">
+    <div className="min-h-screen flex flex-col bg-slate-950 overflow-hidden">
       <SjvnHeader />
 
-      {/* Main Container - perfectly centers the card vertically and horizontally */}
-      <main
-        className="flex-1 flex items-center justify-center px-4 bg-cover bg-center bg-no-repeat relative overflow-hidden"
+      <div
+        className="flex-1 flex items-start justify-center px-4 py-10 bg-cover bg-center bg-no-repeat relative"
         style={{ backgroundImage: `url(${heroBackground})` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-[#0B4F86]/50" />
         <LoginCard />
-      </main>
+        </div>
     </div>
   );
 }

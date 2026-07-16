@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -26,9 +27,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export const Route = createFileRoute("/authenticated/site/")({
+export const Route = createFileRoute("/authenticated/contractor/")({
   ssr: false,
-  component: SiteDashboard,
+  component: ContractorDashboard,
 });
 
 const ICON_MAP: Record<string, any> = {
@@ -59,21 +60,32 @@ const statusStyles: Record<
   },
 };
 
-function SiteDashboard() {
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.05 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+};
+
+function ContractorDashboard() {
   const navigate = useNavigate();
-  // We use the native YYYY-MM format for the input type="month"
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
 
   const { data: currentUser } = useCurrentUser();
 
-  // 1. Data Fetching Logic
   const { data: formsResult, isLoading: formsLoading } = useQuery({
-  queryKey: ["active-forms", currentUser?.site_id],
-  queryFn: () => formsService.getActiveForms({ role: "site_user", siteId: currentUser?.site_id }),
-  enabled: !!currentUser?.site_id,
-});
+    queryKey: ["active-forms", currentUser?.site_id],
+    queryFn: () => formsService.getActiveForms({ role: "contractor", siteId: currentUser?.site_id }),
+    enabled: !!currentUser?.site_id,
+  });
 
   const requiredForms = (formsResult?.data || []).map((f: any) => ({
     id: f.id,
@@ -98,7 +110,6 @@ function SiteDashboard() {
     return sub?.status || "Not Started";
   };
 
-  // 2. Statistics Calculation
   const total = requiredForms.length;
   const completedCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "submitted").length;
   const inProgressCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "draft").length;
@@ -134,38 +145,39 @@ function SiteDashboard() {
   ];
 
   const goToForm = (formId: string) =>
-  navigate({
-    to: "/authenticated/site/forms/$formId",
-    params: { formId },
-    // Makes sure the URL retains the exact active selected month state configuration!
-    search: { period: selectedMonth }, 
-  });
+    navigate({
+      to: "/authenticated/contractor/forms/$formId",
+      params: { formId },
+      search: { period: selectedMonth },
+    });
 
   return (
     <AppShell>
-      {/* Container breaks out of standard padding to apply the full background gradient */}
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          
-          {/* Hero Section */}
-          <section className="flex">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={containerVariants}
+          className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+        >
+          <motion.section variants={fadeUp} className="flex">
             <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
-                Site Portal
+                Contractor Portal
               </p>
               <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-                Business Responsibility and Sustainability Reporting
+                Environmental Compliance Dashboard
               </h1>
               <p className="mt-1 text-sm text-sky-50">
                 Complete and submit monthly environmental compliance reports.
               </p>
             </div>
-          </section>
+          </motion.section>
 
-          {/* Stats Grid */}
-          <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <motion.section variants={containerVariants} className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
-              <div
+              <motion.div
+                variants={fadeUp}
                 key={label}
                 className={`rounded-xl bg-gradient-to-br ${tint} p-4 ring-1`}
               >
@@ -174,12 +186,11 @@ function SiteDashboard() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <p className="mt-2 text-2xl font-semibold">{value}</p>
-              </div>
+              </motion.div>
             ))}
-          </section>
+          </motion.section>
 
-          {/* Reporting Month Selector */}
-          <section className="mt-6 flex">
+          <motion.section variants={fadeUp} className="mt-6 flex">
             <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
               <Calendar className="h-4 w-4 text-sky-600" />
               <label
@@ -196,20 +207,18 @@ function SiteDashboard() {
                 className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
             </div>
-          </section>
+          </motion.section>
 
-          {/* Forms Grid */}
-          <section className="mt-6 pb-12">
+          <motion.section variants={fadeUp} className="mt-6">
             {formsLoading ? (
                <p className="text-sm text-slate-500 font-medium p-4">Loading forms...</p>
             ) : requiredForms.length === 0 ? (
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <motion.div variants={containerVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {requiredForms.map(({ id, name, description, icon: Icon }) => {
                   const originalStatus = getOriginalStatus(id);
                   
-                  // Map database status to UI status
                   const mappedStatus: MappedStatus = 
                     originalStatus === "submitted" ? "completed" 
                     : originalStatus === "draft" ? "in-progress" 
@@ -218,7 +227,8 @@ function SiteDashboard() {
                   const s = statusStyles[mappedStatus];
 
                   return (
-                    <article
+                    <motion.article
+                      variants={fadeUp}
                       key={id}
                       className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md"
                     >
@@ -252,13 +262,13 @@ function SiteDashboard() {
                           <ArrowRight className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </article>
+                    </motion.article>
                   );
                 })}
-              </div>
+              </motion.div>
             )}
-          </section>
-        </div>
+          </motion.section>
+        </motion.div>
       </div>
     </AppShell>
   );

@@ -55,6 +55,15 @@ serve(async (req) => {
         is_active: true 
       })
       if (error) throw error
+    } else if (role === 'contractor') {
+      const { error } = await supabaseClient.from('contractors').insert({ 
+        id: authUser.user.id, 
+        full_name, 
+        site_id, 
+        designation,
+        is_active: true 
+      })
+      if (error) throw error
     }
 
     return new Response(JSON.stringify({ success: true, userId: authUser.user.id }), {

@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/client";
 import sjvnLogoImg from "../../assets/sjvn-logo.jpeg";
 import { NAV_ITEMS } from "./site-nav-data";
 
+import { authService } from "@/services/auth";
+
 const ROUTE_LABELS: Record<string, string> = {
   auth: "Login",
   authenticated: "Portal",
@@ -160,38 +162,21 @@ export function SiteHeader() {
   const [user, setUser] = useState<any>(null);
 
 // --- RE-ENGINEERED INSTANT SYNCHRONIZED ROLE FETCHING ---
-  const { data: userRole } = useQuery({
-    queryKey: ["header-user-role", user?.id],
-    queryFn: async () => {
-      // Step A: Grab session natively inside the promise wrapper if state is missing
-      let currentUserId = user?.id;
-      if (!currentUserId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        currentUserId = session?.user?.id;
-      }
-      
-      if (!currentUserId) return null;
-
-      // Step B: Query user configurations immediately
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", currentUserId);
-      
-      if (roles?.some((r) => r.role === "super_admin")) return "super_admin";
-      if (roles?.some((r) => r.role === "admin")) return "admin";
-      return "site_user";
-    },
-    // Keep it active even if the state hook hasn't caught up yet
+  const { data: currentUser } = useQuery({
+    queryKey: ["header-current-user", user?.id],
+    queryFn: () => authService.getCurrentUser(),
+    enabled: !!user,
     refetchOnWindowFocus: false,
   });
 
-  // Dynamic route dispatcher based on their assigned group
-  const dashboardTarget = 
-    userRole === "super_admin"
+  // Dynamic route dispatcher based on their assigned role
+  const dashboardTarget =
+    currentUser?.role === "super_admin"
       ? "/authenticated/supadmin"
-      : userRole === "admin"
+      : currentUser?.role === "admin"
       ? "/authenticated/app"
+      : currentUser?.role === "contractor"
+      ? "/authenticated/contractor"
       : "/authenticated/site";
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -212,6 +197,9 @@ export function SiteHeader() {
   };
 
   const isAuthenticated = !!user;
+
+  // Compute dynamic dashboard link target based on user roles
+   
 
   return (
     <header className="sticky top-0 z-50 w-full shrink-0">
@@ -250,16 +238,6 @@ export function SiteHeader() {
           {/* Left Side: Navigation Links */}
           <div className="flex items-center h-full">
             <ul className="hidden items-stretch h-full xl:flex">
-              {NAV_ITEMS && NAV_ITEMS.length > 0 && (
-                <li className="flex items-center">
-                  <Link 
-                    to="/" 
-                    className="flex h-full items-center px-4 text-[13px] font-medium text-white/85 hover:text-white"
-                  >
-                    Home
-                  </Link>
-                </li>
-              )}
               {NAV_ITEMS && NAV_ITEMS.slice(1).map((item) => (
                 <li
                   key={item.label}
@@ -306,7 +284,7 @@ export function SiteHeader() {
           </div>
 
           {/* Right Side: Breadcrumbs + Actions (Login/Logout/Dashboard) */}
-          <div className="hidden h-full items-center gap-3 xl:flex">
+          <div className="ml-auto hidden h-full items-center gap-3 xl:flex">
             <SiteBreadcrumb isAuthenticated={isAuthenticated} />
 
             {isAuthenticated ? (
@@ -348,6 +326,44 @@ export function SiteHeader() {
             Menu
           </button>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileOpen && (
+          <div className="border-t border-white/10 bg-[#0B4F86] px-4 py-3 xl:hidden">
+            <div className="flex flex-col gap-3">
+              {/* Mobile actions */}
+              {isAuthenticated ? (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to={dashboardTarget}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex h-9 items-center justify-center gap-1.5 rounded bg-[#3FC1A0] text-xs font-semibold text-slate-900"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex h-9 items-center justify-center gap-1.5 rounded bg-red-600 text-xs font-semibold text-white"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/auth"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex h-9 items-center justify-center gap-1.5 rounded bg-[#0F8B6C] text-xs font-semibold text-white"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Login
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Mobile breadcrumb bar */}
         <div className="flex items-center border-t border-white/10 bg-black/10 px-4 py-2 xl:hidden">
