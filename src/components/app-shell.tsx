@@ -131,24 +131,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
 
-            <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
-              <img
-                src={sjvnLogo}
-                alt="SJVN Logo"
-                className="w-16 h-16 md:w-[72px] md:h-[72px] object-contain"
-              />
-            </div>
-            <div className="flex flex-col text-gray-800">
-              <h1 className="text-2xl md:text-[28px] font-extrabold text-[#095a7d] tracking-tight leading-tight">
-                SJVN Limited
-              </h1>
-              <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
-                (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
-              </p>
-              <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
-                ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
-              </p>
-            </div>
+            <Link to="/" className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90">
+              <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
+                <img
+                  src={sjvnLogo}
+                  alt="SJVN Logo"
+                  className="w-16 h-16 md:w-[72px] md:h-[72px] object-contain"
+                />
+              </div>
+              <div className="flex flex-col text-gray-800">
+                <h1 className="text-2xl md:text-[28px] font-extrabold text-[#095a7d] tracking-tight leading-tight">
+                  SJVN Limited
+                </h1>
+                <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
+                  (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
+                </p>
+                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                  ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
+                </p>
+              </div>
+            </Link>
           </div>
 
           {/* Right Side: Breadcrumbs and Admin Badge */}

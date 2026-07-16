@@ -211,8 +211,12 @@ export function SiteHeader() {
       </div>
 
       {/* Brand header */}
+      {/* Brand header */}
       <div className="w-full border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
+        <Link
+          to="/"
+          className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 transition-opacity duration-150 hover:opacity-90"
+        >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-slate-200 bg-white sm:h-16 sm:w-16">
             <img src={sjvnLogoImg} alt="SJVN Logo" className="h-full w-full object-contain p-1" />
           </div>
@@ -228,7 +232,7 @@ export function SiteHeader() {
               ISO 9001:2015 Certified &middot; CIN: L40101HP1988GOI008409
             </p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Primary nav bar */}
