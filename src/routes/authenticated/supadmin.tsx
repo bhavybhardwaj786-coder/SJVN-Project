@@ -69,45 +69,44 @@ function SuperAdminDashboard() {
         className="mx-auto max-w-5xl space-y-8 p-2 sm:p-4 text-slate-900"
       >
         {/* Simple, clean text header */}
-        <motion.div variants={itemVariants} className="mb-2">
-          <h1 className="font-display text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-            Super Admin
-          </h1>
-          <p className="mt-1.5 text-sm font-medium text-slate-500">
-            Identity & Access Management Portal
-          </p>
+        <motion.div variants={itemVariants} className="flex">
+          <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
+              Super Admin Portal
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+              Identity & Access Management
+            </h1>
+            <p className="mt-1 max-w-md text-sm text-sky-50">
+              Manage administrators, site operators, and project access.
+            </p>
+          </div>
         </motion.div>
 
         {/* Global Directory Overview Grid */}
-        <motion.section variants={itemVariants} className="grid gap-5 sm:grid-cols-3">
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-transform hover:-translate-y-1">
-            <div>
-              <p className="text-3xl font-black text-slate-900">{totalAdmins}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">System Administrators</p>
+        <motion.section variants={itemVariants} className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 ring-1 ring-indigo-100 p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-indigo-700">System Administrators</span>
+              <ShieldCheck className="h-4 w-4 text-indigo-700" />
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-inner">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
+            <p className="mt-2 text-2xl font-semibold text-indigo-700">{totalAdmins}</p>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-transform hover:-translate-y-1">
-            <div>
-              <p className="text-3xl font-black text-emerald-600">{totalSiteUsers}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">Site Operators</p>
+          <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 ring-1 ring-emerald-100 p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-emerald-700">Site Operators</span>
+              <Users className="h-4 w-4 text-emerald-700" />
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-inner">
-              <Users className="h-6 w-6" />
-            </div>
+            <p className="mt-2 text-2xl font-semibold text-emerald-700">{totalSiteUsers}</p>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-transform hover:-translate-y-1">
-            <div>
-              <p className="text-3xl font-black text-blue-600">{totalSites}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">Mapped Projects</p>
+          <div className="rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 ring-1 ring-sky-100 p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-sky-700">Mapped Projects</span>
+              <MapPinned className="h-4 w-4 text-sky-700" />
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-inner">
-              <MapPinned className="h-6 w-6" />
-            </div>
+            <p className="mt-2 text-2xl font-semibold text-sky-700">{totalSites}</p>
           </div>
         </motion.section>
 
