@@ -1,28 +1,28 @@
 import { supabase } from '@/lib/supabase'
 
-async function createForm(payload: {
-  title: string;
-  description: string;
-  schema: { icon: string; fields: FormField[] };
-  is_active: boolean;
-  frequency: string;
-  site_ids: string[] | null;
-}) {
-  const { data, error } = await supabase
-    .from("forms")
-    .insert({
-      title: payload.title,
-      description: payload.description,
-      schema: payload.schema,
-      is_active: payload.is_active,
-      frequency: payload.frequency,
-      site_ids: payload.site_ids,
-    })
-    .select()
-    .single();
+/// async function createForm(payload: {
+///  title: string;
+///  description: string;
+///  schema: { icon: string; fields: FormField[] };
+///  is_active: boolean;
+///  frequency: string;
+///  site_ids: string[] | null;
+///}) {
+///  const { data, error } = await supabase
+///    .from("forms")
+///    .insert({
+///      title: payload.title,
+///      description: payload.description,
+///      schema: payload.schema,
+///      is_active: payload.is_active,
+///      frequency: payload.frequency,
+///      site_ids: payload.site_ids,
+///    })
+///    .select()
+///    .single();
 
-  return { data, error };
-}
+///  return { data, error };
+///}
 
 export const formsService = {
 
@@ -49,13 +49,24 @@ export const formsService = {
     return formsService.updateForm(id, { is_active: false })
   },
 
-  getActiveForms: async () => {
-    const { data, error } = await supabase
+  getActiveForms: async (options: { role: "site_user" | "contractor"; siteId?: string }) => {
+    const { role, siteId } = options;
+    let query = supabase
       .from('forms')
       .select('*')
-      .eq('is_active', true)
-      .order('title')
-    return { data, error }
+      .eq('is_active', true);
+
+    query = role === "site_user"
+      ? query.eq('visible_to_site_users', true)
+      : query.eq('visible_to_contractors', true);
+
+    if (siteId) {
+      // site_ids is NULL (visible to all sites) OR contains this site's id
+      query = query.or(`site_ids.is.null,site_ids.cs.{${siteId}}`);
+    }
+
+    const { data, error } = await query.order('title');
+    return { data, error };
   },
 
   getFormById: async (id: string) => {

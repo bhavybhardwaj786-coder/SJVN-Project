@@ -109,6 +109,8 @@ function NewForm() {
   const [fields, setFields] = useState<FormField[]>([]);
   const [visibilityMode, setVisibilityMode] = useState<"all" | "specific">("all");
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
+  const [visibleToSiteUsers, setVisibleToSiteUsers] = useState(true);
+  const [visibleToContractors, setVisibleToContractors] = useState(true);
 
   const {
     data: existingForm,
@@ -128,23 +130,25 @@ function NewForm() {
   });
 
   useEffect(() => {
-    if (existingForm) {
-      setTitle(existingForm.title || "");
-      setDescription(existingForm.description || "");
-      setFrequency(existingForm.frequency || "monthly");
-      setIsActive(existingForm.is_active ?? true);
-      if (existingForm.schema) {
-        setIcon(existingForm.schema.icon || ICON_OPTIONS[0]);
-        setFields(existingForm.schema.fields || []);
-      }
-      if (existingForm.site_ids && existingForm.site_ids.length > 0) {
-        setVisibilityMode("specific");
-        setSelectedSiteIds(new Set(existingForm.site_ids));
-      } else {
-        setVisibilityMode("all");
-      }
+  if (existingForm) {
+    setTitle(existingForm.title || "");
+    setDescription(existingForm.description || "");
+    setFrequency(existingForm.frequency || "monthly");
+    setIsActive(existingForm.is_active ?? true);
+    setVisibleToSiteUsers(existingForm.visible_to_site_users ?? true);
+    setVisibleToContractors(existingForm.visible_to_contractors ?? true);
+    if (existingForm.schema) {
+      setIcon(existingForm.schema.icon || ICON_OPTIONS[0]);
+      setFields(existingForm.schema.fields || []);
     }
-  }, [existingForm]);
+    if (existingForm.site_ids && existingForm.site_ids.length > 0) {
+      setVisibilityMode("specific");
+      setSelectedSiteIds(new Set(existingForm.site_ids));
+    } else {
+      setVisibilityMode("all");
+    }
+  }
+}, [existingForm]);
 
   const { data: sitesResult, isLoading: sitesLoading } = useQuery({
     queryKey: ["all-sites"],
@@ -175,10 +179,15 @@ function NewForm() {
     return null;
   };
 
-  const validateStep3 = (): string | null =>
-    visibilityMode === "specific" && selectedSiteIds.size === 0
-      ? 'Select at least one site, or switch to "All Sites".'
-      : null;
+  const validateStep3 = (): string | null => {
+  if (!visibleToSiteUsers && !visibleToContractors) {
+    return "Select at least one audience: Site Users, Contractors, or both.";
+  }
+  if (visibilityMode === "specific" && selectedSiteIds.size === 0) {
+    return 'Select at least one site, or switch to "All Sites".';
+  }
+  return null;
+};
 
   const validateAll = (): string | null => validateStep1() || validateStep2() || validateStep3();
 
@@ -239,13 +248,15 @@ function NewForm() {
           : {}),
       }));
       const payload = {
-        title: title.trim(),
-        description: description.trim() || null,
-        schema: { icon, fields: cleanFields },
-        is_active: isActive,
-        frequency,
-        site_ids: visibilityMode === "all" ? null : Array.from(selectedSiteIds),
-      };
+  title: title.trim(),
+  description: description.trim() || null,
+  schema: { icon, fields: cleanFields },
+  is_active: isActive,
+  frequency,
+  site_ids: visibilityMode === "all" ? null : Array.from(selectedSiteIds),
+  visible_to_site_users: visibleToSiteUsers,
+  visible_to_contractors: visibleToContractors,
+};
       return editId ? formsService.updateForm(editId, payload) : formsService.createForm(payload);
     },
     onSuccess: (result) => {
@@ -576,53 +587,75 @@ function NewForm() {
             </section>
 
             <section id="visibility">
-              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">03 — Visibility</p>
-              <h2 className="mt-1 text-lg font-bold text-neutral-900">Who can see this form?</h2>
-              <div className="mt-4 space-y-4 border-t border-neutral-200 pt-5">
-                <div className="flex gap-4">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
-                    All Sites
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "specific"} onChange={() => setVisibilityMode("specific")} />
-                    Specific Sites
-                  </label>
-                </div>
-                {visibilityMode === "specific" && (
-                  <div>
-                    <div className="mb-2 flex justify-end gap-2">
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set(sites.map((s) => s.id)))}>Select All</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set())}>Clear</Button>
-                    </div>
-                    {sitesLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {sites.map((site) => (
-                          <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-2 text-sm transition-colors hover:bg-neutral-50">
-                            <Checkbox
-                              checked={selectedSiteIds.has(site.id)}
-                              onCheckedChange={() => {
-                                setSelectedSiteIds((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(site.id)) next.delete(site.id); else next.add(site.id);
-                                  return next;
-                                });
-                              }}
-                            />
-                            <span>{site.name} <span className="text-xs text-neutral-500">({site.code})</span></span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <p className="text-xs text-neutral-500">
-                  {visibilityMode === "all" ? "This form appears on every site's dashboard." : "This form only appears on the dashboards of the sites you select."}
-                </p>
-              </div>
-            </section>
+  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">03 — Visibility</p>
+  <h2 className="mt-1 text-lg font-bold text-neutral-900">Who can see this form?</h2>
+  <div className="mt-4 space-y-4 border-t border-neutral-200 pt-5">
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-neutral-900">Who can fill this out?</Label>
+      <div className="flex gap-4">
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox
+            checked={visibleToSiteUsers}
+            onCheckedChange={(v) => setVisibleToSiteUsers(!!v)}
+          />
+          Site Users
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox
+            checked={visibleToContractors}
+            onCheckedChange={(v) => setVisibleToContractors(!!v)}
+          />
+          Contractors
+        </label>
+      </div>
+    </div>
+
+    <div className="flex gap-4">
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
+        All Sites
+      </label>
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "specific"} onChange={() => setVisibilityMode("specific")} />
+        Specific Sites
+      </label>
+    </div>
+
+    {visibilityMode === "specific" && (
+      <div>
+        <div className="mb-2 flex justify-end gap-2">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set(sites.map((s) => s.id)))}>Select All</Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set())}>Clear</Button>
+        </div>
+        {sitesLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {sites.map((site) => (
+              <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-2 text-sm transition-colors hover:bg-neutral-50">
+                <Checkbox
+                  checked={selectedSiteIds.has(site.id)}
+                  onCheckedChange={() => {
+                    setSelectedSiteIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(site.id)) next.delete(site.id); else next.add(site.id);
+                      return next;
+                    });
+                  }}
+                />
+                <span>{site.name} <span className="text-xs text-neutral-500">({site.code})</span></span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
+    <p className="text-xs text-neutral-500">
+      {visibilityMode === "all" ? "This form appears on every site's dashboard." : "This form only appears on the dashboards of the sites you select."}
+    </p>
+  </div>
+</section>
 
             <div className="flex justify-end gap-2 border-t border-neutral-200 pt-6">
               <Button variant="outline" onClick={() => navigate({ to: "/authenticated/app" })}>Cancel</Button>

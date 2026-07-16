@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/client";
 import sjvnLogoImg from "../../assets/sjvn-logo.jpeg";
 import { NAV_ITEMS } from "./site-nav-data";
 
+import { authService } from "@/services/auth";
+
 const ROUTE_LABELS: Record<string, string> = {
   auth: "Login",
   authenticated: "Portal",
@@ -160,38 +162,21 @@ export function SiteHeader() {
   const [user, setUser] = useState<any>(null);
 
 // --- RE-ENGINEERED INSTANT SYNCHRONIZED ROLE FETCHING ---
-  const { data: userRole } = useQuery({
-    queryKey: ["header-user-role", user?.id],
-    queryFn: async () => {
-      // Step A: Grab session natively inside the promise wrapper if state is missing
-      let currentUserId = user?.id;
-      if (!currentUserId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        currentUserId = session?.user?.id;
-      }
-      
-      if (!currentUserId) return null;
-
-      // Step B: Query user configurations immediately
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", currentUserId);
-      
-      if (roles?.some((r) => r.role === "super_admin")) return "super_admin";
-      if (roles?.some((r) => r.role === "admin")) return "admin";
-      return "site_user";
-    },
-    // Keep it active even if the state hook hasn't caught up yet
+  const { data: currentUser } = useQuery({
+    queryKey: ["header-current-user", user?.id],
+    queryFn: () => authService.getCurrentUser(),
+    enabled: !!user,
     refetchOnWindowFocus: false,
   });
 
-  // Dynamic route dispatcher based on their assigned group
-  const dashboardTarget = 
-    userRole === "super_admin"
+  // Dynamic route dispatcher based on their assigned role
+  const dashboardTarget =
+    currentUser?.role === "super_admin"
       ? "/authenticated/supadmin"
-      : userRole === "admin"
+      : currentUser?.role === "admin"
       ? "/authenticated/app"
+      : currentUser?.role === "contractor"
+      ? "/authenticated/contractor"
       : "/authenticated/site";
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -214,13 +199,7 @@ export function SiteHeader() {
   const isAuthenticated = !!user;
 
   // Compute dynamic dashboard link target based on user roles
-  const getDashboardTarget = () => {
-    const role = user?.user_metadata?.role;
-    if (role === "superadmin") return "/authenticated/supadmin";
-    if (role === "admin") return "/authenticated/app";
-    if (role === "site_user" || role === "site") return "/authenticated/site";
-    return "/";
-  };
+   
 
   return (
     <header className="sticky top-0 z-50 w-full shrink-0">
@@ -311,7 +290,7 @@ export function SiteHeader() {
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
-                  to={getDashboardTarget()}
+                  to={dashboardTarget}
                   className="flex h-8 items-center gap-1.5 rounded bg-[#3FC1A0] px-3 text-xs font-semibold text-slate-900 transition-colors duration-150 hover:bg-[#32a88a]"
                 >
                   <LayoutDashboard className="h-3.5 w-3.5" />
@@ -356,7 +335,7 @@ export function SiteHeader() {
               {isAuthenticated ? (
                 <div className="flex flex-col gap-2">
                   <Link
-                    to={getDashboardTarget()}
+                    to={dashboardTarget}
                     onClick={() => setMobileOpen(false)}
                     className="flex h-9 items-center justify-center gap-1.5 rounded bg-[#3FC1A0] text-xs font-semibold text-slate-900"
                   >

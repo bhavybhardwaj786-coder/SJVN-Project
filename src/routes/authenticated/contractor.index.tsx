@@ -27,9 +27,9 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-export const Route = createFileRoute("/authenticated/site/")({
+export const Route = createFileRoute("/authenticated/contractor/")({
   ssr: false,
-  component: SiteDashboard,
+  component: ContractorDashboard,
 });
 
 const ICON_MAP: Record<string, any> = {
@@ -73,21 +73,19 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
 };
 
-function SiteDashboard() {
+function ContractorDashboard() {
   const navigate = useNavigate();
-  // We use the native YYYY-MM format for the input type="month"
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
 
   const { data: currentUser } = useCurrentUser();
 
-  // 1. Data Fetching Logic
   const { data: formsResult, isLoading: formsLoading } = useQuery({
-  queryKey: ["active-forms", currentUser?.site_id],
-  queryFn: () => formsService.getActiveForms({ role: "site_user", siteId: currentUser?.site_id }),
-  enabled: !!currentUser?.site_id,
-});
+    queryKey: ["active-forms", currentUser?.site_id],
+    queryFn: () => formsService.getActiveForms({ role: "contractor", siteId: currentUser?.site_id }),
+    enabled: !!currentUser?.site_id,
+  });
 
   const requiredForms = (formsResult?.data || []).map((f: any) => ({
     id: f.id,
@@ -112,7 +110,6 @@ function SiteDashboard() {
     return sub?.status || "Not Started";
   };
 
-  // 2. Statistics Calculation
   const total = requiredForms.length;
   const completedCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "submitted").length;
   const inProgressCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "draft").length;
@@ -149,14 +146,13 @@ function SiteDashboard() {
 
   const goToForm = (formId: string) =>
     navigate({
-      to: "/authenticated/site/forms/$formId",
+      to: "/authenticated/contractor/forms/$formId",
       params: { formId },
       search: { period: selectedMonth },
     });
 
   return (
     <AppShell>
-      {/* Container breaks out of standard padding to apply the full background gradient */}
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
         <motion.div
           initial="hidden"
@@ -164,11 +160,10 @@ function SiteDashboard() {
           variants={containerVariants}
           className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
         >
-          {/* Hero Section */}
           <motion.section variants={fadeUp} className="flex">
             <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
-                Site Portal
+                Contractor Portal
               </p>
               <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
                 Environmental Compliance Dashboard
@@ -179,7 +174,6 @@ function SiteDashboard() {
             </div>
           </motion.section>
 
-          {/* Stats Grid */}
           <motion.section variants={containerVariants} className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
               <motion.div
@@ -196,7 +190,6 @@ function SiteDashboard() {
             ))}
           </motion.section>
 
-          {/* Reporting Month Selector */}
           <motion.section variants={fadeUp} className="mt-6 flex">
             <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
               <Calendar className="h-4 w-4 text-sky-600" />
@@ -216,7 +209,6 @@ function SiteDashboard() {
             </div>
           </motion.section>
 
-          {/* Forms Grid */}
           <motion.section variants={fadeUp} className="mt-6">
             {formsLoading ? (
                <p className="text-sm text-slate-500 font-medium p-4">Loading forms...</p>
@@ -227,7 +219,6 @@ function SiteDashboard() {
                 {requiredForms.map(({ id, name, description, icon: Icon }) => {
                   const originalStatus = getOriginalStatus(id);
                   
-                  // Map database status to UI status
                   const mappedStatus: MappedStatus = 
                     originalStatus === "submitted" ? "completed" 
                     : originalStatus === "draft" ? "in-progress" 

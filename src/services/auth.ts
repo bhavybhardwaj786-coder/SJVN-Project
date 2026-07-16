@@ -1,13 +1,13 @@
 import { supabase } from '@/lib/supabase'
 
-export type UserRole = 'super_admin' | 'admin' | 'site_user'
+export type UserRole = 'super_admin' | 'admin' | 'site_user' | 'contractor'
 
 export interface CurrentUser {
   id: string
   full_name: string
   role: UserRole
-  site_id?: string        // only present for site_users
-  designation?: string    // only present for site_users
+  site_id?: string        // present for site_users and contractors
+  designation?: string    // present for site_users and contractors
 }
 
 export const authService = {
@@ -21,7 +21,7 @@ export const authService = {
       .from('super_admins')
       .select('id, full_name')
       .eq('id', user.id)
-      .maybeSingle() // 👈 Changed from .single() to prevent crash on no-match
+      .maybeSingle()
     if (superAdmin) return { ...superAdmin, role: 'super_admin' }
 
     // 3. Safely check if the user is a standard Admin
@@ -40,7 +40,15 @@ export const authService = {
       .maybeSingle()
     if (siteUser) return { ...siteUser, role: 'site_user' }
 
-    // 5. Fallback return value if profile has not populated yet
+    // 5. Safely check if the user is a Contractor
+    const { data: contractor } = await supabase
+      .from('contractors')
+      .select('id, full_name, site_id, designation')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (contractor) return { ...contractor, role: 'contractor' }
+
+    // 6. Fallback return value if profile has not populated yet
     return null
   },
 

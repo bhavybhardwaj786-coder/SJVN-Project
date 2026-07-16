@@ -18,7 +18,9 @@ import { Route as AuthenticatedAppRouteImport } from './routes/authenticated/app
 import { Route as AuthenticatedAdminRouteImport } from './routes/authenticated/admin'
 import { Route as AuthenticatedSubmissionIdRouteImport } from './routes/authenticated/$submissionId'
 import { Route as AuthenticatedSiteIndexRouteImport } from './routes/authenticated/site.index'
+import { Route as AuthenticatedContractorIndexRouteImport } from './routes/authenticated/contractor.index'
 import { Route as AuthenticatedSiteFormsFormIdRouteImport } from './routes/authenticated/site.forms.$formId'
+import { Route as AuthenticatedContractorFormsFormIdRouteImport } from './routes/authenticated/contractor.forms.$formId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -66,10 +68,22 @@ const AuthenticatedSiteIndexRoute = AuthenticatedSiteIndexRouteImport.update({
   path: '/authenticated/site/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedContractorIndexRoute =
+  AuthenticatedContractorIndexRouteImport.update({
+    id: '/authenticated/contractor/',
+    path: '/authenticated/contractor/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedSiteFormsFormIdRoute =
   AuthenticatedSiteFormsFormIdRouteImport.update({
     id: '/authenticated/site/forms/$formId',
     path: '/authenticated/site/forms/$formId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedContractorFormsFormIdRoute =
+  AuthenticatedContractorFormsFormIdRouteImport.update({
+    id: '/authenticated/contractor/forms/$formId',
+    path: '/authenticated/contractor/forms/$formId',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -82,7 +96,9 @@ export interface FileRoutesByFullPath {
   '/authenticated/new': typeof AuthenticatedNewRoute
   '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
   '/authenticated/users': typeof AuthenticatedUsersRoute
+  '/authenticated/contractor/': typeof AuthenticatedContractorIndexRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/contractor/forms/$formId': typeof AuthenticatedContractorFormsFormIdRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRoutesByTo {
@@ -94,7 +110,9 @@ export interface FileRoutesByTo {
   '/authenticated/new': typeof AuthenticatedNewRoute
   '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
   '/authenticated/users': typeof AuthenticatedUsersRoute
+  '/authenticated/contractor': typeof AuthenticatedContractorIndexRoute
   '/authenticated/site': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/contractor/forms/$formId': typeof AuthenticatedContractorFormsFormIdRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRoutesById {
@@ -107,7 +125,9 @@ export interface FileRoutesById {
   '/authenticated/new': typeof AuthenticatedNewRoute
   '/authenticated/supadmin': typeof AuthenticatedSupadminRoute
   '/authenticated/users': typeof AuthenticatedUsersRoute
+  '/authenticated/contractor/': typeof AuthenticatedContractorIndexRoute
   '/authenticated/site/': typeof AuthenticatedSiteIndexRoute
+  '/authenticated/contractor/forms/$formId': typeof AuthenticatedContractorFormsFormIdRoute
   '/authenticated/site/forms/$formId': typeof AuthenticatedSiteFormsFormIdRoute
 }
 export interface FileRouteTypes {
@@ -121,7 +141,9 @@ export interface FileRouteTypes {
     | '/authenticated/new'
     | '/authenticated/supadmin'
     | '/authenticated/users'
+    | '/authenticated/contractor/'
     | '/authenticated/site/'
+    | '/authenticated/contractor/forms/$formId'
     | '/authenticated/site/forms/$formId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -133,7 +155,9 @@ export interface FileRouteTypes {
     | '/authenticated/new'
     | '/authenticated/supadmin'
     | '/authenticated/users'
+    | '/authenticated/contractor'
     | '/authenticated/site'
+    | '/authenticated/contractor/forms/$formId'
     | '/authenticated/site/forms/$formId'
   id:
     | '__root__'
@@ -145,7 +169,9 @@ export interface FileRouteTypes {
     | '/authenticated/new'
     | '/authenticated/supadmin'
     | '/authenticated/users'
+    | '/authenticated/contractor/'
     | '/authenticated/site/'
+    | '/authenticated/contractor/forms/$formId'
     | '/authenticated/site/forms/$formId'
   fileRoutesById: FileRoutesById
 }
@@ -158,7 +184,9 @@ export interface RootRouteChildren {
   AuthenticatedNewRoute: typeof AuthenticatedNewRoute
   AuthenticatedSupadminRoute: typeof AuthenticatedSupadminRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
+  AuthenticatedContractorIndexRoute: typeof AuthenticatedContractorIndexRoute
   AuthenticatedSiteIndexRoute: typeof AuthenticatedSiteIndexRoute
+  AuthenticatedContractorFormsFormIdRoute: typeof AuthenticatedContractorFormsFormIdRoute
   AuthenticatedSiteFormsFormIdRoute: typeof AuthenticatedSiteFormsFormIdRoute
 }
 
@@ -227,11 +255,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSiteIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/authenticated/contractor/': {
+      id: '/authenticated/contractor/'
+      path: '/authenticated/contractor'
+      fullPath: '/authenticated/contractor/'
+      preLoaderRoute: typeof AuthenticatedContractorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/authenticated/site/forms/$formId': {
       id: '/authenticated/site/forms/$formId'
       path: '/authenticated/site/forms/$formId'
       fullPath: '/authenticated/site/forms/$formId'
       preLoaderRoute: typeof AuthenticatedSiteFormsFormIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/authenticated/contractor/forms/$formId': {
+      id: '/authenticated/contractor/forms/$formId'
+      path: '/authenticated/contractor/forms/$formId'
+      fullPath: '/authenticated/contractor/forms/$formId'
+      preLoaderRoute: typeof AuthenticatedContractorFormsFormIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -246,7 +288,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedNewRoute: AuthenticatedNewRoute,
   AuthenticatedSupadminRoute: AuthenticatedSupadminRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
+  AuthenticatedContractorIndexRoute: AuthenticatedContractorIndexRoute,
   AuthenticatedSiteIndexRoute: AuthenticatedSiteIndexRoute,
+  AuthenticatedContractorFormsFormIdRoute:
+    AuthenticatedContractorFormsFormIdRoute,
   AuthenticatedSiteFormsFormIdRoute: AuthenticatedSiteFormsFormIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -139,6 +139,17 @@ function LoginCard() {
         return;
       }
 
+
+      const { data: contractor } = await supabase
+        .from("contractors")
+        .select("id, full_name")
+        .eq("id", userId)
+        .single();
+      if (contractor) {
+        navigate({ to: "/authenticated/contractor" });
+        return;
+      }
+
       setErrorMsg("No role assigned to this account.");
       toast.error("No role assigned to this account.");
       setStatus("denied");
