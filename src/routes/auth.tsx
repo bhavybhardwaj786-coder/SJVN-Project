@@ -1,7 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Mail, Lock, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
+import { 
+  Mail,
+  Lock,
+  ArrowRight,
+  AlertTriangle,
+  Loader2,
+  ShieldCheck,
+  } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { supabase } from "@/integrations/client";
@@ -297,7 +304,7 @@ function AuthPage() {
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-[#0B4F86]/50" />
         <LoginCard />
-      </main>
+        </div>
     </div>
   );
 }
