@@ -2,7 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Loader2, FileText, MapPin, Calendar, User, Clock, ClipboardList } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Download, 
+  Loader2, 
+  FileText, 
+  MapPin, 
+  Calendar, 
+  User, 
+  Clock, 
+  ClipboardList, 
+  ExternalLink 
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -452,22 +463,41 @@ function SubmissionDetail() {
                 animate="show"
                 className="divide-y"
               >
-                {fields.map((field: any, index: number) => (
-                  <motion.div
-                    key={field.key}
-                    variants={rowVariants}
-                    className={`flex flex-col justify-between gap-2 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-6 ${
-                      index % 2 === 0 ? "bg-transparent" : "bg-muted/10"
-                    }`}
-                  >
-                    <dt className="text-sm font-medium leading-relaxed text-muted-foreground sm:w-1/2">
-                      {field.label}
-                    </dt>
-                    <dd className="break-words text-sm font-semibold text-foreground sm:w-1/2 sm:text-right">
-                      {formatFieldValue(field, values[field.key])}
-                    </dd>
-                  </motion.div>
-                ))}
+                {fields.map((field: any, index: number) => {
+                  const fileUrl = values[`${field.key}_file`] ?? null;
+                  const fileName = values[`${field.key}_filename`] ?? "Evidence Document";
+
+                  return (
+                    <motion.div
+                      key={field.key}
+                      variants={rowVariants}
+                      className={`flex flex-col justify-between gap-2 p-5 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-6 ${
+                        index % 2 === 0 ? "bg-transparent" : "bg-muted/10"
+                      }`}
+                    >
+                      <dt className="text-sm font-medium leading-relaxed text-muted-foreground sm:w-1/3">
+                        {field.label}
+                      </dt>
+                      
+                      <dd className="flex flex-col sm:items-end gap-2 text-sm font-semibold text-foreground sm:w-2/3 sm:text-right">
+                        <span>{formatFieldValue(field, values[field.key])}</span>
+                        
+                        {/* Display inline link dynamically if an evidence file was attached to this parameter */}
+                        {fileUrl && (
+                          <a 
+                            href={fileUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1 text-xs rounded bg-slate-100 hover:bg-[#eaf3f6] border border-slate-200 px-2 py-1 text-[#095a7d] transition-all font-bold w-fit sm:ml-auto"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            {fileName}
+                          </a>
+                        )}
+                      </dd>
+                    </motion.div>
+                  );
+                })}
 
                 {fields.length === 0 && (
                   <div className="p-8 text-center text-sm text-muted-foreground">
