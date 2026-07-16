@@ -13,7 +13,8 @@ import {
 import { AppShell } from "@/components/app-shell";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { supabase } from "@/integrations/client";
-import { usersService } from "@/services/users-service";
+import { usersService } from "@/services/users-service"
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/authenticated/supadmin")({
   ssr: false,
@@ -120,37 +121,59 @@ function SuperAdminDashboard() {
             </div>
             
             <div className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              
+  
               <Link 
                 to="/authenticated/users" 
                 search={{ action: "create" }} 
-                className="group flex flex-col p-8 transition-colors hover:bg-slate-50/50"
+                className="group flex flex-col p-8 transition-all duration-300 hover:bg-slate-50/60"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-transform group-hover:scale-110">
+                {/* Micro-animated Icon Circle Container */}
+                <motion.div 
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 shadow-inner"
+                >
                   <UserPlus className="h-5 w-5" />
-                </div>
+                </motion.div>
+                
                 <h3 className="text-lg font-bold text-slate-900">Provision New Account</h3>
-                <p className="mb-6 mt-2 text-sm text-slate-500">
+                <p className="mb-6 mt-2 text-sm text-slate-500 leading-relaxed">
                   Create new credentials for System Administrators or assign new operators to specific project sites.
                 </p>
-                <div className="mt-auto flex items-center text-sm font-bold text-blue-600 transition-colors group-hover:text-blue-700">
-                  Open Directory <ArrowRight className="ml-1 h-4 w-4" />
+                
+                {/* Interactive Button Component replacing text link */}
+                <div className="mt-auto">
+                  <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 px-5 shadow-sm transition-all duration-200 group-hover:shadow-md flex items-center justify-center gap-1.5 rounded-lg">
+                    Open Directory 
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </Button>
                 </div>
               </Link>
 
               <Link 
                 to="/authenticated/users" 
-                className="group flex flex-col p-8 transition-colors hover:bg-slate-50/50"
+                className="group flex flex-col p-8 transition-all duration-300 hover:bg-slate-50/60"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 transition-transform group-hover:scale-110">
+                {/* Micro-animated Icon Circle Container */}
+                <motion.div 
+                  whileHover={{ scale: 1.1, rotate: -5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                  className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 shadow-inner"
+                >
                   <KeyRound className="h-5 w-5" />
-                </div>
+                </motion.div>
+                
                 <h3 className="text-lg font-bold text-slate-900">Security & Overwrites</h3>
-                <p className="mb-6 mt-2 text-sm text-slate-500">
-                  Suspend active accounts, view active employee mappings, or overwrite passwords for users who lost access.
+                <p className="mb-6 mt-2 text-sm text-slate-500 leading-relaxed">
+                  Suspend active accounts, view active employee mappings, or overwrite passwords for users who lost access.[cite: 7]
                 </p>
-                <div className="mt-auto flex items-center text-sm font-bold text-amber-600 transition-colors group-hover:text-amber-700">
-                  Manage Security <ArrowRight className="ml-1 h-4 w-4" />
+                
+                {/* Interactive Button Component replacing text link */}
+                <div className="mt-auto">
+                  <Button variant="outline" className="w-full sm:w-auto border-amber-200 hover:border-amber-300 bg-white hover:bg-amber-50 text-amber-700 font-bold text-xs h-10 px-5 shadow-sm transition-all duration-200 group-hover:shadow-md flex items-center justify-center gap-1.5 rounded-lg">
+                    Manage Security 
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </Button>
                 </div>
               </Link>
 
