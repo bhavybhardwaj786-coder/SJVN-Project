@@ -7,6 +7,7 @@ import {
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned,
   FileText, Loader2, Plus, Pencil, Eye, UserPlus,
   Search, Download, FileSpreadsheet, FileIcon,
+  ListChecks,CheckCircle2, Layers,
   ChevronDown, Sliders, type LucideIcon,
 } from "lucide-react";
 
@@ -342,28 +343,53 @@ function AdminDashboard() {
     <AppShell>
       <motion.div initial="hidden" animate="show" variants={containerVariants}>
         
-        <motion.section variants={fadeUp} className="relative overflow-hidden rounded-2xl bg-gradient-hero p-6 text-primary-foreground shadow-elevated sm:p-8">
-          <div className="relative z-10">
-            <div className="text-xs font-medium uppercase tracking-[0.15em] text-primary-foreground/75">
-              Welcome back
+        <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-between gap-4">
+          <section className="flex">
+            <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
+              <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
+                Welcome back
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+                Admin Dashboard
+              </h1>
+              <p className="mt-1 max-w-md text-sm text-sky-50">
+                Here's how compliance is tracking across all sites this reporting period.
+              </p>
             </div>
-            <h1 className="mt-1.5 font-display text-2xl font-bold sm:text-3xl">
-              {currentUser?.full_name ?? "Admin"}
-            </h1>
-            <p className="mt-1.5 max-w-md text-sm text-primary-foreground/75">
-              Here's how compliance is tracking across all sites this reporting period.
-            </p>
+          </section>
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-muted-foreground">Reporting Month</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-lg border bg-card px-3 py-2 text-sm shadow-card outline-none focus:border-primary"
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                const value = d.toISOString().slice(0, 7);
+                return (
+                  <option key={value} value={value}>
+                    {d.toLocaleString("default", { month: "long", year: "numeric" })}
+                  </option>
+                );
+              })}
+            </select>
           </div>
-        </motion.section>
+        </motion.div>
 
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         <motion.section variants={containerVariants} className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           
           {/* Card 1: Replaced with an Animated Rotating-Border Dropdown Selector */}
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 ring-1 ring-sky-100 p-5 flex flex-col justify-between">
             <div>
-              <p className="font-mono-figures text-3xl font-semibold text-[#095a7d]">{totalSites}</p>
-              <p className="mt-1 text-xs text-muted-foreground font-medium">Active Sites Available</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-sky-700">Active Sites Available</span>
+                <Layers className="h-4 w-4 text-sky-700" />
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-sky-700">{totalSites}</p>
             </div>
             
             <div className="mt-3 w-full">
@@ -409,25 +435,31 @@ function AdminDashboard() {
           </motion.div>
 
           {/* Card 2: Contextual Active Form Types counter */}
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 ring-1 ring-amber-100 p-5 flex flex-col justify-between">
             <div>
-              <p className="font-mono-figures text-3xl font-semibold">
-                {isSiteSelected ? totalForms : "—"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground font-medium">
-                {isSiteSelected ? "Active Form Types Assigned" : "Select Site"}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-amber-700">
+                  {isSiteSelected ? "Submitted This Month" : "Select Site"}
+                </span>
+                <CheckCircle2 className="h-4 w-4 text-amber-700" />
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-amber-700">
+                {isSiteSelected ? totalSubmitted : "—"}
               </p>
             </div>
           </motion.div>
 
           {/* Card 3: Contextual Submitted This Month tracking counter */}
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 ring-1 ring-emerald-100 p-5 flex flex-col justify-between">
             <div>
-              <p className={`font-mono-figures text-3xl font-semibold ${isSiteSelected ? "text-success" : ""}`}>
-                {isSiteSelected ? totalSubmitted : "—"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground font-medium">
-                {isSiteSelected ? "Submitted This Month" : "Select Site"}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-emerald-700">
+                  {isSiteSelected ? "Active Form Types Assigned" : "Select Site"}
+                </span>
+                <ListChecks className="h-4 w-4 text-emerald-700" />
+              </div>
+              <p className="mt-2 text-2xl font-semibold text-emerald-700">
+                {isSiteSelected ? totalForms : "—"}
               </p>
             </div>
           </motion.div>
@@ -438,43 +470,20 @@ function AdminDashboard() {
             variants={fadeUp} 
             whileHover={{ y: -2 }}
             onClick={() => setActiveView(activeView === "forms" ? "matrix" : "forms")}
-            className={`card-lift rounded-xl border p-5 shadow-card flex flex-col justify-between cursor-pointer transition-all duration-200 ${
-              activeView === "forms" 
-                ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/30" 
-                : "border-primary-soft bg-gradient-to-br from-white to-[#f4f9fb] hover:border-primary/40"
-            }`}
+            className="rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 ring-1 ring-indigo-100 p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 hover:ring-indigo-200"
           >
             <div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-brand shadow-inner">
-                <Sliders className="h-4 w-4 text-[#095a7d]" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/70 text-indigo-700 shadow-inner">
+                <Sliders className="h-4 w-4" />
               </div>
-              <p className="mt-3 text-sm font-bold text-[#095a7d]">
+              <p className="mt-3 text-sm font-bold text-indigo-700">
                 {activeView === "forms" ? "Back to Table Submissions" : "Edit Form"}
               </p>
             </div>
           </motion.div>
         </motion.section>
 
-        {/* --- Reporting Month Selection Row --- */}
-        <motion.section variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-muted-foreground">Reporting Month</label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="rounded-lg border bg-card px-3 py-2 text-sm shadow-card outline-none focus:border-primary"
-          >
-            {Array.from({ length: 12 }, (_, i) => {
-              const d = new Date();
-              d.setMonth(d.getMonth() - i);
-              const value = d.toISOString().slice(0, 7);
-              return (
-                <option key={value} value={value}>
-                  {d.toLocaleString("default", { month: "long", year: "numeric" })}
-                </option>
-              );
-            })}
-          </select>
-        </motion.section>
+
 
         {/* --- Lower Component Section View Rendering Block --- */}
 {activeView === "matrix" && siteSearchQuery.trim() !== "" && (
