@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { formsService, submissionsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { supabase } from "@/integrations/client"; // 👈 ADD THIS LINE HERE
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -164,55 +165,68 @@ function FillForm() {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
                   
                   // Setup tracking references for files attached to this specific question key
-                  const attachedFileUrl = values[`${field.key}_file`] ?? null;
-                  const attachedFileName = values[`${field.key}_filename`] ?? null;
+                  // 1. Tracks an array of attachments for this specific parameter key
+                  const attachedFiles = values[`${field.key}_files`] || [];
 
-                  // Unique upload handler for this question
+                  // Unique multi-file upload handler for this question
+                  // Unique multi-file upload handler for this question (High-Speed Concurrent Version)
                   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
+                    const selectedFiles = e.target.files;
+                    if (!selectedFiles || selectedFiles.length === 0) return;
+
+                    const toastId = toast.loading(`Uploading ${selectedFiles.length} document(s) `);
 
                     try {
-                      toast.loading("Uploading document element...");
-                      
-                      // Construct a unique destination subpath: bucket/submissionContext/questionKey_filename
-                      const fileExt = file.name.split('.').pop();
-                      const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${Date.now()}/${field.key}.${fileExt}`;
+                      // 1. Convert FileList into an array so we can map over it
+                      const filesArray = Array.from(selectedFiles);
 
-                      const { data, error } = await supabase.storage
-                        .from("form-attachments")
-                        .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+                      // 2. Map files to an array of concurrent upload promises
+                      const uploadPromises = filesArray.map(async (file, i) => {
+                        const fileExt = file.name.split('.').pop();
+                        const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${Date.now()}_${i}/${field.key}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-                      if (error) throw error;
+                        // Execute upload to the lowercase 'attachments' bucket
+                        const { data, error } = await supabase.storage
+                          .from("attachments")
+                          .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
 
-                      // Generate the access destination link
-                      const { data: { publicUrl } } = supabase.storage
-                        .from("form-attachments")
-                        .getPublicUrl(uniquePath);
+                        if (error) throw error;
 
-                      // Save both the direct public download path and visual filename tag inside json state
+                        // Retrieve public URL destination
+                        const { data: { publicUrl } } = supabase.storage
+                          .from("attachments")
+                          .getPublicUrl(uniquePath);
+
+                        return {
+                          url: publicUrl,
+                          name: file.name
+                        };
+                      });
+
+                      // 3. Fire all uploads at once and wait for all of them to resolve together
+                      const newUploadedFiles = await Promise.all(uploadPromises);
+
+                      // 4. Update state all at once
                       setValues(prev => ({
                         ...prev,
-                        [field.key]: prev[field.key] ?? "", // preserve text answer state
-                        [`${field.key}_file`]: publicUrl,
-                        [`${field.key}_filename`]: file.name
+                        [field.key]: prev[field.key] ?? "", 
+                        [`${field.key}_files`]: [...(prev[`${field.key}_files`] || []), ...newUploadedFiles]
                       }));
 
-                      toast.dismiss();
-                      toast.success(`Attached: ${file.name}`);
+                      toast.success("All documents attached successfully!", { id: toastId });
+
                     } catch (err: any) {
-                      toast.dismiss();
-                      toast.error(err.message || "Failed to upload file");
+                      console.error("Supabase Storage Error Details:", err);
+                      toast.error(err.message || "Upload failed. Verify your network or bucket configuration.", { id: toastId });
                     }
                   };
 
-                  const removeAttachment = () => {
-                    setValues(prev => {
-                      const next = { ...prev };
-                      delete next[`${next.key}_file`];
-                      delete next[`${next.key}_filename`];
-                      return next;
-                    });
+                  const removeAttachment = (indexToRemove: number) => {
+                    const updatedArray = attachedFiles.filter((_: any, idx: number) => idx !== indexToRemove);
+                    setValues(prev => ({
+                      ...prev,
+                      [`${field.key}_files`]: updatedArray
+                    }));
                     toast.info("Attachment removed");
                   };
 
@@ -282,42 +296,47 @@ function FillForm() {
                         </div>
                       )}
 
-                      {/* Question-Wise Document File Attachment Widget UI */}
-                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200">
-                        {attachedFileUrl ? (
-                          <div className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
-                            <a 
-                              href={attachedFileUrl} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]"
-                            >
-                              <File className="h-3.5 w-3.5 shrink-0" />
-                              {attachedFileName || "View Verification PDF"}
-                            </a>
-                            {!isSubmitted && (
-                              <button 
-                                type="button" 
-                                onClick={removeAttachment} 
-                                className="text-red-500 hover:text-red-700 transition p-1"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                      {/* Question-Wise Multiple Document File Attachment Widget UI */}
+                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200 space-y-2">
+                        {attachedFiles.length > 0 && (
+                          <div className="space-y-1.5">
+                            {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
+                                <a 
+                                  href={fileObj.url} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]"
+                                >
+                                  <File className="h-3.5 w-3.5 shrink-0" />
+                                  {fileObj.name || `Attachment ${idx + 1}`}
+                                </a>
+                                {!isSubmitted && (
+                                  <button 
+                                    type="button" 
+                                    onClick={() => removeAttachment(idx)} 
+                                    className="text-red-500 hover:text-red-700 transition p-1"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ) : (
-                          !isSubmitted && (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
-                              <Paperclip className="h-3.5 w-3.5" />
-                              Attach Supporting Document (PDF, Images)
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="application/pdf,image/*" 
-                                onChange={handleFileUpload}
-                              />
-                            </label>
-                          )
+                        )}
+
+                        {!isSubmitted && (
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            Attach Supporting Documents (Multiple PDFs/Images allowed)
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="application/pdf,image/*" 
+                              multiple // 👈 Allows selecting more than one file in the file explorer window
+                              onChange={handleFileUpload}
+                            />
+                          </label>
                         )}
                       </div>
 
