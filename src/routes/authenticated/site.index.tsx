@@ -154,7 +154,7 @@ function SiteDashboard() {
                 Site Portal
               </p>
               <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-                Business Responsibility and Sustainability Reporting
+                User Dashboard
               </h1>
               <p className="mt-1 text-sm text-sky-50">
                 Complete and submit monthly environmental compliance reports.

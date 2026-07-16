@@ -201,7 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
             <div className="text-white text-sm font-semibold whitespace-nowrap">
-              Welcome to SJVN Limited — Environmental Monitoring & Expenditure Management Portal
+              Welcome to SJVN Limited — Business Responsibility and Sustainability Reporting Portal
             </div>
           </div>
 
