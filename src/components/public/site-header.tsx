@@ -19,6 +19,7 @@ import sjvnLogoImg from "../../assets/sjvn-logo.jpeg";
 import { NAV_ITEMS } from "./site-nav-data";
 
 import { authService } from "@/services/auth";
+import { useCssVarHeight } from "@/hooks/use-css-var-height";
 
 const ROUTE_LABELS: Record<string, string> = {
   auth: "Login",
@@ -161,6 +162,11 @@ export function SiteHeader() {
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
+  // Publishes the header's live rendered height (including the mobile menu
+  // panel when open) as --header-height on <html>, so layouts elsewhere on
+  // the page (e.g. a full-viewport hero) can subtract it accurately.
+  const headerRef = useCssVarHeight<HTMLElement>("--header-height");
+
 // --- RE-ENGINEERED INSTANT SYNCHRONIZED ROLE FETCHING ---
   const { data: currentUser } = useQuery({
     queryKey: ["header-current-user", user?.id],
@@ -202,7 +208,7 @@ export function SiteHeader() {
    
 
   return (
-    <header className="sticky top-0 z-50 w-full shrink-0">
+    <header ref={headerRef} className="sticky top-0 z-50 w-full shrink-0">
       {/* National tricolour strip */}
       <div className="flex h-[3px] w-full">
         <div className="flex-1 bg-[#FF9933]" />

@@ -51,7 +51,19 @@ export function HeroCarousel() {
   }, [next]);
 
   return (
-    <section className="relative h-[340px] w-full overflow-hidden sm:h-[440px] lg:h-[520px]">
+    <section
+      className="relative w-full overflow-hidden"
+      // Fills exactly the space left over after the live header and footer
+      // heights (published by SiteHeader/SiteFooter via useCssVarHeight) are
+      // subtracted from the viewport, so header + hero + footer always fit
+      // one screen with no page scroll. Falls back to a sane min-height
+      // before those variables are set on first paint.
+      style={{
+        height:
+          "calc(100dvh - var(--header-height, 0px) - var(--footer-height, 0px))",
+        minHeight: 280,
+      }}
+    >
       <AnimatePresence mode="wait">
         <motion.div
         key={slides[index].title}
