@@ -477,111 +477,193 @@ function AdminDashboard() {
         </motion.section>
 
         {/* --- Lower Component Section View Rendering Block --- */}
-        {activeView === "matrix" && siteSearchQuery.trim() !== "" && (
-          <motion.section variants={fadeUp} className="mt-8 space-y-4">
-            
-            {/* Form Info Row: Shows the selected site name and its combined export action wrapper */}
-            {displayedSites.map((site) => (
-              <div key={site.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-white shadow-sm">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">Selected Station</span>
-                  <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
-                    {site.name} <span className="text-sm font-semibold text-muted-foreground">({site.code})</span>
-                  </h3>
-                </div>
-                
-                {/* Combined Export Trigger */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-10 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 shrink-0 shadow-sm">
-                      {exportingSiteId === site.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
-                      Export All Forms Combined
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 bg-white border-slate-200 shadow-xl p-1 rounded-lg">
-                    <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded">
-                      <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF Report
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded mt-0.5">
-                      <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel Sheet
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ))}
+{activeView === "matrix" && siteSearchQuery.trim() !== "" && (
+  <motion.section variants={fadeUp} className="mt-8 space-y-4">
+    
+    {/* Form Info Row: Shows the selected site name and its combined export action wrapper */}
+    {displayedSites.map((site) => (
+      <div key={site.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-white shadow-sm">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">Selected Station</span>
+          <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
+            {site.name} <span className="text-sm font-semibold text-muted-foreground">({site.code})</span>
+          </h3>
+        </div>
+        
+        {/* Combined Export Trigger */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-10 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 shrink-0 shadow-sm">
+              {exportingSiteId === site.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+              Export All Forms Combined
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 bg-white border-slate-200 shadow-xl p-1 rounded-lg">
+            <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded">
+              <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF Report
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded mt-0.5">
+              <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel Sheet
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    ))}
 
-            {/* Re-pivoted Vertical Forms Log Grid */}
-            <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
-                  <tr>
-                    <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[200px]">Compliance Status</th>
-                    <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[150px]">Actions</th>
+    {/* Re-pivoted Vertical Forms Log Grid */}
+    <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
+          <tr>
+            <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
+            <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[200px]">Compliance Status</th>
+            <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[150px]">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {submissionsLoading ? (
+            <tr>
+              <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+              </td>
+            </tr>
+          ) : displayedSites.length > 0 && activeForms.length > 0 ? (
+            displayedSites.map((site) => (
+              activeForms.map((f: any) => {
+                const submission = submissionMap.get(`${site.id}__${f.id}`);
+                const status = submission?.status ?? "not_submitted";
+
+                return (
+                  <tr key={f.id} className="transition-colors hover:bg-slate-50/40">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-800 text-sm">{f.title}</div>
+                      {f.description && (
+                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <StatusBadge status={status} />
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {submission ? (
+                        <Link 
+                          to="/authenticated/$submissionId" 
+                          params={{ submissionId: submission.id }} 
+                          className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View Log
+                        </Link>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400 select-none pr-3">
+                          No Record
+                        </span>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {submissionsLoading ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground">
-                        <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
-                      </td>
-                    </tr>
-                  ) : displayedSites.length > 0 && activeForms.length > 0 ? (
-                    // We map the active site reference
-                    displayedSites.map((site) => (
-                      // And now we loop through the forms vertically as rows!
-                      activeForms.map((f: any) => {
-                        const submission = submissionMap.get(`${site.id}__${f.id}`);
-                        const status = submission?.status ?? "not_submitted";
+                );
+              })
+            ))
+          ) : (
+            <tr>
+              <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground font-medium">
+                No form metrics are currently assigned or active for this period.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </motion.section>
+)}
 
-                        return (
-                          <tr key={f.id} className="transition-colors hover:bg-slate-50/40">
-                            {/* Column 1: Dynamic Form Name */}
-                            <td className="px-6 py-4">
-                              <div className="font-bold text-slate-800 text-sm">{f.title}</div>
-                              {f.description && (
-                                <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
-                              )}
-                            </td>
+{/* --- NEW HANDLER BLOCK: Rendered when activeView is 'forms' --- */}
+{activeView === "forms" && (
+  <motion.section variants={fadeUp} className="mt-8 space-y-6">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-white shadow-sm">
+      <div>
+        <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">Form Infrastructure</span>
+        <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">Manage Compliance Metric Forms</h3>
+      </div>
+      
+      {/* Route pointer shortcut to build/publish standard compliance models */}
+      <Link to="/authenticated/new">
+        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-10 shadow-md">
+          <Plus className="h-4 w-4 mr-1.5" /> Create New Form
+        </Button>
+      </Link>
+    </div>
 
-                            {/* Column 2: Status Pill Badge */}
-                            <td className="px-6 py-4 text-center">
-                              <StatusBadge status={status} />
-                            </td>
-
-                            {/* Column 3: View Action Trigger Link */}
-                            <td className="px-6 py-4 text-right">
-                              {submission ? (
-                                <Link 
-                                  to="/authenticated/$submissionId" 
-                                  params={{ submissionId: submission.id }} 
-                                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
-                                >
-                                  <Eye className="h-3.5 w-3.5" /> View Log
-                                </Link>
-                              ) : (
-                                <span className="text-xs font-medium text-slate-400 select-none pr-3">
-                                  No Record
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground font-medium">
-                        No form metrics are currently assigned or active for this period.
-                      </td>
-                    </tr>
+    {/* Directory Table View of All Existing Master Forms */}
+    <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
+          <tr>
+            <th className="px-6 py-3.5 font-bold text-slate-500">Metric Title</th>
+            <th className="px-6 py-3.5 font-bold text-slate-500">Reporting Frequency</th>
+            <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[120px]">Form Status</th>
+            <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[200px]">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {formsLoading ? (
+            <tr>
+              <td colSpan={4} className="px-6 py-12 text-center">
+                <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+              </td>
+            </tr>
+          ) : displayedForms.length > 0 ? (
+            displayedForms.map((f: any) => (
+              <tr key={f.id} className="transition-colors hover:bg-slate-50/40">
+                <td className="px-6 py-4">
+                  <div className="font-bold text-slate-800 text-sm">{f.title}</div>
+                  {f.description && (
+                    <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </motion.section>
-        )}
+                </td>
+                <td className="px-6 py-4 font-semibold text-slate-600 capitalize">
+                  {f.frequency || "monthly"}
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className={`inline-flex items-center justify-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    f.is_active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200"
+                  }`}>
+                    {f.is_active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="inline-flex gap-2">
+                    {/* Send them to the Form Wizard Editor Mode via Search Param */}
+                    <Link 
+                      to="/authenticated/new" 
+                      search={{ edit: f.id }}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-md transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Edit Form
+                    </Link>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleDelete(f.id, f.title)}
+                      className="h-8 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
+                No compliance models matched your current selection view directory criteria.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </motion.section>
+)}
       </motion.div>
     </AppShell>
   );

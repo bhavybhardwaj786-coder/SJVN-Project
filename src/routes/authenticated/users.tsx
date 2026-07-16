@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { UserPlus, KeyRound, Ban, CheckCircle2, Loader2, X } from "lucide-react";
@@ -29,6 +29,7 @@ function UserManagement() {
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const search = Route.useSearch();
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState<TabRole>("admin");
   
@@ -119,24 +120,23 @@ function UserManagement() {
       {/* INLINE FORM: Shows only when creating a user */}
       {showCreate ? (
         <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm animate-in slide-in-from-top-4 fade-in duration-300">
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <h2 className="text-lg font-extrabold text-slate-900">Provision New Account</h2>
-              <p className="text-xs text-slate-500">Configure access tier and credentials below.</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-700">
-              <X className="h-5 w-5" />
-            </Button>
+          <div className="mb-4 border-b border-slate-100 pb-4">
+            <h2 className="text-lg font-extrabold text-slate-900">Provision New Account</h2>
+            <p className="text-xs text-slate-500">Configure access tier and credentials below.</p>
           </div>
           
           <CreateUserInlineForm 
             sites={sites} 
             onCreated={() => {
-              setShowCreate(false);
+              setShowCreate(false); // Clear the view state flag
+              navigate({ to: "/authenticated/supadmin" });
               queryClient.invalidateQueries({ queryKey: ["manage-admins"] });
               queryClient.invalidateQueries({ queryKey: ["manage-site-users"] });
             }}
-            onCancel={() => setShowCreate(false)}
+            onCancel={() => {
+              setShowCreate(false); // 1. Turn off the form view locally
+              navigate({ to: "/authenticated/supadmin" }); // 2. Route out to the main dashboard
+            }}
           />
         </div>
       ) : (
@@ -273,6 +273,7 @@ function CreateUserInlineForm({
   onCancel: () => void;
   onCreated: () => void;
 }) {
+  const navigate = useNavigate();
   const [role, setRole] = useState<Role>("admin");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -375,8 +376,17 @@ function CreateUserInlineForm({
         </div>
       </div>
 
+      {/* Form Actions footer segment inside CreateUserInlineForm */}
       <div className="mt-6 flex justify-end gap-3 pt-2">
-        <Button variant="outline" onClick={onCancel} className="border-slate-300 text-slate-700 font-bold h-10 px-6">
+        <Button 
+          variant="outline" 
+          type="button"
+          onClick={() => {
+            // Direct escape hatch bypass: Force-route straight back out to the main landing view
+            navigate({ to: "/authenticated/supadmin" });
+          }} 
+          className="border-slate-300 text-slate-700 font-bold h-10 px-6"
+        >
           Cancel
         </Button>
         <Button
