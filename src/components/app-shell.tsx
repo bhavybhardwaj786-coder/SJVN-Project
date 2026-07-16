@@ -86,16 +86,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // --- Dynamic Breadcrumb Logic ---
 // 1. Create a dynamic dashboard link based on their role
-  const dashboardLink = me?.isSuperAdmin 
-  ? "/authenticated/supadmin" 
-  : me?.isAdmin 
-  ? "/authenticated/app" 
-  : "/authenticated/site";
-
+  // --- Dynamic Breadcrumb Logic ---
+  // --- Dynamic Breadcrumb Logic ---
   const pathSegments = pathname.split("/").filter(Boolean);
   
-  // 2. Add "users" to the exclusion list so it doesn't show up in the breadcrumb
-  const breadcrumbs = pathSegments.filter((item) => !["authenticated", "site", "forms", "users"].includes(item));
+  // Exclude technical routing segments like 'supadmin', 'app', and 'site' so they don't generate broken sub-links
+  const breadcrumbs = pathSegments.filter(
+    (item) => !["authenticated", "site", "forms", "users", "supadmin", "app"].includes(item)
+  );
   
   const formatSegmentName = (str: string) => {
     if (!str) return "";
@@ -104,15 +102,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   // ADD THIS FUNCTION HERE:
-  const handleDashboardClick = (e: React.MouseEvent) => {
+  const handleLoginBreadcrumbClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (me?.isSuperAdmin) {
-      navigate({ to: "/authenticated/supadmin" });
-    } else if (me?.isAdmin) {
-      navigate({ to: "/authenticated/app" });
-    } else {
-      navigate({ to: "/authenticated/site" });
-    }
+    navigate({ to: "/auth" });
   };
 
   return (
@@ -157,40 +149,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Right Side: Breadcrumbs and Admin Badge */}
           <div className="hidden md:flex flex-col items-end gap-2">
             
-            {/* Inline Breadcrumb Navigator */}
+            {/* Clean Static Access-Tier Breadcrumb Navigator */}
             <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
-  
-              {/* REPLACE THE LINK WITH THIS: */}
               <a 
                 href="#" 
-                onClick={handleDashboardClick}
-                className="hover:text-[#095a7d] transition-colors flex items-center gap-1 cursor-pointer"
+                onClick={handleLoginBreadcrumbClick}
+                className="hover:text-[#095a7d] transition-colors flex items-center gap-1 cursor-pointer font-semibold"
               >
-                <LayoutDashboard className="h-3.5 w-3.5 mb-0.5" />
-                Dashboard
+                Login
               </a>
               
-              {breadcrumbs.length > 0 && (
-                <span className="text-gray-400 text-xs">»</span>
-              )}
+              <span className="text-gray-400 text-xs">»</span>
+              
+              <span className="text-[#095a7d] font-bold">
+                {me?.isSuperAdmin ? "Super Admin" : me?.isAdmin ? "Admin" : "User"}
+              </span>
 
-              {breadcrumbs.map((name, index) => {
-                const routeTo = `/authenticated/${breadcrumbs.slice(0, index + 1).join("/")}`;
-                const isLast = index === breadcrumbs.length - 1;
+              {/* Renders sub-pages cleanly (like User Management or Form Builder) without getting tangled */}
+              {breadcrumbs.filter(item => !["supadmin", "app", "site"].includes(item)).map((name) => {
                 const displayName = formatSegmentName(name);
-
                 return (
                   <div key={name} className="flex items-center gap-1.5">
-                    {isLast ? (
-                      <span className="text-[#095a7d] font-bold">{displayName}</span>
-                    ) : (
-                      <>
-                        <Link to={routeTo} className="hover:text-[#095a7d] transition-colors">
-                          {displayName}
-                        </Link>
-                        <span className="text-gray-400 text-xs">»</span>
-                      </>
-                    )}
+                    <span className="text-gray-400 text-xs">»</span>
+                    <span className="text-[#095a7d] font-bold">{displayName}</span>
                   </div>
                 );
               })}

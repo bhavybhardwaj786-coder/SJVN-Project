@@ -11,6 +11,8 @@ import {
   Home as HomeIcon,
 } from "lucide-react";
 
+import { useQuery } from "@tanstack/react-query";
+
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/client";
 import sjvnLogoImg from "../../assets/sjvn-logo.jpeg";
@@ -157,6 +159,40 @@ export function SiteHeader() {
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
+// --- RE-ENGINEERED INSTANT SYNCHRONIZED ROLE FETCHING ---
+  const { data: userRole } = useQuery({
+    queryKey: ["header-user-role", user?.id],
+    queryFn: async () => {
+      // Step A: Grab session natively inside the promise wrapper if state is missing
+      let currentUserId = user?.id;
+      if (!currentUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        currentUserId = session?.user?.id;
+      }
+      
+      if (!currentUserId) return null;
+
+      // Step B: Query user configurations immediately
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", currentUserId);
+      
+      if (roles?.some((r) => r.role === "super_admin")) return "super_admin";
+      if (roles?.some((r) => r.role === "admin")) return "admin";
+      return "site_user";
+    },
+    // Keep it active even if the state hook hasn't caught up yet
+    refetchOnWindowFocus: false,
+  });
+
+  // Dynamic route dispatcher based on their assigned group
+  const dashboardTarget = 
+    userRole === "super_admin"
+      ? "/authenticated/supadmin"
+      : userRole === "admin"
+      ? "/authenticated/app"
+      : "/authenticated/site";
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -276,7 +312,7 @@ export function SiteHeader() {
             {isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
-                  to="/authenticated/supadmin"
+                  to={dashboardTarget}
                   className="flex h-8 items-center gap-1.5 rounded bg-[#3FC1A0] px-3 text-xs font-semibold text-slate-900 transition-colors duration-150 hover:bg-[#32a88a]"
                 >
                   <LayoutDashboard className="h-3.5 w-3.5" />
