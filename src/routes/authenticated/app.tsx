@@ -7,8 +7,15 @@ import {
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned,
   FileText, Loader2, Plus, Pencil, Eye, UserPlus,
   Search, Download, FileSpreadsheet, FileIcon,
-  type LucideIcon,
+  ChevronDown, Sliders, type LucideIcon,
 } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { AppShell } from "@/components/app-shell";
 import { formsService } from "@/services";
@@ -16,12 +23,6 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 // Import your logo for the PDF
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
@@ -334,25 +335,100 @@ function AdminDashboard() {
           </div>
         </motion.section>
 
+        {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         <motion.section variants={containerVariants} className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card">
-            <p className="font-mono-figures text-3xl font-semibold">{totalSites}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Active Sites</p>
+          
+          {/* Card 1: Replaced with an Animated Rotating-Border Dropdown Selector */}
+          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+            <div>
+              <p className="font-mono-figures text-3xl font-semibold text-[#095a7d]">{totalSites}</p>
+              <p className="mt-1 text-xs text-muted-foreground font-medium">Active Sites Available</p>
+            </div>
+            
+            <div className="mt-3 w-full">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="relative group w-full h-10 overflow-hidden rounded-lg p-[1.5px] focus:outline-none focus:ring-2 focus:ring-[#095a7d]/50">
+                    {/* Animated Rotating Gradient Background Effect */}
+                    <span className="absolute inset-0 bg-[conic-gradient(from_0deg,#3FC1A0,#095a7d,#3FC1A0)] animate-[spin_4s_linear_infinite] opacity-75 transition-opacity group-hover:opacity-100" />
+                    
+                    {/* Inner Button Content Box Layer */}
+                    <span className="relative flex items-center justify-between w-full h-full bg-white rounded-[7px] px-3 text-xs font-bold text-slate-700 select-none transition-colors group-hover:bg-slate-50">
+                      <span className="truncate">
+                        {sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())
+                          ? `${sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())?.name} (${sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase())?.code})`
+                          : "Choose Project Site"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                
+                <DropdownMenuContent align="start" className="w-[240px] max-h-60 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-lg p-1 z-[60]">
+                  <DropdownMenuItem 
+                    onClick={() => setSiteSearchQuery("")}
+                    className="cursor-pointer text-xs font-semibold text-slate-500 hover:bg-slate-50 px-2 py-2 rounded"
+                  >
+                    -- Clear Selection --
+                  </DropdownMenuItem>
+                  {sites.map((site) => (
+                    <DropdownMenuItem
+                      key={site.id}
+                      onClick={() => setSiteSearchQuery(site.name)}
+                      className={`cursor-pointer text-xs font-bold text-slate-700 hover:bg-[#eaf3f6] hover:text-[#095a7d] px-2 py-2 rounded mt-0.5 transition-colors ${
+                        siteSearchQuery.toLowerCase() === site.name.toLowerCase() ? "bg-[#eaf3f6] text-[#095a7d]" : ""
+                      }`}
+                    >
+                      {site.name} ({site.code})
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </motion.div>
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card">
-            <p className="font-mono-figures text-3xl font-semibold">{totalForms}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Active Form Types</p>
+
+          {/* Card 2: Keep Form Types Context */}
+          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+            <div>
+              <p className="font-mono-figures text-3xl font-semibold">{totalForms}</p>
+              <p className="mt-1 text-xs text-muted-foreground font-medium">Active Form Types</p>
+            </div>
           </motion.div>
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card">
-            <p className="font-mono-figures text-3xl font-semibold text-success">{totalSubmitted}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Submitted This Month</p>
+
+          {/* Card 3: Keep Submitted This Month Tracking Counter */}
+          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card flex flex-col justify-between">
+            <div>
+              <p className="font-mono-figures text-3xl font-semibold text-success">{totalSubmitted}</p>
+              <p className="mt-1 text-xs text-muted-foreground font-medium">Submitted This Month</p>
+            </div>
           </motion.div>
-          <motion.div variants={fadeUp} className="card-lift rounded-xl border bg-card p-5 shadow-card">
-            <p className="font-mono-figures text-3xl font-semibold text-gradient-brand">{complianceRate}%</p>
-            <p className="mt-1 text-xs text-muted-foreground">Compliance Rate</p>
+
+          {/* Card 4: Direct Edit Forms Action Trigger Shortcut */}
+          <motion.div 
+            variants={fadeUp} 
+            whileHover={{ y: -2 }}
+            onClick={() => setActiveView(activeView === "forms" ? "matrix" : "forms")}
+            className={`card-lift rounded-xl border p-5 shadow-card flex flex-col justify-between cursor-pointer transition-all duration-200 ${
+              activeView === "forms" 
+                ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/30" 
+                : "border-primary-soft bg-gradient-to-br from-white to-[#f4f9fb] hover:border-primary/40"
+            }`}
+          >
+            <div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-soft text-brand shadow-inner">
+                <Sliders className="h-4 w-4 text-[#095a7d]" />
+              </div>
+              <p className="mt-3 text-sm font-bold text-[#095a7d]">
+                {activeView === "forms" ? "Back to Table Submissions" : "Form Template Manager"}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {activeView === "forms" ? "Click to view current monthly logs grid." : "Click here to modify dynamic questionnaires instantly."}
+              </p>
+            </div>
           </motion.div>
         </motion.section>
 
+        {/* --- Reporting Month Selection Row --- */}
         <motion.section variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-3">
           <label className="text-sm font-medium text-muted-foreground">Reporting Month</label>
           <select
@@ -373,42 +449,12 @@ function AdminDashboard() {
           </select>
         </motion.section>
 
-        <motion.section variants={fadeUp} className="mt-8 flex justify-center">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-            <button
-              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
-                activeView === "matrix" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-              onClick={() => setActiveView("matrix")}
-            >
-              Site Submissions
-            </button>
-            <button
-              className={`rounded-md px-5 py-2 text-xs font-bold transition-all ${
-                activeView === "forms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"
-              }`}
-              onClick={() => setActiveView("forms")}
-            >
-              Edit Forms
-            </button>
-          </div>
-        </motion.section>
-
+        {/* --- Lower Component Section View Rendering Block --- */}
         {activeView === "forms" && (
           <motion.section variants={fadeUp} className="mt-8">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <h2 className="font-display text-lg font-semibold">Environmental Forms</h2>
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search forms..."
-                    value={formSearchQuery}
-                    onChange={(e) => setFormSearchQuery(e.target.value)}
-                    className="h-9 w-full sm:w-64 rounded-lg border bg-card pl-9 pr-4 text-sm shadow-sm outline-none focus:border-primary"
-                  />
-                </div>
                 <Link to="/authenticated/new" className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-card">
                   <Plus className="h-3.5 w-3.5" /> New Form
                 </Link>
@@ -445,122 +491,80 @@ function AdminDashboard() {
           </motion.section>
         )}
 
-        {activeView === "matrix" && (
+        {/* --- Lower Component Section View Rendering Block --- */}
+        {activeView === "matrix" && siteSearchQuery.trim() !== "" && (
           <motion.section variants={fadeUp} className="mt-8">
-            <div className="mb-8 flex flex-col items-center justify-center gap-3">
-              <h2 className="font-display text-2xl font-bold">Site Lookup</h2>
-              <p className="text-sm text-muted-foreground text-center">Search for a specific project site to view its compliance logs for this month.</p>
-              <div className="relative mt-2 w-full max-w-2xl">
-              <Search className="absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Enter site name..."
-                value={siteSearchQuery}
-                onChange={(e) => setSiteSearchQuery(e.target.value)}
-                className="h-14 w-full rounded-2xl border-2 border-muted/60 bg-card pl-14 pr-6 text-lg shadow-sm outline-none focus:border-primary"
-              />
-            </div>
-
-            {/* Quick-Select Site Pills */}
-            <div className="mt-4 flex max-w-3xl flex-wrap justify-center gap-2">
-              {sites.map((site) => (
-                <button
-                  key={site.id}
-                  onClick={() => setSiteSearchQuery(site.name)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    siteSearchQuery.toLowerCase() === site.name.toLowerCase()
-                      ? "border-primary bg-primary text-primary-foreground shadow-md"
-                      : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {site.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-            {siteSearchQuery.trim() === "" ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-16 text-center shadow-sm">
-                <MapPinned className="mb-4 h-10 w-10 text-muted-foreground/30" />
-                <h3 className="text-lg font-semibold text-foreground">Waiting for selection</h3>
-                <p className="text-sm text-muted-foreground">Type a site name above to view its matrix.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
-                <table className="w-full min-w-[640px] text-sm">
-                  <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <div className="overflow-x-auto rounded-xl border bg-card shadow-card animate-in fade-in duration-300">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="sticky left-0 z-10 bg-muted/60 px-4 py-3">Site</th>
+                    {activeForms.map((f: any) => (
+                      <th key={f.id} className="px-4 py-3 text-center">{f.title}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissionsLoading ? (
                     <tr>
-                      <th className="sticky left-0 z-10 bg-muted/60 px-4 py-3">Site</th>
-                      {activeForms.map((f: any) => (
-                        <th key={f.id} className="px-4 py-3 text-center">{f.title}</th>
-                      ))}
+                      <td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {submissionsLoading ? (
-                      <tr>
-                        <td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">
-                          <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                  ) : displayedSites.length > 0 ? (
+                    displayedSites.map((site) => (
+                      <tr key={site.id} className="border-t transition-colors hover:bg-muted/30">
+                        <td className="sticky left-0 z-10 bg-card px-4 py-3 font-medium flex items-center justify-between min-w-[250px]">
+                          <div>
+                            {site.name} <span className="text-xs text-muted-foreground">({site.code})</span>
+                          </div>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10 ml-3 shrink-0">
+                                {exportingSiteId === site.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                                Export File
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48 bg-white border-slate-200 shadow-xl">
+                              <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700">
+                                <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700">
+                                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
+
+                        {activeForms.map((f: any) => {
+                          const submission = submissionMap.get(`${site.id}__${f.id}`);
+                          const status = submission?.status ?? "not_submitted";
+                          return (
+                            <td key={f.id} className="px-4 py-3 text-center">
+                              <div className="flex flex-col items-center gap-1.5">
+                                <StatusBadge status={status} />
+                                {submission ? (
+                                  <Link to="/authenticated/$submissionId" params={{ submissionId: submission.id }} className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline">
+                                    <Eye className="h-3 w-3" /> View
+                                  </Link>
+                                ) : (
+                                  <span className="invisible inline-flex items-center gap-1 text-[11px] font-bold">
+                                    <Eye className="h-3 w-3" /> View
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
                       </tr>
-                    ) : displayedSites.length > 0 ? (
-                      displayedSites.map((site) => (
-                        <tr key={site.id} className="border-t transition-colors hover:bg-muted/30">
-                          <td className="sticky left-0 z-10 bg-card px-4 py-3 font-medium flex items-center justify-between min-w-[250px]">
-                            <div>
-                              {site.name} <span className="text-xs text-muted-foreground">({site.code})</span>
-                            </div>
-                            
-                            {/* EXPORT DROPDOWN MENU */}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-xs border-primary/20 text-primary hover:bg-primary/10 ml-3 shrink-0">
-                                  {exportingSiteId === site.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
-                                  Export File
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-48 bg-white border-slate-200 shadow-xl">
-                                <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700">
-                                  <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700">
-                                  <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-
-                          </td>
-
-                          {activeForms.map((f: any) => {
-                            const submission = submissionMap.get(`${site.id}__${f.id}`);
-                            const status = submission?.status ?? "not_submitted";
-                            return (
-                              <td key={f.id} className="px-4 py-3 text-center">
-                            <div className="flex flex-col items-center gap-1.5">
-                              <StatusBadge status={status} />
-                              {submission ? (
-                                <Link to="/authenticated/$submissionId" params={{ submissionId: submission.id }} className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline">
-                                  <Eye className="h-3 w-3" /> View
-                                </Link>
-                              ) : (
-                                /* Invisible placeholder keeps the row height perfectly symmetrical */
-                                <span className="invisible inline-flex items-center gap-1 text-[11px] font-bold">
-                                  <Eye className="h-3 w-3" /> View
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                            );
-                          })}
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">No sites match your search.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    ))
+                  ) : (
+                    <tr><td colSpan={activeForms.length + 1} className="px-4 py-8 text-center text-muted-foreground">No matching data profiles populated.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </motion.section>
         )}
       </motion.div>
