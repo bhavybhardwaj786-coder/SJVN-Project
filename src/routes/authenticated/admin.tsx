@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { authService } from "@/services/auth";
+import { ChevronDown, Sliders } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/admin")({
   ssr: false,

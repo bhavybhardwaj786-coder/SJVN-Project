@@ -157,16 +157,5 @@ function RootComponent() {
     </QueryClientProvider>
   );
 
-  return (
-  <QueryClientProvider client={queryClient}>
-    <div className="flex min-h-svh flex-col bg-background">
-      {!isAuthPage && <SiteHeader />}
-      <main id="main" className="flex-1">
-        <Outlet />
-      </main>
-      {!isAuthPage && <SiteFooter />}
-    </div>
-    <Toaster position="top-right" richColors />
-  </QueryClientProvider>
-);
+  
 }

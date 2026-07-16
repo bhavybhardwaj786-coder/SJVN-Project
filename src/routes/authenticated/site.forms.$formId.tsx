@@ -14,7 +14,14 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, FileText, CheckCircle2 } from "lucide-react";
+import { 
+  Loader2, 
+  FileText, 
+  CheckCircle2, 
+  Paperclip, 
+  File, 
+  X 
+} from "lucide-react";
 
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 
@@ -155,15 +162,69 @@ function FillForm() {
               <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {fields.map((field: any) => {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
+                  
+                  // Setup tracking references for files attached to this specific question key
+                  const attachedFileUrl = values[`${field.key}_file`] ?? null;
+                  const attachedFileName = values[`${field.key}_filename`] ?? null;
+
+                  // Unique upload handler for this question
+                  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    try {
+                      toast.loading("Uploading document element...");
+                      
+                      // Construct a unique destination subpath: bucket/submissionContext/questionKey_filename
+                      const fileExt = file.name.split('.').pop();
+                      const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${Date.now()}/${field.key}.${fileExt}`;
+
+                      const { data, error } = await supabase.storage
+                        .from("form-attachments")
+                        .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+
+                      if (error) throw error;
+
+                      // Generate the access destination link
+                      const { data: { publicUrl } } = supabase.storage
+                        .from("form-attachments")
+                        .getPublicUrl(uniquePath);
+
+                      // Save both the direct public download path and visual filename tag inside json state
+                      setValues(prev => ({
+                        ...prev,
+                        [field.key]: prev[field.key] ?? "", // preserve text answer state
+                        [`${field.key}_file`]: publicUrl,
+                        [`${field.key}_filename`]: file.name
+                      }));
+
+                      toast.dismiss();
+                      toast.success(`Attached: ${file.name}`);
+                    } catch (err: any) {
+                      toast.dismiss();
+                      toast.error(err.message || "Failed to upload file");
+                    }
+                  };
+
+                  const removeAttachment = () => {
+                    setValues(prev => {
+                      const next = { ...prev };
+                      delete next[`${next.key}_file`];
+                      delete next[`${next.key}_filename`];
+                      return next;
+                    });
+                    toast.info("Attachment removed");
+                  };
 
                   return (
-                    <motion.div key={field.key} variants={fadeUp} className="space-y-1.5">
+                    <motion.div key={field.key} variants={fadeUp} className="space-y-1.5 p-4 rounded-xl border border-neutral-100 bg-white/50 shadow-sm">
                       {field.type !== "checkbox" && (
                         <Label className="text-sm font-semibold text-muted-foreground">
                           {field.label}{field.required && "*"}
                         </Label>
                       )}
 
+                      {/* Regular Answer Inputs */}
                       {["text", "number", "date"].includes(field.type) && (
                         <Input
                           type={field.type}
@@ -220,6 +281,46 @@ function FillForm() {
                           </label>
                         </div>
                       )}
+
+                      {/* Question-Wise Document File Attachment Widget UI */}
+                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200">
+                        {attachedFileUrl ? (
+                          <div className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
+                            <a 
+                              href={attachedFileUrl} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]"
+                            >
+                              <File className="h-3.5 w-3.5 shrink-0" />
+                              {attachedFileName || "View Verification PDF"}
+                            </a>
+                            {!isSubmitted && (
+                              <button 
+                                type="button" 
+                                onClick={removeAttachment} 
+                                className="text-red-500 hover:text-red-700 transition p-1"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          !isSubmitted && (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
+                              <Paperclip className="h-3.5 w-3.5" />
+                              Attach Supporting Document (PDF, Images)
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="application/pdf,image/*" 
+                                onChange={handleFileUpload}
+                              />
+                            </label>
+                          )
+                        )}
+                      </div>
+
                     </motion.div>
                   );
                 })}
