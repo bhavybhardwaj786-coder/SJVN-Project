@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { formsService, submissionsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client"; // 👈 ADD THIS LINE HERE
+import { supabase } from "@/integrations/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,9 @@ function FillForm() {
   const isSubmitted = existing?.status === "submitted";
 
   const [values, setValues] = useState<Record<string, any>>({});
+  
+  // FIXED: Lifted state to the top level of the component so React rules are followed and mutation can read it
+  const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
     if (existing?.data) setValues(existing.data);
@@ -81,21 +84,76 @@ function FillForm() {
     setValues((prev) => ({ ...prev, [key]: val }));
 
   const save = useMutation({
-    mutationFn: (submit: boolean) =>
-      submissionsService.saveOrSubmit({
-        formId,
-        siteId: currentUser!.site_id!,
-        userId: currentUser!.id,
-        reportingMonth,
-        data: values,
-        submit,
-      }),
-    onSuccess: (result, submit) => {
-      if (result.error) {
-        toast.error(result.error.message);
-        return;
+    mutationFn: async (submit: boolean) => {
+      const toastId = toast.loading("Processing form items and attachments...");
+      let updatedValues = { ...values };
+
+      try {
+        // 1. Scan fields to verify if any question has local files that need uploading
+        for (const field of fields) {
+          const filesToUpload = localFilesToUpload[field.key] || [];
+          
+          if (filesToUpload.length > 0) {
+            toast.loading(`Uploading attachments for: ${field.label}...`, { id: toastId });
+            
+            // FIX: Generate a single consistent timestamp for this entire field batch
+            const batchTimestamp = Date.now();
+            
+            // Map local files to concurrent parallel upload promises
+            const uploadPromises = filesToUpload.map(async (file, i) => {
+              const fileExt = file.name.split('.').pop();
+              // Clean file name spaces
+              const safeFileName = file.name.replace(/\s+/g, "_");
+              
+              // Consistent folder naming system using the single batch timestamp
+              const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
+
+              const { data, error } = await supabase.storage
+                .from("attachments")
+                .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+
+              if (error) throw error;
+
+              const { data: { publicUrl } } = supabase.storage
+                .from("attachments")
+                .getPublicUrl(uniquePath);
+
+              return { url: publicUrl, name: file.name, storagePath: uniquePath };
+            });
+
+            // Resolve all concurrent uploads for this question field together
+            const uploadedResults = await Promise.all(uploadPromises);
+            
+            // Append new file URLs to any files that were already saved in previous draft sessions
+            const existingFiles = updatedValues[`${field.key}_files`] || [];
+            updatedValues[`${field.key}_files`] = [...existingFiles, ...uploadedResults];
+          }
+        }
+
+        // 2. Submit or Save the full payload configuration to Supabase
+        const result = await submissionsService.saveOrSubmit({
+          formId,
+          siteId: currentUser!.site_id!,
+          userId: currentUser!.id,
+          reportingMonth,
+          data: updatedValues,
+          submit,
+        });
+
+        if (result.error) throw result.error;
+
+        // Clear out local files registry upon successful database persistence sequence
+        setLocalFilesToUpload({});
+        toast.dismiss(toastId);
+        return result;
+
+      } catch (err: any) {
+        toast.error(err.message || "Failed to process form submission workflow.", { id: toastId });
+        throw err;
       }
-      toast.success(submit ? "Form submitted" : "Draft saved");
+    },
+    onSuccess: (result, submit) => {
+      toast.success(submit ? "Form submitted successfully!" : "Draft configuration saved!");
       queryClient.invalidateQueries({ queryKey: ["submissions-by-month"] });
       queryClient.invalidateQueries({ queryKey: ["submission-for-form"] });
       if (submit) navigate({ to: "/authenticated/site" });
@@ -114,9 +172,6 @@ function FillForm() {
 
   return (
     <AppShell>
-      {/* -mt-6 -mb-6 removes the top and bottom gaps.
-        w-[100vw] and translate-x bypasses the AppShell max-width to stretch 100% 
-      */}
       <div className="-mt-6 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2">
         <motion.div
           initial="hidden"
@@ -124,110 +179,75 @@ function FillForm() {
           variants={containerVariants}
           className="w-full"
         >
-          {/* Removed rounded corners and borders so it sits completely flush */}
           <div className="bg-card min-h-screen">
-            {/* Header — Plain text, aligned with form fields */}
-<motion.div
-  variants={fadeUp}
-  className="px-6 pt-8 sm:px-10 sm:pt-10"
->
-  <div className="flex items-start justify-between gap-4">
-    <div>
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" />
-        Monthly Compliance Report
-      </div>
-      <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
-        {formDef.title}
-      </h2>
-    </div>
-    
-    {isSubmitted && (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2, duration: 0.3 }}
-        className="shrink-0"
-      >
-        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Submitted
-        </span>
-      </motion.div>
-    )}
-  </div>
-</motion.div>
+            <motion.div
+              variants={fadeUp}
+              className="px-6 pt-8 sm:px-10 sm:pt-10"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    Monthly Compliance Report
+                  </div>
+                  <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
+                    {formDef.title}
+                  </h2>
+                </div>
+                
+                {isSubmitted && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.3 }}
+                    className="shrink-0"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Submitted
+                    </span>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
 
-            {/* Fields, staggered in */}
             <div className="p-6 sm:p-10">
               <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {fields.map((field: any) => {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
                   
-                  // Setup tracking references for files attached to this specific question key
-                  // 1. Tracks an array of attachments for this specific parameter key
+                  // FIXED: Cleaned up duplicate assignments and tracking setups
                   const attachedFiles = values[`${field.key}_files`] || [];
+                  const localFiles = localFilesToUpload[field.key] || [];
 
-                  // Unique multi-file upload handler for this question
-                  // Unique multi-file upload handler for this question (High-Speed Concurrent Version)
-                  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     const selectedFiles = e.target.files;
                     if (!selectedFiles || selectedFiles.length === 0) return;
 
-                    const toastId = toast.loading(`Uploading ${selectedFiles.length} document(s) `);
+                    const newFiles = Array.from(selectedFiles);
+                    
+                    setLocalFilesToUpload(prev => ({
+                      ...prev,
+                      [field.key]: [...(prev[field.key] || []), ...newFiles]
+                    }));
 
-                    try {
-                      // 1. Convert FileList into an array so we can map over it
-                      const filesArray = Array.from(selectedFiles);
-
-                      // 2. Map files to an array of concurrent upload promises
-                      const uploadPromises = filesArray.map(async (file, i) => {
-                        const fileExt = file.name.split('.').pop();
-                        const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${Date.now()}_${i}/${field.key}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-
-                        // Execute upload to the lowercase 'attachments' bucket
-                        const { data, error } = await supabase.storage
-                          .from("attachments")
-                          .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
-
-                        if (error) throw error;
-
-                        // Retrieve public URL destination
-                        const { data: { publicUrl } } = supabase.storage
-                          .from("attachments")
-                          .getPublicUrl(uniquePath);
-
-                        return {
-                          url: publicUrl,
-                          name: file.name
-                        };
-                      });
-
-                      // 3. Fire all uploads at once and wait for all of them to resolve together
-                      const newUploadedFiles = await Promise.all(uploadPromises);
-
-                      // 4. Update state all at once
-                      setValues(prev => ({
-                        ...prev,
-                        [field.key]: prev[field.key] ?? "", 
-                        [`${field.key}_files`]: [...(prev[`${field.key}_files`] || []), ...newUploadedFiles]
-                      }));
-
-                      toast.success("All documents attached successfully!", { id: toastId });
-
-                    } catch (err: any) {
-                      console.error("Supabase Storage Error Details:", err);
-                      toast.error(err.message || "Upload failed. Verify your network or bucket configuration.", { id: toastId });
-                    }
+                    toast.success(`Locally staged ${newFiles.length} file(s) for upload.`);
                   };
 
-                  const removeAttachment = (indexToRemove: number) => {
-                    const updatedArray = attachedFiles.filter((_: any, idx: number) => idx !== indexToRemove);
-                    setValues(prev => ({
-                      ...prev,
-                      [`${field.key}_files`]: updatedArray
-                    }));
-                    toast.info("Attachment removed");
+                  const removeAttachment = (idx: number, isLocal: boolean) => {
+                    if (isLocal) {
+                      setLocalFilesToUpload(prev => ({
+                        ...prev,
+                        [field.key]: (prev[field.key] || []).filter((_, i) => i !== idx)
+                      }));
+                    } else {
+                      const updatedArray = attachedFiles.filter((_: any, i: number) => i !== idx);
+                      setValues(prev => ({
+                        ...prev,
+                        [`${field.key}_files`]: updatedArray
+                      }));
+                    }
+                    toast.info("Attachment removed from list");
                   };
 
                   return (
@@ -298,42 +318,64 @@ function FillForm() {
 
                       {/* Question-Wise Multiple Document File Attachment Widget UI */}
                       <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200 space-y-2">
-                        {attachedFiles.length > 0 && (
-                          <div className="space-y-1.5">
-                            {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
-                              <div key={idx} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
+                        
+                        {/* 1. Render files that are already live on Supabase */}
+                        {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
+                          <div key={`live-${idx}`} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
+                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]">
+                              <File className="h-3.5 w-3.5 shrink-0" />
+                              {fileObj.name || `Attachment ${idx + 1}`}
+                            </a>
+                            {!isSubmitted && (
+                              <button type="button" onClick={() => removeAttachment(idx, false)} className="text-red-500 hover:text-red-700 transition p-1">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* 2. Render files that are currently staged locally */}
+                        {/* 2. Render files that are currently staged locally */}
+                        {localFiles.map((file: File, idx: number) => {
+                          // Generate a temporary viewable URL for the local browser session
+                          const localPreviewUrl = URL.createObjectURL(file);
+
+                          return (
+                            <div key={`local-${idx}`} className="flex items-center justify-between rounded-lg bg-amber-50 p-2 text-xs border border-amber-200">
+                              <div className="flex items-center gap-1.5 font-bold text-amber-800 truncate max-w-[80%]">
+                                <File className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                 <a 
-                                  href={fileObj.url} 
+                                  href={localPreviewUrl} 
                                   target="_blank" 
                                   rel="noreferrer" 
-                                  className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]"
+                                  className="truncate hover:underline text-amber-900"
                                 >
-                                  <File className="h-3.5 w-3.5 shrink-0" />
-                                  {fileObj.name || `Attachment ${idx + 1}`}
+                                  {file.name}
                                 </a>
-                                {!isSubmitted && (
-                                  <button 
-                                    type="button" 
-                                    onClick={() => removeAttachment(idx)} 
-                                    className="text-red-500 hover:text-red-700 transition p-1"
-                                  >
-                                    <X className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
+                                <span className="text-[10px] font-normal text-amber-500 shrink-0">(Staged)</span>
                               </div>
-                            ))}
-                          </div>
-                        )}
+                              {!isSubmitted && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => removeAttachment(idx, true)} 
+                                  className="text-red-500 hover:text-amber-700 transition p-1"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
 
                         {!isSubmitted && (
                           <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
                             <Paperclip className="h-3.5 w-3.5" />
-                            Attach Supporting Documents (Multiple PDFs/Images allowed)
+                            Attach Supporting Documents (Stored locally until Submit/Save)
                             <input 
                               type="file" 
                               className="hidden" 
                               accept="application/pdf,image/*" 
-                              multiple // 👈 Allows selecting more than one file in the file explorer window
+                              multiple 
                               onChange={handleFileUpload}
                             />
                           </label>

@@ -2,13 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+
 import {
   Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned,
   FileText, Loader2, Plus, Pencil, Eye, UserPlus,
   Search, Download, FileSpreadsheet, FileIcon,
-  ChevronDown, Sliders, type LucideIcon,
+  ChevronDown, Sliders, FolderDown, type LucideIcon, // 👈 CHANGED THIS FROM FolderDownload to FolderDown
 } from "lucide-react";
+
 
 import {
   DropdownMenu,
@@ -63,6 +65,120 @@ const fadeUp = {
 };
 
 function AdminDashboard() {
+
+  const [zippingId, setZippingId] = useState<string | null>(null);
+
+  const handleDownloadAttachmentsZip = async (submission: any, siteName: string, formTitle: string) => {
+    if (!submission?.data) return;
+    
+    const filesData = submission.data;
+    const fields = submission.forms?.schema?.fields || [];
+    
+    // Collect all valid multi-file attachment lists from form parameters
+    const allAttachments: { url: string; name: string; paramLabel: string }[] = [];
+    
+    fields.forEach((field: any) => {
+      const fieldFiles = filesData[`${field.key}_files`] || [];
+      fieldFiles.forEach((file: any) => {
+        if (file.url && file.name) {
+          allAttachments.push({
+            url: file.url,
+            name: file.name,
+            paramLabel: field.label || field.key
+          });
+        }
+      });
+    });
+
+    if (allAttachments.length === 0) {
+      toast.error("No attachments exist for this submission log.");
+      return;
+    }
+
+    setZippingId(submission.id);
+    const toastId = toast.loading("Generating secure access links and building archive...");
+
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      
+      const monthFolderStr = `SJVN_${siteName.replace(/\s+/g, "_")}_${selectedMonth}`;
+      const mainFolder = zip.folder(monthFolderStr);
+
+      // Fetch all remote cloud files using secure Supabase Signed URLs
+      const downloadPromises = allAttachments.map(async (fileInfo, idx) => {
+        try {
+          // 1. Identify the storage path: use explicit property if present, otherwise fallback
+          let relativePath = (fileInfo as any).storagePath || "";
+          
+          if (!relativePath) {
+            const searchToken = "/storage/v1/object/public/attachments/";
+            if (fileInfo.url.includes(searchToken)) {
+              relativePath = fileInfo.url.split(searchToken)[1];
+            } else {
+              const parts = fileInfo.url.split("/attachments/");
+              relativePath = parts[parts.length - 1];
+            }
+          }
+
+          relativePath = relativePath.split("?")[0].split("#")[0];
+          relativePath = decodeURIComponent(relativePath);
+
+          if (!relativePath) {
+            throw new Error("Unable to parse file location token.");
+          }
+
+          // 2. Request a short-lived signed authentication token URL directly from the SDK
+          const { data: signData, error: signError } = await supabase.storage
+            .from("attachments")
+            .createSignedUrl(relativePath, 60);
+
+          if (signError || !signData?.signedUrl) {
+            console.error(`Storage lookup failed for path: ${relativePath}`, signError);
+            throw signError || new Error("Failed to generate authorization download token.");
+          }
+
+          // 3. Download the authenticated asset via the signed token securely
+          const response = await fetch(signData.signedUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP Asset Fetch Failed: ${response.status}`);
+          }
+          
+          const fileBlob = await response.blob();
+
+          // 4. Sanitize naming parameters inside the target ZIP file structure
+          const cleanedParamLabel = fileInfo.paramLabel.replace(/[^a-zA-Z0-9]/g, "_");
+          const cleanFileName = fileInfo.name.replace(/\s+/g, "_");
+          const dynamicFileName = `${String(idx + 1).padStart(2, '0')}_${cleanedParamLabel}_${cleanFileName}`;
+          
+          mainFolder?.file(dynamicFileName, fileBlob);
+        } catch (fileFetchError: any) {
+          console.error(`Download process failure on target object: ${fileInfo.name}`, fileFetchError);
+          throw new Error(`${fileInfo.name} -> ${fileFetchError.message || 'Not Found'}`);
+        }
+      });
+
+      await Promise.all(downloadPromises);
+
+      const contentBlob = await zip.generateAsync({ type: "blob" });
+      const downloadUrl = URL.createObjectURL(contentBlob);
+      
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${monthFolderStr}_Attachments.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("ZIP archive compiled and downloaded successfully!", { id: toastId });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`ZIP Compilation Interrupted: ${err.message || 'Permission Error'}`, { id: toastId });
+    } finally {
+      setZippingId(null);
+    }
+  };
+
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const isSuperAdmin = currentUser?.role === "super_admin";
@@ -476,6 +592,8 @@ function AdminDashboard() {
           </select>
         </motion.section>
 
+
+
         {/* --- Lower Component Section View Rendering Block --- */}
 {activeView === "matrix" && siteSearchQuery.trim() !== "" && (
   <motion.section variants={fadeUp} className="mt-8 space-y-4">
@@ -514,22 +632,24 @@ function AdminDashboard() {
     <div className="overflow-hidden rounded-xl border bg-card shadow-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
-          <tr>
-            <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
-            <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[200px]">Compliance Status</th>
-            <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[150px]">Actions</th>
-          </tr>
-        </thead>
+            <tr>
+              <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
+              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Compliance Status</th>
+              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Download Attachments</th>
+              <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Download Report</th>
+            </tr>
+          </thead>
         <tbody className="divide-y divide-slate-100">
           {submissionsLoading ? (
             <tr>
-              <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
-              </td>
-            </tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground"> {/* 👈 Changed from 3 to 4 */}
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+                </td>
+              </tr>
           ) : displayedSites.length > 0 && activeForms.length > 0 ? (
             displayedSites.map((site) => (
               activeForms.map((f: any) => {
+                // Inside activeForms.map((f: any) => { ... })
                 const submission = submissionMap.get(`${site.id}__${f.id}`);
                 const status = submission?.status ?? "not_submitted";
 
@@ -544,6 +664,30 @@ function AdminDashboard() {
                     <td className="px-6 py-4 text-center">
                       <StatusBadge status={status} />
                     </td>
+                    
+                    {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
+                    <td className="px-6 py-4 text-center">
+                      {submission ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={zippingId === submission.id}
+                          onClick={() => handleDownloadAttachmentsZip(submission, site.name, f.title)}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
+                        >
+                          {zippingId === submission.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <FolderDown className="h-3.5 w-3.5" /> // 👈 CHANGED THIS FROM FolderDownload to FolderDown
+                          )}
+                          Download ZIP
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic select-none">—</span>
+                      )}
+                    </td>
+
+                    {/* COLUMN 2: DOWNLOAD/VIEW REPORT */}
                     <td className="px-6 py-4 text-right">
                       {submission ? (
                         <Link 
@@ -551,7 +695,7 @@ function AdminDashboard() {
                           params={{ submissionId: submission.id }} 
                           className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
                         >
-                          <Eye className="h-3.5 w-3.5" /> View Log
+                          <Eye className="h-3.5 w-3.5" /> View Report
                         </Link>
                       ) : (
                         <span className="text-xs font-medium text-slate-400 select-none pr-3">
@@ -565,7 +709,7 @@ function AdminDashboard() {
             ))
           ) : (
             <tr>
-              <td colSpan={3} className="px-6 py-12 text-center text-muted-foreground font-medium">
+              <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
                 No form metrics are currently assigned or active for this period.
               </td>
             </tr>
@@ -655,7 +799,7 @@ function AdminDashboard() {
           ) : (
             <tr>
               <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
-                No compliance models matched your current selection view directory criteria.
+                No form metrics are currently assigned or active for this period.
               </td>
             </tr>
           )}
