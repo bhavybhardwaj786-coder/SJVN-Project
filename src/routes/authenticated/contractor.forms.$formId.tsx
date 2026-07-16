@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { formsService, submissionsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { supabase } from "@/integrations/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -19,18 +20,15 @@ import {
   FileText, 
   CheckCircle2, 
   Paperclip, 
-  File, 
+  File as FileIcon, 
   X 
 } from "lucide-react";
-
-import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 
 export const Route = createFileRoute("/authenticated/contractor/forms/$formId")({
   ssr: false,
   component: FillForm,
 });
 
-// --- shared animation variants ---
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -62,15 +60,27 @@ function FillForm() {
   const fields = formDef?.schema?.fields || [];
 
   const { data: existingResult } = useQuery({
-    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth],
-    queryFn: () =>
-      submissionsService.getSubmissionForForm(formId, currentUser!.site_id!, reportingMonth),
-    enabled: !!currentUser?.site_id,
+    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth, currentUser?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select("*")
+        .eq("form_id", formId)
+        .eq("site_id", currentUser!.site_id!)
+        .eq("reporting_month", reportingMonth)
+        .eq("user_id", currentUser!.id) // 👈 Fix: Check explicitly against the user logging the form
+        .maybeSingle();
+
+      if (error) throw error;
+      return { data };
+    },
+    enabled: !!currentUser?.site_id && !!currentUser?.id,
   });
   const existing = existingResult?.data;
   const isSubmitted = existing?.status === "submitted";
 
   const [values, setValues] = useState<Record<string, any>>({});
+  const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
     if (existing?.data) setValues(existing.data);
@@ -80,21 +90,66 @@ function FillForm() {
     setValues((prev) => ({ ...prev, [key]: val }));
 
   const save = useMutation({
-    mutationFn: (submit: boolean) =>
-      submissionsService.saveOrSubmit({
-        formId,
-        siteId: currentUser!.site_id!,
-        userId: currentUser!.id,
-        reportingMonth,
-        data: values,
-        submit,
-      }),
-    onSuccess: (result, submit) => {
-      if (result.error) {
-        toast.error(result.error.message);
-        return;
+    mutationFn: async (submit: boolean) => {
+      const toastId = toast.loading("Processing form items and contractor attachments...");
+      let updatedValues = { ...values };
+
+      try {
+        for (const field of fields) {
+          const filesToUpload = localFilesToUpload[field.key] || [];
+          
+          if (filesToUpload.length > 0) {
+            toast.loading(`Uploading attachments for: ${field.label}...`, { id: toastId });
+            const batchTimestamp = Date.now();
+            
+            const uploadPromises = filesToUpload.map(async (file, i) => {
+              const fileExt = file.name.split('.').pop();
+              const safeFileName = file.name.replace(/\s+/g, "_");
+              
+              // Aligned bucket endpoint configuration pathway mapping to target "attachments" bucket
+              const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
+
+              const { data, error } = await supabase.storage
+                .from("attachments")
+                .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+
+              if (error) throw error;
+
+              const { data: { publicUrl } } = supabase.storage
+                .from("attachments")
+                .getPublicUrl(uniquePath);
+
+              return { url: publicUrl, name: file.name, storagePath: uniquePath };
+            });
+
+            const uploadedResults = await Promise.all(uploadPromises);
+            const existingFiles = updatedValues[`${field.key}_files`] || [];
+            updatedValues[`${field.key}_files`] = [...existingFiles, ...uploadedResults];
+          }
+        }
+
+        const result = await submissionsService.saveOrSubmit({
+          formId,
+          siteId: currentUser!.site_id!,
+          userId: currentUser!.id,
+          reportingMonth,
+          data: updatedValues,
+          submit,
+        });
+
+        if (result.error) throw result.error;
+
+        setLocalFilesToUpload({});
+        toast.dismiss(toastId);
+        return result;
+
+      } catch (err: any) {
+        toast.error(err.message || "Failed to process contractor form submission workflow.", { id: toastId });
+        throw err;
       }
-      toast.success(submit ? "Form submitted" : "Draft saved");
+    },
+    onSuccess: (result, submit) => {
+      toast.success(submit ? "Contractor report submitted successfully!" : "Draft configurations saved!");
       queryClient.invalidateQueries({ queryKey: ["submissions-by-month"] });
       queryClient.invalidateQueries({ queryKey: ["submission-for-form"] });
       if (submit) navigate({ to: "/authenticated/contractor" });
@@ -113,106 +168,58 @@ function FillForm() {
 
   return (
     <AppShell>
-      {/* -mt-6 -mb-6 removes the top and bottom gaps.
-        w-[100vw] and translate-x bypasses the AppShell max-width to stretch 100% 
-      */}
       <div className="-mt-6 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2">
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={containerVariants}
-          className="w-full"
-        >
-          {/* Removed rounded corners and borders so it sits completely flush */}
+        <motion.div initial="hidden" animate="show" variants={containerVariants} className="w-full">
           <div className="bg-card min-h-screen">
-            {/* Header — Plain text, aligned with form fields */}
-<motion.div
-  variants={fadeUp}
-  className="px-6 pt-8 sm:px-10 sm:pt-10"
->
-  <div className="flex items-start justify-between gap-4">
-    <div>
-      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" />
-        Monthly Compliance Report
-      </div>
-      <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
-        {formDef.title}
-      </h2>
-    </div>
-    
-    {isSubmitted && (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2, duration: 0.3 }}
-        className="shrink-0"
-      >
-        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Submitted
-        </span>
-      </motion.div>
-    )}
-  </div>
-</motion.div>
+            <motion.div variants={fadeUp} className="px-6 pt-8 sm:px-10 sm:pt-10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    Contractor Monthly Compliance Report
+                  </div>
+                  <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
+                    {formDef.title}
+                  </h2>
+                </div>
+                {isSubmitted && (
+                  <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="shrink-0">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Submitted
+                    </span>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
 
-            {/* Fields, staggered in */}
             <div className="p-6 sm:p-10">
               <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {fields.map((field: any) => {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
-                  
-                  // Setup tracking references for files attached to this specific question key
-                  const attachedFileUrl = values[`${field.key}_file`] ?? null;
-                  const attachedFileName = values[`${field.key}_filename`] ?? null;
+                  const attachedFiles = values[`${field.key}_files`] || [];
+                  const localFiles = localFilesToUpload[field.key] || [];
 
-                  // Unique upload handler for this question
-                  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-
-                    try {
-                      toast.loading("Uploading document element...");
-                      
-                      // Construct a unique destination subpath: bucket/submissionContext/questionKey_filename
-                      const fileExt = file.name.split('.').pop();
-                      const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${Date.now()}/${field.key}.${fileExt}`;
-
-                      const { data, error } = await supabase.storage
-                        .from("form-attachments")
-                        .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
-
-                      if (error) throw error;
-
-                      // Generate the access destination link
-                      const { data: { publicUrl } } = supabase.storage
-                        .from("form-attachments")
-                        .getPublicUrl(uniquePath);
-
-                      // Save both the direct public download path and visual filename tag inside json state
-                      setValues(prev => ({
-                        ...prev,
-                        [field.key]: prev[field.key] ?? "", // preserve text answer state
-                        [`${field.key}_file`]: publicUrl,
-                        [`${field.key}_filename`]: file.name
-                      }));
-
-                      toast.dismiss();
-                      toast.success(`Attached: ${file.name}`);
-                    } catch (err: any) {
-                      toast.dismiss();
-                      toast.error(err.message || "Failed to upload file");
-                    }
+                  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+                    const selectedFiles = e.target.files;
+                    if (!selectedFiles || selectedFiles.length === 0) return;
+                    const newFiles = Array.from(selectedFiles);
+                    setLocalFilesToUpload(prev => ({
+                      ...prev,
+                      [field.key]: [...(prev[field.key] || []), ...newFiles]
+                    }));
+                    toast.success(`Staged ${newFiles.length} file(s) for upload.`);
                   };
 
-                  const removeAttachment = () => {
-                    setValues(prev => {
-                      const next = { ...prev };
-                      delete next[`${next.key}_file`];
-                      delete next[`${next.key}_filename`];
-                      return next;
-                    });
+                  const removeAttachment = (idx: number, isLocal: boolean) => {
+                    if (isLocal) {
+                      setLocalFilesToUpload(prev => ({
+                        ...prev,
+                        [field.key]: (prev[field.key] || []).filter((_, i) => i !== idx)
+                      }));
+                    } else {
+                      const updatedArray = attachedFiles.filter((_: any, i: number) => i !== idx);
+                      setValues(prev => ({ ...prev, [`${field.key}_files`]: updatedArray }));
+                    }
                     toast.info("Attachment removed");
                   };
 
@@ -224,7 +231,6 @@ function FillForm() {
                         </Label>
                       )}
 
-                      {/* Regular Answer Inputs */}
                       {["text", "number", "date"].includes(field.type) && (
                         <Input
                           type={field.type}
@@ -232,7 +238,7 @@ function FillForm() {
                           value={values[field.key] ?? ""}
                           onChange={(e) => setField(field.key, e.target.value)}
                           placeholder={dynamicPlaceholder}
-                          className="h-11 rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
+                          className="h-11 rounded-md border bg-background shadow-card"
                         />
                       )}
 
@@ -242,24 +248,18 @@ function FillForm() {
                           value={values[field.key] ?? ""}
                           onChange={(e) => setField(field.key, e.target.value)}
                           placeholder={dynamicPlaceholder}
-                          className="min-h-[100px] resize-none rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
+                          className="min-h-[100px] resize-none rounded-md border bg-background shadow-card"
                         />
                       )}
 
                       {field.type === "select" && (
-                        <Select
-                          disabled={isSubmitted}
-                          value={values[field.key] ?? ""}
-                          onValueChange={(v) => setField(field.key, v)}
-                        >
-                          <SelectTrigger className="h-11 rounded-md border bg-background shadow-card transition-colors focus:border-ring">
+                        <Select disabled={isSubmitted} value={values[field.key] ?? ""} onValueChange={(v) => setField(field.key, v)}>
+                          <SelectTrigger className="h-11 rounded-md border bg-background shadow-card">
                             <SelectValue placeholder="Select an option" />
                           </SelectTrigger>
                           <SelectContent>
                             {field.options?.map((opt: any) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -267,93 +267,66 @@ function FillForm() {
 
                       {field.type === "checkbox" && (
                         <div className="flex h-11 items-center gap-3 rounded-md border bg-background px-4 shadow-card">
-                          <Checkbox
-                            id={field.key}
-                            disabled={isSubmitted}
-                            checked={!!values[field.key]}
-                            onCheckedChange={(v) => setField(field.key, v)}
-                          />
-                          <label
-                            htmlFor={field.key}
-                            className="cursor-pointer select-none text-sm font-semibold text-muted-foreground"
-                          >
+                          <Checkbox id={field.key} disabled={isSubmitted} checked={!!values[field.key]} onCheckedChange={(v) => setField(field.key, v)} />
+                          <label htmlFor={field.key} className="cursor-pointer select-none text-sm font-semibold text-muted-foreground">
                             {field.label} {field.required && "*"}
                           </label>
                         </div>
                       )}
 
-                      {/* Question-Wise Document File Attachment Widget UI */}
-                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200">
-                        {attachedFileUrl ? (
-                          <div className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
-                            <a 
-                              href={attachedFileUrl} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]"
-                            >
-                              <File className="h-3.5 w-3.5 shrink-0" />
-                              {attachedFileName || "View Verification PDF"}
+                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200 space-y-2">
+                        {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
+                          <div key={`live-${idx}`} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
+                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]">
+                              <FileIcon className="h-3.5 w-3.5 shrink-0" /> {fileObj.name || `Attachment ${idx + 1}`}
                             </a>
                             {!isSubmitted && (
-                              <button 
-                                type="button" 
-                                onClick={removeAttachment} 
-                                className="text-red-500 hover:text-red-700 transition p-1"
-                              >
+                              <button type="button" onClick={() => removeAttachment(idx, false)} className="text-red-500 hover:text-red-700 p-1">
                                 <X className="h-3.5 w-3.5" />
                               </button>
                             )}
                           </div>
-                        ) : (
-                          !isSubmitted && (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
-                              <Paperclip className="h-3.5 w-3.5" />
-                              Attach Supporting Document (PDF, Images)
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="application/pdf,image/*" 
-                                onChange={handleFileUpload}
-                              />
-                            </label>
-                          )
+                        ))}
+
+                        {localFiles.map((file: File, idx: number) => {
+                          const localPreviewUrl = URL.createObjectURL(file);
+                          return (
+                            <div key={`local-${idx}`} className="flex items-center justify-between rounded-lg bg-amber-50 p-2 text-xs border border-amber-200">
+                              <div className="flex items-center gap-1.5 font-bold text-amber-800 truncate max-w-[80%]">
+                                <FileIcon className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                <a href={localPreviewUrl} target="_blank" rel="noreferrer" className="truncate hover:underline text-amber-900">{file.name}</a>
+                                <span className="text-[10px] font-normal text-amber-500 shrink-0">(Staged)</span>
+                              </div>
+                              {!isSubmitted && (
+                                <button type="button" onClick={() => removeAttachment(idx, true)} className="text-red-500 p-1">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {!isSubmitted && (
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            Attach Supporting Documents
+                            <input type="file" className="hidden" accept="application/pdf,image/*" multiple onChange={handleFileUpload} />
+                          </label>
                         )}
                       </div>
-
                     </motion.div>
                   );
                 })}
 
-               <AnimatePresence>
+                <AnimatePresence>
                   {!isSubmitted && (
-                    <motion.div
-                      variants={fadeUp}
-                      initial="hidden"
-                      animate="show"
-                      exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
-                      className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 mt-4 border-t border-border/50"
-                    >
-                      <Button
-                        variant="ghost"
-                        onClick={() => save.mutate(false)}
-                        disabled={save.isPending}
-                        className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
+                    <motion.div variants={fadeUp} initial="hidden" animate="show" exit={{ opacity: 0, y: -8 }} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 mt-4 border-t border-border/50">
+                      <Button variant="ghost" onClick={() => save.mutate(false)} disabled={save.isPending} className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted">
                         Save Draft
                       </Button>
-
                       <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-                        <Button
-                          onClick={() => save.mutate(true)}
-                          disabled={save.isPending}
-                          className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
-                        >
-                          {save.isPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Submit Form"
-                          )}
+                        <Button onClick={() => save.mutate(true)} disabled={save.isPending} className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card">
+                          {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Form"}
                         </Button>
                       </motion.div>
                     </motion.div>
