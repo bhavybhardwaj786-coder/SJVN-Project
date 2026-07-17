@@ -1,6 +1,7 @@
 import { createFileRoute, Link , redirect, useNavigate  } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+
 import { motion } from "framer-motion";
 
 
@@ -736,7 +737,8 @@ const bulkToggleLockMutation = useMutation({
   </section>
 </motion.div>
 
-<motion.div variants={fadeUp} className="mt-6 flex">
+{/* Replace the `<motion.div>` on line 545 with this updated wrapper: */}
+<motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-4">
   <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
     <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Reporting Month</label>
     <select
@@ -756,21 +758,23 @@ const bulkToggleLockMutation = useMutation({
       })}
     </select>
   </div>
+
   {/* NEW: Bulk Portal Access dropdown */}
-<div className="relative mt-3">
-  <button
-    onClick={() => setBulkDropdownOpen((o) => !o)}
-    className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border bg-card px-3 text-sm shadow-card outline-none focus:border-primary"
-  >
-    <span className="truncate text-slate-700 font-medium">
-      {bulkSiteIds.size === 0
-        ? "Select sites for portal access"
-        : bulkSiteIds.size === sites.length
-        ? "All sites selected"
-        : `${bulkSiteIds.size} site(s) selected`}
-    </span>
-    <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
-  </button>
+  {/* Remove 'mt-3' from this div class: */}
+  <div className="relative">
+    <button
+      onClick={() => setBulkDropdownOpen((o) => !o)}
+      className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border bg-card px-3 text-sm shadow-card outline-none focus:border-primary"
+    >
+      <span className="truncate text-slate-700 font-medium">
+        {bulkSiteIds.size === 0
+          ? "Select sites for portal access"
+          : bulkSiteIds.size === sites.length
+          ? "All sites selected"
+          : `${bulkSiteIds.size} site(s) selected`}
+      </span>
+      <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
+    </button>
 
   {bulkDropdownOpen && (
     <div className="absolute z-50 mt-1 w-full sm:w-[280px] max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl p-1">
