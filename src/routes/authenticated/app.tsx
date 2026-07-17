@@ -1,4 +1,4 @@
-import { createFileRoute, Link , redirect } from "@tanstack/react-router";
+import { createFileRoute, Link , redirect, useNavigate  } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -43,6 +43,9 @@ import { authService } from "@/services/auth";
 
 export const Route = createFileRoute("/authenticated/app")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    site: (search.site as string) || "",
+  }),
   beforeLoad: async () => {
     const user = await authService.getCurrentUser();
     if (!user) {
@@ -202,7 +205,8 @@ function AdminDashboard() {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [formSearchQuery, setFormSearchQuery] = useState("");
-  const [siteSearchQuery, setSiteSearchQuery] = useState("");
+  const { site: siteSearchQuery } = Route.useSearch();
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState<"matrix" | "forms">("matrix");
 
   // NEW: once a site is selected, choose whether to browse its submissions
@@ -695,10 +699,13 @@ const bulkToggleLockMutation = useMutation({
   // NEW: whenever the selected site changes, reset the contractor drill-down
   // so stale selections from a previous site don't linger.
   const handleSelectSite = (name: string) => {
-    setSiteSearchQuery(name);
-    setSiteViewMode("site");
-    setSelectedContractorId(null);
-  };
+  navigate({
+    search: (prev) => ({ ...prev, site: name }),
+    replace: true,
+  });
+  setSiteViewMode("site");
+  setSelectedContractorId(null);
+};
 
   return (
     <AppShell>
@@ -1046,6 +1053,7 @@ const bulkToggleLockMutation = useMutation({
                         <Link 
                           to="/authenticated/$submissionId" 
                           params={{ submissionId: submission.id }} 
+                          search={{ site: siteSearchQuery }}
                           className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
                         >
                           <Eye className="h-3.5 w-3.5" /> View Report
@@ -1172,6 +1180,7 @@ const bulkToggleLockMutation = useMutation({
                           <Link
                             to="/authenticated/$submissionId"
                             params={{ submissionId: submission.id }}
+                            search={{ site: siteSearchQuery }}
                             className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
                           >
                             <Eye className="h-3.5 w-3.5" /> View Report
