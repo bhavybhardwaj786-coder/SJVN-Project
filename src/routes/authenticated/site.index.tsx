@@ -145,7 +145,7 @@ function SiteDashboard() {
     <AppShell>
       {/* Container breaks out of standard padding to apply the full background gradient */}
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full px-4 py-8 sm:px-6 lg:px-8">
           
           {/* Hero Section */}
           <section className="flex">

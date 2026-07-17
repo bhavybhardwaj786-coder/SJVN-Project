@@ -19,7 +19,6 @@ import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
-import { HeroCarousel } from "@/components/public/hero-carousel";
 
 async function fetchMe() {
   const { data: userData } = await supabase.auth.getUser();
@@ -76,8 +75,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => setOpen(false), [pathname]);
-
-  const isUserDashboard = pathname === "/authenticated/site" || pathname === "/authenticated/site/";
 
   const nav = me?.isSuperAdmin
     ? [
@@ -224,17 +221,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* 3. Main Workspace Area */}
       <div className="relative flex-1 w-full">
-        {isUserDashboard && (
-          <div className="absolute top-0 left-0 w-full h-[450px] z-0 overflow-hidden shadow-sm">
-            <HeroCarousel />
-            <div className="absolute inset-0 bg-white/40 backdrop-blur-[1px]" />
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#eaeff2] to-transparent" />
-          </div>
-        )}
 
         <div
           className={cn(
-            "mx-auto grid max-w-[1400px] gap-6 px-4 py-6 relative z-10",
+            "w-full grid gap-6 px-4 py-6 relative z-10",
             nav.length === 0 ? "grid-cols-1" : "lg:grid-cols-[240px_1fr]"
           )}
         >
