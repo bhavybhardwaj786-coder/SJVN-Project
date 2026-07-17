@@ -66,6 +66,7 @@ type SubmissionRow = {
   form_id: string;
   site_id: string;
   user_id: string;
+  submitted_by_role: string;
   data: Record<string, any>;
   forms: { id: string; title: string; schema: any } | null;
   sites: { id: string; name: string; code: string } | null;
@@ -237,15 +238,16 @@ function AdminDashboard() {
   });
   const sites = sitesResult || [];
 
-  // UPDATED QUERY: Added 'data' and 'forms(..., schema)' for export functionality
-  // Also kept the .eq("status", "submitted") to hide drafts
+  // Submissions for the selected reporting month. submitted_by_role tells us
+  // whether each row came from the site-user flow or the contractor flow,
+  // so the two tabs below never collide on the same site_id + form_id key.
   const { data: submissionsResult, isLoading: submissionsLoading } = useQuery({
     queryKey: ["admin-submissions-by-month", reportingMonthDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("submissions")
         .select(`
-          id, status, submitted_at, updated_at, form_id, site_id, user_id, data,
+          id, status, submitted_at, updated_at, form_id, site_id, user_id, data, submitted_by_role,
           forms(id, title, schema),
           sites(id, name, code)
         `)
@@ -259,9 +261,8 @@ function AdminDashboard() {
   });
   const submissions = submissionsResult || [];
 
-  // NEW: resolve contractor display names via a direct lookup against the
+  // Resolve contractor display names via a direct lookup against the
   // `contractors` table, keyed on the user_ids seen in this month's submissions.
-  // Tries the common name-column variants since the exact column name wasn't confirmed.
   const submitterIds = useMemo(
     () => Array.from(new Set(submissions.map((s) => s.user_id).filter(Boolean))),
     [submissions]
@@ -293,16 +294,21 @@ function AdminDashboard() {
     return map;
   }, [contractorRows]);
 
+  // Site-only submission matrix, keyed by site_id__form_id. Filtering on
+  // submitted_by_role instead of guessing by id set means a contractor's
+  // submission of the same form can never overwrite the site user's here.
   const submissionMap = useMemo(() => {
     const map = new Map<string, SubmissionRow>();
-    submissions.forEach((s) => {
-      if (s.site_id && s.form_id) map.set(`${s.site_id}__${s.form_id}`, s);
-    });
+    submissions
+      .filter((s) => s.submitted_by_role === "site")
+      .forEach((s) => {
+        if (s.site_id && s.form_id) map.set(`${s.site_id}__${s.form_id}`, s);
+      });
     return map;
   }, [submissions]);
 
   const totalSites = sites.length;
-  
+
   // Find currently selected site object if it exists
   const selectedSiteObj = sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase());
   const isSiteSelected = !!selectedSiteObj;
@@ -328,22 +334,25 @@ function AdminDashboard() {
 
   const totalSubmitted = isSiteSelected ? contextualSubmissions.length : submissions.length;
 
-  // NEW: contractors who submitted something for the selected site this month,
-  // with a count of how many forms each one submitted.
+  // Contractors who submitted something for the selected site this month,
+  // with a count of how many forms each one submitted. Filtered strictly to
+  // submitted_by_role === "contractor" so a site user never appears here.
   const siteContractors = useMemo(() => {
     if (!selectedSiteObj) return [];
     const byUser = new Map<string, { id: string; name: string; count: number }>();
-    contextualSubmissions.forEach((s) => {
-      const id = s.user_id;
-      if (!id) return;
-      const name = contractorNameMap.get(id) || "Unnamed Contractor";
-      const existing = byUser.get(id);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        byUser.set(id, { id, name, count: 1 });
-      }
-    });
+    contextualSubmissions
+      .filter((s) => s.submitted_by_role === "contractor")
+      .forEach((s) => {
+        const id = s.user_id;
+        if (!id) return;
+        const name = contractorNameMap.get(id) || "Unnamed Contractor";
+        const existing = byUser.get(id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          byUser.set(id, { id, name, count: 1 });
+        }
+      });
     return Array.from(byUser.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [contextualSubmissions, selectedSiteObj, contractorNameMap]);
 

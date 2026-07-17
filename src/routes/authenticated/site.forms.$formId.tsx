@@ -62,10 +62,16 @@ function FillForm() {
   const formDef = formResult?.data;
   const fields = formDef?.schema?.fields || [];
 
+  // FIXED: Query using "site_user" instead of "site" to align with database & admin dashboard
   const { data: existingResult } = useQuery({
-    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth],
+    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth, "site_user"],
     queryFn: () =>
-      submissionsService.getSubmissionForForm(formId, currentUser!.site_id!, reportingMonth),
+      submissionsService.getSubmissionForForm(
+        formId, 
+        currentUser?.site_id || "", 
+        reportingMonth, 
+        "site_user"
+      ),
     enabled: !!currentUser?.site_id,
   });
   const existing = existingResult?.data;
@@ -89,8 +95,6 @@ function FillForm() {
   const isSubmitted = existing?.status === "submitted";
 
   const [values, setValues] = useState<Record<string, any>>({});
-  
-  // FIXED: Lifted state to the top level of the component so React rules are followed and mutation can read it
   const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
 
   useEffect(() => {
@@ -102,6 +106,10 @@ function FillForm() {
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
+      if (!currentUser?.site_id || !currentUser?.id) {
+        throw new Error("User session details missing. Please reload the page.");
+      }
+
       const toastId = toast.loading("Processing form items and attachments...");
       let updatedValues = { ...values };
 
@@ -113,17 +121,14 @@ function FillForm() {
           if (filesToUpload.length > 0) {
             toast.loading(`Uploading attachments for: ${field.label}...`, { id: toastId });
             
-            // FIX: Generate a single consistent timestamp for this entire field batch
             const batchTimestamp = Date.now();
             
             // Map local files to concurrent parallel upload promises
             const uploadPromises = filesToUpload.map(async (file, i) => {
               const fileExt = file.name.split('.').pop();
-              // Clean file name spaces
               const safeFileName = file.name.replace(/\s+/g, "_");
               
-              // Consistent folder naming system using the single batch timestamp
-              const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
+              const uniquePath = `${formId}_${currentUser.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
 
               const { data, error } = await supabase.storage
                 .from("attachments")
@@ -141,25 +146,24 @@ function FillForm() {
             // Resolve all concurrent uploads for this question field together
             const uploadedResults = await Promise.all(uploadPromises);
             
-            // Append new file URLs to any files that were already saved in previous draft sessions
             const existingFiles = updatedValues[`${field.key}_files`] || [];
             updatedValues[`${field.key}_files`] = [...existingFiles, ...uploadedResults];
           }
         }
 
-        // 2. Submit or Save the full payload configuration to Supabase
+        // 2. Submit or Save the full payload configuration using 'site_user' role
         const result = await submissionsService.saveOrSubmit({
           formId,
-          siteId: currentUser!.site_id!,
-          userId: currentUser!.id,
+          siteId: currentUser.site_id,
+          userId: currentUser.id,
           reportingMonth,
           data: updatedValues,
           submit,
+          submittedByRole: "site_user", // 👈 FIXED: Changed "site" to "site_user" to match Admin dashboard filters
         });
 
         if (result.error) throw result.error;
 
-        // Clear out local files registry upon successful database persistence sequence
         setLocalFilesToUpload({});
         toast.dismiss(toastId);
         return result;
@@ -233,7 +237,6 @@ function FillForm() {
                 {fields.map((field: any) => {
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
                   
-                  // FIXED: Cleaned up duplicate assignments and tracking setups
                   const attachedFiles = values[`${field.key}_files`] || [];
                   const localFiles = localFilesToUpload[field.key] || [];
 
@@ -275,7 +278,6 @@ function FillForm() {
                         </Label>
                       )}
 
-                      {/* Regular Answer Inputs */}
                       {["text", "number", "date"].includes(field.type) && (
                         <Input
                           type={field.type}
@@ -352,23 +354,13 @@ function FillForm() {
                         ))}
 
                         {/* 2. Render files that are currently staged locally */}
-                        {/* 2. Render files that are currently staged locally */}
                         {localFiles.map((file: File, idx: number) => {
-                          // Generate a temporary viewable URL for the local browser session
-                          const localPreviewUrl = URL.createObjectURL(file);
-
                           return (
                             <div key={`local-${idx}`} className="flex items-center justify-between rounded-lg bg-amber-50 p-2 text-xs border border-amber-200">
                               <div className="flex items-center gap-1.5 font-bold text-amber-800 truncate max-w-[80%]">
                                 <File className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                                <a 
-                                  href={localPreviewUrl} 
-                                  target="_blank" 
-                                  rel="noreferrer" 
-                                  className="truncate hover:underline text-amber-900"
-                                >
-                                  {file.name}
-                                </a>
+                                {/* 👈 FIXED: Render file name as safe text instead of invoking URL.createObjectURL on render to avoid memory leak */}
+                                <span className="truncate text-amber-900">{file.name}</span>
                                 <span className="text-[10px] font-normal text-amber-500 shrink-0">(Staged)</span>
                               </div>
                               {!isSubmitted && (
@@ -387,7 +379,7 @@ function FillForm() {
                         {!isSubmitted && (
                           <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
                             <Paperclip className="h-3.5 w-3.5" />
-                            Attachments
+                            Attach Supporting Documents
                             <input 
                               type="file" 
                               className="hidden" 

@@ -30,6 +30,7 @@ export const submissionsService = {
         // (reporting_month, site_id, form_id, user_id)
         onConflict: 'form_id,site_id,reporting_month,user_id',
       })
+
       .select()
       .single();
 

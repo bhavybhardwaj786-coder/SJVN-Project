@@ -1,28 +1,35 @@
 import { supabase } from '@/lib/supabase'
 
-/// async function createForm(payload: {
-///  title: string;
-///  description: string;
-///  schema: { icon: string; fields: FormField[] };
-///  is_active: boolean;
-///  frequency: string;
-///  site_ids: string[] | null;
-///}) {
-///  const { data, error } = await supabase
-///    .from("forms")
-///    .insert({
-///      title: payload.title,
-///      description: payload.description,
-///      schema: payload.schema,
-///      is_active: payload.is_active,
-///      frequency: payload.frequency,
-///      site_ids: payload.site_ids,
-///    })
-///    .select()
-///    .single();
+export interface FormField {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox';
+  required?: boolean;
+  options?: { label: string; value: string }[];
+}
 
-///  return { data, error };
-///}
+export interface FormSchema {
+  icon: string;
+  fields: FormField[];
+}
+
+export interface Form {
+  id: string;
+  title: string;
+  description: string | null;
+  schema: FormSchema;
+  is_active: boolean;
+  frequency: string;
+  site_ids: string[] | null;
+  visible_to_site_users: boolean;
+  visible_to_contractors: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Strictly type the payload used for creation and updates
+export type CreateFormPayload = Omit<Form, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateFormPayload = Partial<CreateFormPayload>;
 
 export const formsService = {
 
@@ -31,22 +38,25 @@ export const formsService = {
     const { data, error } = await supabase
       .from('forms')
       .select('*')
-      .order('created_at', { ascending: false })
-    return { data, error }
+      .order('created_at', { ascending: false });
+    
+    return { data: data as Form[] | null, error };
   },
 
-  updateForm: async (id: string, updates: any) => {
+  // Strongly typed update function
+  updateForm: async (id: string, updates: UpdateFormPayload) => {
     const { data, error } = await supabase
       .from('forms')
       .update(updates)
       .eq('id', id)
       .select()
-      .single()
-    return { data, error }
+      .single();
+    
+    return { data: data as Form | null, error };
   },
 
   deactivateForm: async (id: string) => {
-    return formsService.updateForm(id, { is_active: false })
+    return formsService.updateForm(id, { is_active: false });
   },
 
   getActiveForms: async (options: { role: "site_user" | "contractor"; siteId?: string }) => {
@@ -56,17 +66,18 @@ export const formsService = {
       .select('*')
       .eq('is_active', true);
 
+    // Filter by target role visibility flags
     query = role === "site_user"
       ? query.eq('visible_to_site_users', true)
       : query.eq('visible_to_contractors', true);
 
     if (siteId) {
-      // site_ids is NULL (visible to all sites) OR contains this site's id
+      // safe fallbacks for the array containment array string
       query = query.or(`site_ids.is.null,site_ids.cs.{${siteId}}`);
     }
 
     const { data, error } = await query.order('title');
-    return { data, error };
+    return { data: data as Form[] | null, error };
   },
 
   getFormById: async (id: string) => {
@@ -74,18 +85,20 @@ export const formsService = {
       .from('forms')
       .select('*')
       .eq('id', id)
-      .single()
-    return { data, error }
+      .single();
+    
+    return { data: data as Form | null, error };
   },
 
-  // Super Admin only
-  createForm: async (formData: any) => {
+  // Super Admin only: strongly typed payload
+  createForm: async (formData: CreateFormPayload) => {
     const { data, error } = await supabase
       .from('forms')
       .insert(formData)
       .select()
-      .single()
-    return { data, error }
+      .single();
+    
+    return { data: data as Form | null, error };
   },
 
   deleteForm: async (formId: string) => {
@@ -98,4 +111,4 @@ export const formsService = {
 
     return { success: true };
   }
-}
+};

@@ -66,9 +66,9 @@ function FillForm() {
         .from("submissions")
         .select("*")
         .eq("form_id", formId)
-        .eq("site_id", currentUser!.site_id!)
+        .eq("site_id", currentUser?.site_id || "") // 👈 Fix: Safely handle potentially undefined site_id
         .eq("reporting_month", reportingMonth)
-        .eq("user_id", currentUser!.id) // 👈 Fix: Check explicitly against the user logging the form
+        .eq("user_id", currentUser?.id || "") // 👈 Fix: Safely handle potentially undefined user_id
         .maybeSingle();
 
       if (error) throw error;
@@ -122,7 +122,6 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
               const fileExt = file.name.split('.').pop();
               const safeFileName = file.name.replace(/\s+/g, "_");
               
-              // Aligned bucket endpoint configuration pathway mapping to target "attachments" bucket
               const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
 
               const { data, error } = await supabase.storage
@@ -146,11 +145,12 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
 
         const result = await submissionsService.saveOrSubmit({
           formId,
-          siteId: currentUser!.site_id!,
-          userId: currentUser!.id,
+          siteId: currentUser?.site_id || "",
+          userId: currentUser?.id || "",
           reportingMonth,
           data: updatedValues,
           submit,
+          submittedByRole: "contractor", // 👈 Verified: This perfectly aligns with our dashboard setup
         });
 
         if (result.error) throw result.error;
@@ -305,12 +305,12 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
                         ))}
 
                         {localFiles.map((file: File, idx: number) => {
-                          const localPreviewUrl = URL.createObjectURL(file);
                           return (
                             <div key={`local-${idx}`} className="flex items-center justify-between rounded-lg bg-amber-50 p-2 text-xs border border-amber-200">
                               <div className="flex items-center gap-1.5 font-bold text-amber-800 truncate max-w-[80%]">
                                 <FileIcon className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                                <a href={localPreviewUrl} target="_blank" rel="noreferrer" className="truncate hover:underline text-amber-900">{file.name}</a>
+                                {/* 👈 Fix: Removed object URL here to prevent severe memory leaks on re-renders */}
+                                <span className="truncate text-amber-900">{file.name}</span>
                                 <span className="text-[10px] font-normal text-amber-500 shrink-0">(Staged)</span>
                               </div>
                               {!isSubmitted && (

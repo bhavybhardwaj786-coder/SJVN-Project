@@ -1,16 +1,36 @@
 -- Fix submission overwrite/conflicts between site users and multiple contractors
 -- by updating the uniqueness constraint used by upsert.
 
--- Drop the old constraint that enforced only (form_id, site_id, reporting_month)
--- This caused site-user and contractor submissions (and multiple contractors)
--- to collide/overwrite.
-ALTER TABLE public.submissions
-  DROP CONSTRAINT IF EXISTS uq_submissions_form_site_month;
+-- Defensive cleanup: the repo/app historically created different unique constraints.
+-- We remove any unique constraint that covers (form_id, site_id, reporting_month)
+-- or (reporting_month, site_id, form_id, user_id) to ensure ON CONFLICT works.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT tc.constraint_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_name = kcu.constraint_name
+     AND tc.table_schema = kcu.table_schema
+    WHERE tc.table_schema = 'public'
+      AND tc.table_name = 'submissions'
+      AND tc.constraint_type = 'UNIQUE'
+      AND tc.constraint_name IN (
+        'uq_submissions_form_site_month',
+        'submissions_form_site_month_role_unique',
+        'uq_submissions_form_site_month_user'
+      )
+  LOOP
+    EXECUTE format('ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS %I', r.constraint_name);
+  END LOOP;
+END $$;
 
--- Add a new uniqueness constraint that includes the submitting user.
--- This allows:
---  - one submission per (reporting_month, site_id, form_id, user_id)
---  - multiple contractors for the same form/site/month (different user_id)
+-- Add the uniqueness constraint used by Supabase upsert:
+-- onConflict: 'form_id,site_id,reporting_month,user_id'
 ALTER TABLE public.submissions
-  ADD CONSTRAINT uq_submissions_form_site_month_user UNIQUE (reporting_month, site_id, form_id, user_id);
+  ADD CONSTRAINT uq_submissions_form_site_month_user
+  UNIQUE (form_id, site_id, reporting_month, user_id);
+
 

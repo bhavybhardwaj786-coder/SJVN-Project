@@ -11,7 +11,6 @@ import {
   Calendar, 
   User, 
   Clock, 
-  ClipboardList, 
   ExternalLink 
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +64,7 @@ type SubmissionDetailRow = {
   user_id: string;
   form_id: string;
   site_id: string;
+  submitted_by_role: 'site' | 'contractor'; // 👈 Added type definition
   forms: { id: string; title: string; description: string | null; schema: any } | null;
   sites: { id: string; name: string; code: string } | null;
 };
@@ -92,16 +92,17 @@ function SubmissionDetail() {
   const printRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
 
+  // Fetch submission data, making sure to grab 'submitted_by_role'
   const { data, isLoading, error } = useQuery({
     queryKey: ["submission-detail", submissionId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("submissions")
         .select(`
-          id, status, data, submitted_at, updated_at, reporting_month, user_id, form_id, site_id,
+          id, status, data, submitted_at, updated_at, reporting_month, user_id, form_id, site_id, submitted_by_role,
           forms(id, title, description, schema),
           sites(id, name, code)
-        `)
+        `) // 👈 Added submitted_by_role here!
         .eq("id", submissionId)
         .single();
       if (error) throw error;
@@ -109,22 +110,25 @@ function SubmissionDetail() {
     },
   });
 
+  // Re-optimized name fetch using the exact database role
   const { data: submittedByName } = useQuery({
-    queryKey: ["submission-user-name", data?.user_id],
+    queryKey: ["submission-user-name", data?.user_id, data?.submitted_by_role],
     queryFn: async () => {
       if (!data?.user_id) return null;
       
-      // 1. First, try to fetch from site_users table
-      const { data: siteUser, error: siteErr } = await supabase
-        .from("site_users")
-        .select("full_name")
-        .eq("id", data.user_id)
-        .maybeSingle();
-      
-      if (siteUser?.full_name) return siteUser.full_name;
+      // If submitted by site, search site_users
+      if (data.submitted_by_role === "site") {
+        const { data: siteUser } = await supabase
+          .from("site_users")
+          .select("full_name")
+          .eq("id", data.user_id)
+          .maybeSingle();
+        
+        if (siteUser?.full_name) return siteUser.full_name;
+      }
 
-      // 2. Fallback: If not found, look up the contractor directory table
-      const { data: contractorUser, error: contractErr } = await supabase
+      // If submitted by contractor (or fallback), search contractors table
+      const { data: contractorUser } = await supabase
         .from("contractors")
         .select("full_name")
         .eq("id", data.user_id)
@@ -224,7 +228,6 @@ autoTable(pdf, {
   margin: { left: (pageWidth - 500) / 2 },
 });
 
-
       const tableBody = fields.map((field: any) => {
         const filesCount = values[`${field.key}_files`]?.length || 0;
         const attachmentText = filesCount > 0 ? `(${filesCount} Doc Attached)` : '';
@@ -318,11 +321,11 @@ autoTable(pdf, {
       });
 
       fields.forEach((field: any) => {
-      const label = field.label || "";
-      const filesCount = values[`${field.key}_files`]?.length || 0;
-      const attachmentText = filesCount > 0 ? ` [Has ${filesCount} Attachment(s)]` : '';
-      const val = `${formatFieldValue(field, values[field.key])}${attachmentText}`;
-      const row = sheet.addRow(["", label, val]);
+        const label = field.label || "";
+        const filesCount = values[`${field.key}_files`]?.length || 0;
+        const attachmentText = filesCount > 0 ? ` [Has ${filesCount} Attachment(s)]` : '';
+        const val = `${formatFieldValue(field, values[field.key])}${attachmentText}`;
+        const row = sheet.addRow(["", label, val]);
 
         ['B', 'C'].forEach(col => {
           const cell = sheet.getCell(`${col}${row.number}`);
@@ -441,11 +444,8 @@ autoTable(pdf, {
         <motion.div
           ref={printRef}
           variants={fadeUp}
-          // 1. Removed mx-auto, max-w-3xl, and rounded-xl to allow it to stretch fully.
-          // 2. Added the same w-[100vw] breakout trick used on the form fill page.
           className="-mt-2 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2 bg-card min-h-screen border-t"
         >
-          {/* We removed the bg-gradient-hero to match the clean white look of the 3rd screenshot */}
           <div className="px-6 pt-8 sm:px-10 sm:pt-10">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
               <div>
@@ -462,14 +462,18 @@ autoTable(pdf, {
                   </p>
                 )}
               </div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.25, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="shrink-0"
-              >
-                <StatusBadgeLocal status={data.status} />
-              </motion.div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-semibold text-muted-foreground uppercase border rounded px-2.5 py-1 bg-slate-100">
+                  {data.submitted_by_role}
+                </span>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.25, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <StatusBadgeLocal status={data.status} />
+                </motion.div>
+              </div>
             </div>
           </div>
 
@@ -553,7 +557,6 @@ autoTable(pdf, {
                 className="divide-y"
               >
                 {fields.map((field: any, index: number) => {
-                  // Retrieve the array of uploaded file objects for this specific parameter question key
                   const attachedFilesArray = values[`${field.key}_files`] || [];
 
                   return (
@@ -569,15 +572,13 @@ autoTable(pdf, {
                         {field.label}
                       </dt>
                       
-                      {/* Column 2: Verically Stacked Attachments Section */}
+                      {/* Column 2: Vertically Stacked Attachments Section */}
                       <div className="flex flex-col gap-1.5 sm:w-1/3 sm:items-center sm:justify-center">
-                        {/* Mobile helper badge header label (Hidden on Desktop table widths) */}
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:hidden mb-0.5">
                           Attachments:
                         </span>
                         
                         {attachedFilesArray.length > 0 ? (
-                          // flex-col elements stack perfectly one over the other vertically 
                           <div className="flex flex-col gap-1.5 items-stretch sm:items-center w-full">
                             {attachedFilesArray.map((fileObj: { url: string; name: string }, fIdx: number) => (
                               <a 
@@ -600,7 +601,6 @@ autoTable(pdf, {
                       
                       {/* Column 3: Value Output Label Section */}
                       <dd className="flex flex-col sm:w-1/3 sm:text-right">
-                        {/* Mobile helper badge header label (Hidden on Desktop table widths) */}
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:hidden mb-0.5">
                           Value:
                         </span>
@@ -642,7 +642,7 @@ function StatusBadgeLocal({ status }: { status: string }) {
       ? "bg-success/15 text-success"
       : status === "draft"
       ? "bg-blue-500/15 text-blue-600"
-      : "bg-muted text-muted-foreground"; // Changed from white text so it is visible on the new white background!
+      : "bg-muted text-muted-foreground";
       
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize backdrop-blur-sm ${cls}`}>
