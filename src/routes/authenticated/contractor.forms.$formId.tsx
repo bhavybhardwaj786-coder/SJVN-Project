@@ -186,7 +186,7 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
     <AppShell>
       <div className="-mt-6 -mb-6 w-[100vw] relative left-1/2 -translate-x-1/2">
         <motion.div initial="hidden" animate="show" variants={containerVariants} className="w-full">
-          <div className="bg-card min-h-screen">
+          <div className="bg-card">
             <motion.div variants={fadeUp} className="px-6 pt-8 sm:px-10 sm:pt-10">
               <div className="flex items-start justify-between gap-4">
                 <div>

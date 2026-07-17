@@ -200,7 +200,7 @@ function FillForm() {
           variants={containerVariants}
           className="w-full"
         >
-          <div className="bg-card min-h-screen">
+          <div className="bg-card">
             <motion.div
               variants={fadeUp}
               className="px-6 pt-8 sm:px-10 sm:pt-10"
