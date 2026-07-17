@@ -152,14 +152,14 @@ function RootComponent() {
             : "flex min-h-svh flex-col bg-background"
         }
       >
-        {!isDashboardRoute && <SiteHeader />}
+        {!isDashboardRoute && !isAuthRoute && <SiteHeader />}
         <main
           id="main"
           className={isAuthRoute ? "flex-1 min-h-0 flex flex-col" : "flex-1 flex flex-col"}
         >
           <Outlet />
         </main>
-        <SiteFooter />
+        {!isAuthRoute && <SiteFooter />}
       </div>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>

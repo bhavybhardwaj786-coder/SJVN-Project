@@ -112,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
+    <div className="min-h-full flex-1 flex flex-col bg-[#eaeff2] font-sans relative overflow-x-hidden">
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
         <div className="bg-gradient-to-r from-white to-sky-50 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-sky-100 gap-4 relative z-10">
@@ -128,7 +128,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
 
-            <Link to="/" className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90">
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90 text-left"
+            >
               <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
                 <img
                   src={sjvnLogo}
@@ -147,33 +151,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
                 </p>
               </div>
-            </Link>
+            </button>
           </div>
 
           {/* Right Side: Breadcrumbs and Admin Badge */}
           <div className="hidden md:flex flex-col items-end gap-2">
-            <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
-              <Link
-                to={dashboardLink}
-                className="hover:text-blue-700 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <LayoutDashboard className="h-3.5 w-3.5 mb-0.5" />
-                Dashboard
-              </Link>
-
-              {breadcrumbs.length > 0 && <span className="text-gray-400 text-xs">»</span>}
-
-              {/* Renders sub-pages cleanly (like User Management or Form Builder) without getting tangled */}
-              {breadcrumbs.filter(item => !["supadmin", "app", "site"].includes(item)).map((name) => {
-                const displayName = formatSegmentName(name);
-                return (
-                  <div key={name} className="flex items-center gap-1.5">
-                    <span className="text-gray-400 text-xs">»</span>
-                    <span className="text-blue-700 font-bold">{displayName}</span>
-                  </div>
-                );
-              })}
-            </nav>
 
             {me?.isSuperAdmin ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">
@@ -190,11 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Bottom Navigation Teal Bar */}
         {/* Bottom Navigation Bar */}
         <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
-          <div className="h-full flex items-center pr-4 border-r border-white/25 shrink-0">
-            <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
-              <Home size={20} />
-            </Link>
-          </div>
+          
 
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
             <div className="text-white text-sm font-semibold whitespace-nowrap">

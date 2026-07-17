@@ -184,13 +184,13 @@ function FillForm() {
               variants={fadeUp}
               className="px-6 pt-8 sm:px-10 sm:pt-10"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-sky-100">
                     <FileText className="h-3.5 w-3.5" />
                     Monthly Compliance Report
                   </div>
-                  <h2 className="mt-2 font-display text-2xl font-bold text-foreground">
+                  <h2 className="mt-1 font-display text-2xl font-bold text-white">
                     {formDef.title}
                   </h2>
                 </div>
@@ -370,7 +370,7 @@ function FillForm() {
                         {!isSubmitted && (
                           <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
                             <Paperclip className="h-3.5 w-3.5" />
-                            Attach Supporting Documents (Stored locally until Submit/Save)
+                            Attachments
                             <input 
                               type="file" 
                               className="hidden" 
