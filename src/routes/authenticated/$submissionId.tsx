@@ -30,6 +30,11 @@ import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 
 export const Route = createFileRoute("/authenticated/$submissionId")({
   ssr: false,
+
+  validateSearch: (search: Record<string, unknown>) => ({
+    site: (search.site as string) || "",
+  }),
+
   loader: async ({ context, params }) => {
     const { queryClient } = context;
     const { submissionId } = params;
@@ -82,6 +87,7 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
 };
 
+
 const rowVariants = {
   hidden: { opacity: 0, x: -8 },
   show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
@@ -89,6 +95,7 @@ const rowVariants = {
 
 function SubmissionDetail() {
   const { submissionId } = Route.useParams();
+  const { site } = Route.useSearch();
   const printRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -390,6 +397,7 @@ autoTable(pdf, {
         >
           <Link
             to="/authenticated/app"
+            search={{ site }}
             className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <motion.span

@@ -1,4 +1,4 @@
-import { createFileRoute, Link , redirect } from "@tanstack/react-router";
+import { createFileRoute, Link , redirect, useNavigate  } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -43,6 +43,9 @@ import { authService } from "@/services/auth";
 
 export const Route = createFileRoute("/authenticated/app")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    site: (search.site as string) || "",
+  }),
   beforeLoad: async () => {
     const user = await authService.getCurrentUser();
     if (!user) {
@@ -203,7 +206,8 @@ function AdminDashboard() {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [formSearchQuery, setFormSearchQuery] = useState("");
-  const [siteSearchQuery, setSiteSearchQuery] = useState("");
+  const { site: siteSearchQuery } = Route.useSearch();
+  const navigate = useNavigate();
   const [activeView, setActiveView] = useState<"matrix" | "forms">("matrix");
 
   // NEW: once a site is selected, choose whether to browse its submissions
@@ -214,6 +218,10 @@ function AdminDashboard() {
   
   // State to handle loading spinners on export buttons
   const [exportingSiteId, setExportingSiteId] = useState<string | null>(null);
+
+  // NEW: bulk portal access selection
+  const [bulkSiteIds, setBulkSiteIds] = useState<Set<string>>(new Set());
+  const [bulkDropdownOpen, setBulkDropdownOpen] = useState(false);
 
   const reportingMonthDate = `${selectedMonth}-01`;
 
@@ -386,43 +394,84 @@ function AdminDashboard() {
   };
 
   const toggleMonthLockMutation = useMutation({
-    mutationFn: async ({ siteId, month, isCurrentlyUnlocked }: { siteId: string, month: string, isCurrentlyUnlocked: boolean }) => {
-      const site = sites.find(s => s.id === siteId);
-      let updatedMonths = site?.unlocked_months ? [...site.unlocked_months] : [];
+  mutationFn: async ({ siteId, month, isCurrentlyUnlocked }: { siteId: string, month: string, isCurrentlyUnlocked: boolean }) => {
+    const site = sites.find(s => s.id === siteId);
+    let updatedMonths = site?.unlocked_months ? [...site.unlocked_months] : [];
 
-      if (isCurrentlyUnlocked) {
-        updatedMonths = updatedMonths.filter(m => m !== month);
-      } else {
-        if (!updatedMonths.includes(month)) {
-          updatedMonths.push(month);
-        }
+    if (isCurrentlyUnlocked) {
+      updatedMonths = updatedMonths.filter(m => m !== month);
+    } else {
+      if (!updatedMonths.includes(month)) {
+        updatedMonths.push(month);
       }
+    }
 
-      // 🚀 FIX: Appended .select() to catch silent RLS query filtering failures
     const { data: updatedData, error } = await supabase
       .from("sites")
       .update({ unlocked_months: updatedMonths })
       .eq("id", siteId)
       .select();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      if (!updatedData || updatedData.length === 0) {
-        throw new Error("Update was blocked by database permissions (RLS). No changes were saved.");
-      }
-
-      return updatedMonths;
-
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-sites"] });
-      toast.success("Site portal access updated successfully!");
-    },
-    onError: (err: any) => {
-      console.error("Lock error detail:", err);
-      toast.error(err.message || "Failed to update access.");
+    if (!updatedData || updatedData.length === 0) {
+      throw new Error("Update was blocked by database permissions (RLS). No changes were saved.");
     }
-  });
+
+    return updatedMonths;
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["all-sites"] });
+    toast.success("Site portal access updated successfully!");
+  },
+  onError: (err: any) => {
+    console.error("Lock error detail:", err);
+    toast.error(err.message || "Failed to update access.");
+  }
+});
+
+const bulkToggleLockMutation = useMutation({
+  // ... your existing bulk mutation code stays exactly as-is below this line
+  mutationFn: async ({ siteIds, month, action }: { siteIds: string[]; month: string; action: "lock" | "unlock" }) => {
+    const targets = sites.filter((s) => siteIds.includes(s.id));
+
+    const updates = await Promise.all(
+      targets.map(async (site) => {
+        let updatedMonths = site.unlocked_months ? [...site.unlocked_months] : [];
+
+        if (action === "unlock") {
+          if (!updatedMonths.includes(month)) updatedMonths.push(month);
+        } else {
+          updatedMonths = updatedMonths.filter((m) => m !== month);
+        }
+
+        const { data, error } = await supabase
+          .from("sites")
+          .update({ unlocked_months: updatedMonths })
+          .eq("id", site.id)
+          .select();
+
+        if (error) throw new Error(`${site.name}: ${error.message}`);
+        if (!data || data.length === 0) {
+          throw new Error(`${site.name}: update blocked by database permissions.`);
+        }
+        return site.id;
+      })
+    );
+
+    return updates;
+  },
+  onSuccess: (updatedIds, variables) => {
+    queryClient.invalidateQueries({ queryKey: ["all-sites"] });
+    toast.success(
+      `${variables.action === "unlock" ? "Unlocked" : "Locked"} portal for ${updatedIds.length} site(s).`
+    );
+  },
+  onError: (err: any) => {
+    console.error("Bulk lock error:", err);
+    toast.error(err.message || "Failed to update one or more sites.");
+  },
+});
 
   // --- COMBINED EXPORT LOGIC ---
   const handleCombinedExport = async (site: SiteRow, format: "pdf" | "excel") => {
@@ -659,10 +708,13 @@ function AdminDashboard() {
   // NEW: whenever the selected site changes, reset the contractor drill-down
   // so stale selections from a previous site don't linger.
   const handleSelectSite = (name: string) => {
-    setSiteSearchQuery(name);
-    setSiteViewMode("site");
-    setSelectedContractorId(null);
-  };
+  navigate({
+    search: (prev) => ({ ...prev, site: name }),
+    replace: true,
+  });
+  setSiteViewMode("site");
+  setSelectedContractorId(null);
+};
 
   return (
     <AppShell>
@@ -704,6 +756,97 @@ function AdminDashboard() {
       })}
     </select>
   </div>
+  {/* NEW: Bulk Portal Access dropdown */}
+<div className="relative mt-3">
+  <button
+    onClick={() => setBulkDropdownOpen((o) => !o)}
+    className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border bg-card px-3 text-sm shadow-card outline-none focus:border-primary"
+  >
+    <span className="truncate text-slate-700 font-medium">
+      {bulkSiteIds.size === 0
+        ? "Select sites for portal access"
+        : bulkSiteIds.size === sites.length
+        ? "All sites selected"
+        : `${bulkSiteIds.size} site(s) selected`}
+    </span>
+    <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
+  </button>
+
+  {bulkDropdownOpen && (
+    <div className="absolute z-50 mt-1 w-full sm:w-[280px] max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl p-1">
+      {/* "All" option pinned at the top */}
+      <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 border-b border-slate-100 mb-1">
+        <input
+          type="checkbox"
+          checked={sites.length > 0 && bulkSiteIds.size === sites.length}
+          onChange={() => {
+            if (bulkSiteIds.size === sites.length) {
+              setBulkSiteIds(new Set());
+            } else {
+              setBulkSiteIds(new Set(sites.map((s) => s.id)));
+            }
+          }}
+        />
+        All Sites
+      </label>
+
+      {sites.map((site) => (
+        <label
+          key={site.id}
+          className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <input
+            type="checkbox"
+            checked={bulkSiteIds.has(site.id)}
+            onChange={() => {
+              setBulkSiteIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(site.id)) next.delete(site.id);
+                else next.add(site.id);
+                return next;
+              });
+            }}
+          />
+          {site.name} ({site.code})
+        </label>
+      ))}
+    </div>
+  )}
+</div>
+
+{/* Bulk action buttons — only show once at least one site is checked */}
+{bulkSiteIds.size > 0 && (
+  <div className="mt-3 flex flex-wrap items-center gap-3">
+    <Button
+      onClick={() =>
+        bulkToggleLockMutation.mutate({
+          siteIds: Array.from(bulkSiteIds),
+          month: selectedMonth,
+          action: "unlock",
+        })
+      }
+      disabled={bulkToggleLockMutation.isPending}
+      className="bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm"
+    >
+      <Unlock className="h-4 w-4 mr-1.5" /> Unlock Selected ({bulkSiteIds.size})
+    </Button>
+    <Button
+      onClick={() =>
+        bulkToggleLockMutation.mutate({
+          siteIds: Array.from(bulkSiteIds),
+          month: selectedMonth,
+          action: "lock",
+        })
+      }
+      disabled={bulkToggleLockMutation.isPending}
+      variant="outline"
+      className="border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
+    >
+      <Lock className="h-4 w-4 mr-1.5" /> Lock Selected ({bulkSiteIds.size})
+    </Button>
+    {bulkToggleLockMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+  </div>
+)}
 </motion.div>
 
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
@@ -919,6 +1062,7 @@ function AdminDashboard() {
                         <Link 
                           to="/authenticated/$submissionId" 
                           params={{ submissionId: submission.id }} 
+                          search={{ site: siteSearchQuery }}
                           className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
                         >
                           <Eye className="h-3.5 w-3.5" /> View Report
@@ -1045,6 +1189,7 @@ function AdminDashboard() {
                           <Link
                             to="/authenticated/$submissionId"
                             params={{ submissionId: submission.id }}
+                            search={{ site: siteSearchQuery }}
                             className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
                           >
                             <Eye className="h-3.5 w-3.5" /> View Report
