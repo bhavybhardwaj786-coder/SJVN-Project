@@ -31,6 +31,27 @@ import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 
 export const Route = createFileRoute("/authenticated/$submissionId")({
   ssr: false,
+  loader: async ({ context, params }) => {
+    const { queryClient } = context;
+    const { submissionId } = params;
+
+    await queryClient.ensureQueryData({
+      queryKey: ["submission-detail", submissionId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("submissions")
+          .select(`
+            id, status, data, submitted_at, updated_at, reporting_month, user_id, form_id, site_id,
+            forms(id, title, description, schema),
+            sites(id, name, code)
+          `)
+          .eq("id", submissionId)
+          .single();
+        if (error) throw error;
+        return data;
+      },
+    });
+  },
   component: SubmissionDetail,
 });
 
@@ -131,31 +152,77 @@ function SubmissionDetail() {
       const pageWidth = pdf.internal.pageSize.getWidth();
 
       // 1. Logo placement on the left
-      pdf.addImage(sjvnLogo, "JPEG", 40, 40, 75, 100);
+      pdf.addImage(sjvnLogo, "JPEG", 40, 40, 70, 92);
 
-      // 2. Text layout shifts fully to the right side of the page
-      const rightSideX = pageWidth - 230; 
+      // 2. Top rule line, spanning the full page width
+      const topRuleY = 30;
+      pdf.setDrawColor(0, 78, 138);
+      pdf.setLineWidth(1.5);
+      pdf.line(40, topRuleY, pageWidth - 40, topRuleY);
 
-      // Main Header
+      // 3. Header text block, right-aligned against the right margin
+      const rightMarginX = pageWidth - 40;
+      let headerY = 55;
+
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(22);
+      pdf.setFontSize(20);
       pdf.setTextColor(0, 78, 138);
-      pdf.text("SJVN Limited", rightSideX, 60);
+      pdf.text("SJVN LIMITED", rightMarginX, headerY, { align: "right" });
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14); // Reduced font size for the Form Title
-      pdf.setTextColor(0, 78, 138);
-      const formTitle = data.forms?.title ?? "Environmental Compliance Form";
-      pdf.text(formTitle, rightSideX, 80);
+      headerY += 16;
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(9);
+      pdf.setTextColor(90, 90, 90);
+      pdf.text("(A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)", rightMarginX, headerY, { align: "right" });
 
+      headerY += 14;
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.setTextColor(80, 80, 80);
+      pdf.setFontSize(9);
+      pdf.setTextColor(110, 110, 110);
+      pdf.text("ISO 9001:2015 Certified  ·  CIN: L40101HP1988GOI008409", rightMarginX, headerY, { align: "right" });
 
-      // Tightly spaced metadata lines
-      pdf.text(`Site: ${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`, rightSideX, 100);
-      pdf.text(`Reporting Month: ${data.reporting_month}`, rightSideX, 115);
-      pdf.text(`Submitted By: ${submittedByName ?? "—"}`, rightSideX, 130);
+      headerY += 14;
+      pdf.text("Corporate Headquarter, Shimla, HP, 171006", rightMarginX, headerY, { align: "right" });
+
+      headerY += 14;
+      pdf.text("Website: www.sjvn.nic.in", rightMarginX, headerY, { align: "right" });
+
+      // 4. Divider line under the header block
+      const dividerY = 148;
+      pdf.setDrawColor(0, 78, 138);
+      pdf.setLineWidth(1.2);
+      pdf.line(40, dividerY, pageWidth - 40, dividerY);
+
+// 4. Centered report title below the divider
+pdf.setFont("helvetica", "bold");
+pdf.setFontSize(15);
+pdf.setTextColor(0, 78, 138);
+const formTitle = data.forms?.title ?? "Environmental Compliance Form";
+pdf.text(formTitle, pageWidth / 2, dividerY + 26, { align: "center" });
+
+// 5. Metadata block below the title, shown as a small bordered table
+autoTable(pdf, {
+  startY: dividerY + 40,
+  body: [
+    ["Site", `${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`],
+    ["Reporting Month", data.reporting_month],
+    ["Submitted By", submittedByName ?? "—"],
+  ],
+  theme: 'grid',
+  styles: {
+    font: 'helvetica',
+    fontSize: 10,
+    cellPadding: 6,
+    lineColor: [200, 200, 200],
+    lineWidth: 0.5,
+    textColor: [60, 60, 60],
+  },
+  columnStyles: {
+    0: { cellWidth: 140, fontStyle: 'bold', fillColor: [235, 240, 247], textColor: [0, 78, 138] },
+    1: { cellWidth: 360 },
+  },
+  margin: { left: (pageWidth - 500) / 2 },
+});
 
 
       const tableBody = fields.map((field: any) => {
@@ -169,7 +236,7 @@ function SubmissionDetail() {
 
       // 4. Center table headers, data columns, and entire table wrapper
       autoTable(pdf, {
-        startY: 190,
+        startY: (pdf as any).lastAutoTable.finalY + 24,
         head: [['Field Parameter', 'Reported Value']],
         body: tableBody,
         theme: 'grid',

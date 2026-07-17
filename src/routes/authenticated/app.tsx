@@ -440,24 +440,79 @@ function AdminDashboard() {
         const pageWidth = pdf.internal.pageSize.getWidth();
         const rightSideX = pageWidth - 40; 
 
-        // PDF Header
-        pdf.addImage(sjvnLogo, "JPEG", 40, 40, 75, 100);
+        // 1. Logo placement on the left
+        pdf.addImage(sjvnLogo, "JPEG", 40, 40, 70, 92);
+
+        // 2. Top rule line, spanning the full page width
+        const topRuleY = 30;
+        pdf.setDrawColor(0, 78, 138);
+        pdf.setLineWidth(1.5);
+        pdf.line(40, topRuleY, pageWidth - 40, topRuleY);
+
+        // 3. Header text block, right-aligned against the right margin
+        let headerY = 55;
+
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(22);
+        pdf.setFontSize(20);
         pdf.setTextColor(0, 78, 138);
-        pdf.text("SJVN Limited", rightSideX, 60, { align: "right" });
-        
-        pdf.setFontSize(14);
-        pdf.text("Combined Environmental Monthly Report", rightSideX, 80, { align: "right" });
+        pdf.text("SJVN LIMITED", rightSideX, headerY, { align: "right" });
 
+        headerY += 16;
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(9);
+        pdf.setTextColor(90, 90, 90);
+        pdf.text("(A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)", rightSideX, headerY, { align: "right" });
+
+        headerY += 14;
         pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(11);
-        pdf.setTextColor(80, 80, 80);
-        pdf.text(`Site: ${site.name} (${site.code})`, rightSideX, 100, { align: "right" });
-        pdf.text(`Reporting Period: ${monthName}`, rightSideX, 115, { align: "right" });
-        pdf.text(`Generated On: ${new Date().toLocaleDateString()}`, rightSideX, 130, { align: "right" });
+        pdf.setFontSize(9);
+        pdf.setTextColor(110, 110, 110);
+        pdf.text("ISO 9001:2015 Certified  ·  CIN: L40101HP1988GOI008409", rightSideX, headerY, { align: "right" });
 
-        let currentY = 180;
+        headerY += 14;
+        pdf.text("Corporate Headquarter, Shimla, HP, 171006", rightSideX, headerY, { align: "right" });
+
+        headerY += 14;
+        pdf.text("Website: www.sjvn.nic.in", rightSideX, headerY, { align: "right" });
+
+        // 4. Divider line under the header block
+        const dividerY = 148;
+        pdf.setDrawColor(0, 78, 138);
+        pdf.setLineWidth(1.2);
+        pdf.line(40, dividerY, pageWidth - 40, dividerY);
+
+        // 5. Centered report title below the divider
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(15);
+        pdf.setTextColor(0, 78, 138);
+        pdf.text("Combined Environmental Monthly Report", pageWidth / 2, dividerY + 26, { align: "center" });
+
+        // 6. Metadata block below the title, shown as a small bordered table
+        autoTable(pdf, {
+          startY: dividerY + 40,
+          body: [
+            ["Site", `${site.name} (${site.code})`],
+            ["Reporting Period", monthName],
+            ["Generated On", new Date().toLocaleDateString()],
+          ],
+          theme: 'grid',
+          styles: {
+            font: 'helvetica',
+            fontSize: 10,
+            cellPadding: 6,
+            lineColor: [200, 200, 200],
+            lineWidth: 0.5,
+            textColor: [60, 60, 60],
+          },
+          columnStyles: {
+            0: { cellWidth: 140, fontStyle: 'bold', fillColor: [235, 240, 247], textColor: [0, 78, 138] },
+            1: { cellWidth: 360 },
+          },
+          margin: { left: (pageWidth - 500) / 2 },
+        });
+
+        // @ts-ignore - autoTable attaches lastAutoTable to the document object
+        let currentY = pdf.lastAutoTable.finalY + 30;
 
         // Loop through each submitted form and draw its table
         siteSubmissions.forEach(({ form, sub }, index) => {
@@ -467,14 +522,14 @@ function AdminDashboard() {
           // If table might overflow, start on a new page (rough estimation)
           if (currentY > 700 && index > 0) {
             pdf.addPage();
-            currentY = 40;
+            currentY = 60;
           }
 
           // Section Title
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(12);
           pdf.setTextColor(0, 78, 138);
-          pdf.text(form.title, 40, currentY);
+          pdf.text(form.title, pageWidth / 2, currentY, { align: "center" });
           currentY += 15;
 
           const tableBody = fields.map((field: any) => [
@@ -484,16 +539,27 @@ function AdminDashboard() {
 
           autoTable(pdf, {
             startY: currentY,
-            head: [['Parameter', 'Reported Value']],
+            head: [['Field Parameter', 'Reported Value']],
             body: tableBody.length > 0 ? tableBody : [['No fields defined', '-']],
             theme: 'grid',
-            headStyles: { fillColor: [0, 78, 138], textColor: 255, fontStyle: 'bold' },
-            styles: { font: 'helvetica', fontSize: 10, cellPadding: 6 },
-            columnStyles: {
-              0: { cellWidth: 300 }, 
-              1: { cellWidth: 215, halign: 'center' }
+            headStyles: {
+              fillColor: [0, 78, 138],
+              textColor: 255,
+              fontStyle: 'bold',
+              halign: 'center'
             },
-            margin: { left: 40, right: 40 },
+            styles: {
+              font: 'helvetica',
+              fontSize: 10,
+              cellPadding: 8,
+              lineColor: [200, 200, 200],
+              lineWidth: 0.5,
+            },
+            columnStyles: {
+              0: { cellWidth: 250, halign: 'center' },
+              1: { cellWidth: 250, halign: 'center' }
+            },
+            margin: { left: (pageWidth - 500) / 2 },
           });
 
           // @ts-ignore - autoTable attaches lastAutoTable to the document object
