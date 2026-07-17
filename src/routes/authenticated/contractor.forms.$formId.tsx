@@ -21,7 +21,8 @@ import {
   CheckCircle2, 
   Paperclip, 
   File as FileIcon, 
-  X 
+  X,
+  Lock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/contractor/forms/$formId")({
@@ -171,6 +172,30 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
       if (submit) navigate({ to: "/authenticated/contractor" });
     },
   });
+
+  // --- NEW: Strict Validation Handler ---
+  const handleAction = (isSubmit: boolean) => {
+    if (isSubmit) {
+      // Scan all fields to ensure no column is left completely blank
+      const emptyFields = fields.filter((field: any) => {
+        // Checkboxes default to false, which is a valid answer, so we skip them
+        if (field.type === "checkbox") return false; 
+        
+        const val = values[field.key];
+        // Flag as empty if undefined, null, or a blank string
+        return val === undefined || val === null || val === "";
+      });
+
+      if (emptyFields.length > 0) {
+        const missingNames = emptyFields.map((f: any) => f.label).join(", ");
+        toast.error(`Cannot submit incomplete report.`);
+        return; // Stop execution, do not trigger the database save
+      }
+    }
+    
+    // If validation passes (or if saving a draft), proceed to the mutation
+    save.mutate(isSubmit);
+  };
 
   if (!formDef) {
     return (
@@ -347,7 +372,7 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
                     >
                       <Button
                         variant="ghost"
-                        onClick={() => save.mutate(false)}
+                        onClick={() => handleAction(false)}
                         disabled={save.isPending}
                         className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
@@ -356,7 +381,7 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
 
                       <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
                         <Button
-                          onClick={() => save.mutate(true)}
+                          onClick={() => handleAction(true)}
                           disabled={save.isPending}
                           className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
                         >

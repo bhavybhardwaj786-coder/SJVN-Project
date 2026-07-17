@@ -207,7 +207,7 @@ function ContractorDashboard() {
                       <p className="mt-3 text-xs text-slate-600 line-clamp-2 flex-1">{description}</p>
                       <div className="mt-5 flex items-center gap-2">
                         {isMonthUnlocked ? (
-                          <button onClick={() => goToForm(id)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:from-sky-600 hover:to-blue-700">{mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}<ArrowRight className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => goToForm(id)} className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-sm transition ${mappedStatus === "completed" ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700" : mappedStatus === "in-progress" ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700" : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"}`}>{mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}<ArrowRight className="h-3.5 w-3.5" /></button>
                         ) : (
                           <div className="w-full rounded-lg bg-rose-100/50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 border border-rose-100"><Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />Submission Locked</div>
                         )}
