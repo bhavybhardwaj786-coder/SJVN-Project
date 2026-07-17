@@ -26,37 +26,35 @@ export const Route = createFileRoute("/auth")({
 type Status = "idle" | "authenticating" | "denied";
 
 // --- Header ---
+// --- Header ---
 function SjvnHeader() {
   return (
-    <header className="w-full flex flex-col font-sans z-20 relative shrink-0 bg-white shadow-sm">
+    <header className="w-full flex flex-col font-sans z-20 relative shrink-0 bg-slate-900/40 backdrop-blur-md border-b border-white/10">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-sky-100 shrink-0 overflow-hidden">
+          {/* Keep the logo container white so the logo is clearly visible */}
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg shrink-0 overflow-hidden">
             <img src={sjvnLogo} alt="SJVN Logo" className="h-full w-full object-contain p-1" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-blue-700">SJVN Limited</h1>
-              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
+              <h1 className="text-lg font-bold text-white tracking-wide">SJVN Limited</h1>
+              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-300 ring-1 ring-cyan-500/30">
                 BRSR Portal
               </span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-white/60">
               A Joint Venture of Govt. of India &amp; Govt. of Himachal Pradesh
             </p>
           </div>
         </div>
+        
+        {/* The Secure/Encrypted badge has been removed from here */}
 
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-              Secure · Encrypted
-            </span>
-          </div>
-        </div>
       </div>
-      <div className="h-[3px] w-full bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500" />
+      
+      {/* Subtle glowing bottom line matching the cyan button */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
     </header>
   );
 }
@@ -165,15 +163,16 @@ function LoginCard() {
       className="relative w-full max-w-md z-10 px-4 sm:px-0"
     >
       {/* Dark frosted glass container matching the new design */}
-      <div className="rounded-[2rem] bg-black/30 backdrop-blur-md border border-white/10 shadow-2xl p-8 text-center">
+      {/* Fully transparent container */}
+      <div className="p-8 text-center">
         
         {/* Logo Container */}
         <div className="mx-auto mb-6 flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-white shadow-lg overflow-hidden">
           <img src={sjvnLogo} alt="SJVN Logo" className="h-full w-full object-contain p-2" />
         </div>
 
-        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">Welcome to SJVN EMEMP</h2>
-        <p className="mt-2 text-sm text-white/70">Enter your credentials to continue</p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">Welcome to SJVN</h2>
+        <p className="mt-2 text-sm text-white/70">Business Responsibility and Sustainability Reporting Portal</p>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-7 text-left">
           {/* Email */}
