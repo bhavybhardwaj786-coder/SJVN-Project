@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link , redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+
 
 import {
   Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
@@ -38,8 +39,20 @@ const ICONS: Record<string, LucideIcon> = {
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned,
 };
 
+import { authService } from "@/services/auth";
+
 export const Route = createFileRoute("/authenticated/app")({
   ssr: false,
+  beforeLoad: async () => {
+    const user = await authService.getCurrentUser();
+    if (!user) {
+      throw redirect({ to: "/auth" });
+    }
+    const hasAdminAccess = user.role === "admin" || user.role === "super_admin";
+    if (!hasAdminAccess) {
+      throw redirect({ to: "/authenticated/site" });
+    }
+  },
   component: AdminDashboard,
 });
 
@@ -365,30 +378,43 @@ function AdminDashboard() {
 
   const toggleMonthLockMutation = useMutation({
     mutationFn: async ({ siteId, month, isCurrentlyUnlocked }: { siteId: string, month: string, isCurrentlyUnlocked: boolean }) => {
+      const { data: sessionCheck } = await supabase.auth.getSession();
+      console.log("Session at mutation time:", sessionCheck?.session?.user?.id, sessionCheck?.session?.access_token ? "token present" : "NO TOKEN");
       const site = sites.find(s => s.id === siteId);
-      let updatedMonths = site?.unlocked_months || [];
+      let updatedMonths = site?.unlocked_months ? [...site.unlocked_months] : [];
 
       if (isCurrentlyUnlocked) {
-        // Lock it (Remove month from array)
         updatedMonths = updatedMonths.filter(m => m !== month);
       } else {
-        // Unlock it (Add month to array)
-        if (!updatedMonths.includes(month)) updatedMonths.push(month);
+        if (!updatedMonths.includes(month)) {
+          updatedMonths.push(month);
+        }
       }
 
-      const { error } = await supabase
-        .from("sites")
-        .update({ unlocked_months: updatedMonths })
-        .eq("id", siteId);
+      // 🚀 FIX: Appended .select() to catch silent RLS query filtering failures
+    const { data: updatedData, error } = await supabase
+      .from("sites")
+      .update({ unlocked_months: updatedMonths })
+      .eq("id", siteId)
+      .select();
 
       if (error) throw error;
+
+      if (!updatedData || updatedData.length === 0) {
+        throw new Error("Update was blocked by database permissions (RLS). No changes were saved.");
+      }
+
       return updatedMonths;
+
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-sites"] });
       toast.success("Site portal access updated successfully!");
     },
-    onError: (err: any) => toast.error(err.message || "Failed to update access.")
+    onError: (err: any) => {
+      console.error("Lock error detail:", err);
+      toast.error(err.message || "Failed to update access.");
+    }
   });
 
   // --- COMBINED EXPORT LOGIC ---
