@@ -69,6 +69,23 @@ function FillForm() {
     enabled: !!currentUser?.site_id,
   });
   const existing = existingResult?.data;
+
+  const { data: siteData } = useQuery({
+    queryKey: ["site-access-verification", currentUser?.site_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("unlocked_months")
+        .eq("id", currentUser?.site_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentUser?.site_id,
+  });
+
+  const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
+
   const isSubmitted = existing?.status === "submitted";
 
   const [values, setValues] = useState<Record<string, any>>({});
@@ -386,8 +403,10 @@ function FillForm() {
                   );
                 })}
 
-               <AnimatePresence>
-                  {!isSubmitted && (
+               {/* Replace your current `<AnimatePresence>` block at the bottom of the fields map with this: */}
+
+                <AnimatePresence>
+                  {!isSubmitted && isMonthUnlocked && (
                     <motion.div
                       variants={fadeUp}
                       initial="hidden"
@@ -418,6 +437,15 @@ function FillForm() {
                         </Button>
                       </motion.div>
                     </motion.div>
+                  )}
+
+                  {!isSubmitted && !isMonthUnlocked && (
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-8 rounded-xl bg-rose-50 p-5 text-center border border-rose-200">
+                      <p className="text-sm font-bold text-rose-700">
+                        <Lock className="h-4 w-4 inline-block mr-1.5 -mt-0.5" />
+                        This reporting period is currently locked by the Administrator. You cannot save or submit records.
+                      </p>
+                    </div>
                   )}
                 </AnimatePresence>
               </motion.div>

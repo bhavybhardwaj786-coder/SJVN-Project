@@ -77,6 +77,22 @@ function FillForm() {
     enabled: !!currentUser?.site_id && !!currentUser?.id,
   });
   const existing = existingResult?.data;
+
+  const { data: siteData } = useQuery({
+    queryKey: ["site-access-verification", currentUser?.site_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("unlocked_months")
+        .eq("id", currentUser?.site_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentUser?.site_id,
+  });
+
+const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
   const isSubmitted = existing?.status === "submitted";
 
   const [values, setValues] = useState<Record<string, any>>({});
@@ -318,18 +334,49 @@ function FillForm() {
                   );
                 })}
 
+                {/* Replace your current `<AnimatePresence>` block at the bottom of the fields map with this: */}
+
                 <AnimatePresence>
-                  {!isSubmitted && (
-                    <motion.div variants={fadeUp} initial="hidden" animate="show" exit={{ opacity: 0, y: -8 }} className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 mt-4 border-t border-border/50">
-                      <Button variant="ghost" onClick={() => save.mutate(false)} disabled={save.isPending} className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted">
+                  {!isSubmitted && isMonthUnlocked && (
+                    <motion.div
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="show"
+                      exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+                      className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-end gap-4 pt-8 mt-4 border-t border-border/50"
+                    >
+                      <Button
+                        variant="ghost"
+                        onClick={() => save.mutate(false)}
+                        disabled={save.isPending}
+                        className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
                         Save Draft
                       </Button>
+
                       <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
-                        <Button onClick={() => save.mutate(true)} disabled={save.isPending} className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card">
-                          {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Form"}
+                        <Button
+                          onClick={() => save.mutate(true)}
+                          disabled={save.isPending}
+                          className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
+                        >
+                          {save.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Submit Form"
+                          )}
                         </Button>
                       </motion.div>
                     </motion.div>
+                  )}
+
+                  {!isSubmitted && !isMonthUnlocked && (
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-8 rounded-xl bg-rose-50 p-5 text-center border border-rose-200">
+                      <p className="text-sm font-bold text-rose-700">
+                        <Lock className="h-4 w-4 inline-block mr-1.5 -mt-0.5" />
+                        This reporting period is currently locked by the Administrator. You cannot save or submit records.
+                      </p>
+                    </div>
                   )}
                 </AnimatePresence>
               </motion.div>
