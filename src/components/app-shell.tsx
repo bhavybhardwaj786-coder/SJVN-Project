@@ -152,28 +152,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {/* Right Side: Breadcrumbs and Admin Badge */}
           <div className="hidden md:flex flex-col items-end gap-2">
-            <nav className="flex items-center gap-1.5 text-sm font-medium text-gray-600 bg-white/60 px-3 py-1.5 rounded-md border border-white/40 shadow-sm backdrop-blur-sm">
-              <Link
-                to={dashboardLink}
-                className="hover:text-blue-700 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <LayoutDashboard className="h-3.5 w-3.5 mb-0.5" />
-                Dashboard
-              </Link>
-
-              {breadcrumbs.length > 0 && <span className="text-gray-400 text-xs">»</span>}
-
-              {/* Renders sub-pages cleanly (like User Management or Form Builder) without getting tangled */}
-              {breadcrumbs.filter(item => !["supadmin", "app", "site"].includes(item)).map((name) => {
-                const displayName = formatSegmentName(name);
-                return (
-                  <div key={name} className="flex items-center gap-1.5">
-                    <span className="text-gray-400 text-xs">»</span>
-                    <span className="text-blue-700 font-bold">{displayName}</span>
-                  </div>
-                );
-              })}
-            </nav>
 
             {me?.isSuperAdmin ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">

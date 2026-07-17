@@ -41,7 +41,7 @@ function SjvnHeader() {
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-blue-700">SJVN Limited</h1>
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">
-                EMEMP Portal
+                BRSR Portal
               </span>
             </div>
             <p className="text-xs text-slate-500">
@@ -164,8 +164,8 @@ function LoginCard() {
         <img src={sjvnLogo} alt="SJVN Logo" className="h-full w-full object-contain p-1.5" />
       </div>
 
-      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">Welcome to SJVN EMEMP</h2>
-      <p className="mt-2 text-sm text-slate-500">Enter your credentials to continue</p>
+      <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">Welcome to SJVN </h2>
+      <p className="mt-2 text-sm text-slate-500">Business Responsibility and Sustainability Reporting Portal</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6 text-left">
         {/* Email */}
@@ -307,7 +307,7 @@ function AuthPage() {
 
       <footer className="w-full bg-white border-t border-sky-100 px-6 py-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
         <span>© 2026 SJVN Limited. All Rights Reserved.</span>
-        <span>Environmental Monitoring &amp; Management Portal</span>
+        <span>Business Responsibility &amp; Sustainability Reporting Portal</span>
       </footer>
     </div>
   );
