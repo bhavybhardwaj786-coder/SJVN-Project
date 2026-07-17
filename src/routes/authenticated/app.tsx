@@ -536,41 +536,43 @@ function AdminDashboard() {
     <AppShell>
       <motion.div initial="hidden" animate="show" variants={containerVariants}>
         
-        <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-between gap-4">
-          <section className="flex">
-            <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
-              <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
-                Welcome back
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-                Admin Dashboard
-              </h1>
-              <p className="mt-1 max-w-md text-sm text-sky-50">
-                Here's how compliance is tracking across all sites this reporting period.
-              </p>
-            </div>
-          </section>
+        <motion.div variants={fadeUp} className="flex">
+  <section className="flex">
+    <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
+      <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
+        Welcome back
+      </p>
+      <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+        Admin Dashboard
+      </h1>
+      <p className="mt-1 max-w-md text-sm text-sky-50">
+        Here's how compliance is tracking across all sites this reporting period.
+      </p>
+    </div>
+  </section>
+</motion.div>
 
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-muted-foreground">Reporting Month</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-lg border bg-card px-3 py-2 text-sm shadow-card outline-none focus:border-primary"
-            >
-              {Array.from({ length: 12 }, (_, i) => {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const value = d.toISOString().slice(0, 7);
-                return (
-                  <option key={value} value={value}>
-                    {d.toLocaleString("default", { month: "long", year: "numeric" })}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        </motion.div>
+<motion.div variants={fadeUp} className="mt-6 flex">
+  <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
+    <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Reporting Month</label>
+    <select
+      value={selectedMonth}
+      onChange={(e) => setSelectedMonth(e.target.value)}
+      className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+    >
+      {Array.from({ length: 12 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const value = d.toISOString().slice(0, 7);
+        return (
+          <option key={value} value={value}>
+            {d.toLocaleString("default", { month: "long", year: "numeric" })}
+          </option>
+        );
+      })}
+    </select>
+  </div>
+</motion.div>
 
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         <motion.section variants={containerVariants} className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -683,7 +685,7 @@ function AdminDashboard() {
     {displayedSites.map((site) => (
       <div key={site.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-white shadow-sm">
         <div>
-          <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">Selected Station</span>
+          <span className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">Selected Site</span>
           <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
             {site.name} <span className="text-sm font-semibold text-muted-foreground">({site.code})</span>
           </h3>

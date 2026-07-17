@@ -112,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#eaeff2] flex flex-col font-sans relative overflow-x-hidden">
+    <div className="min-h-full flex-1 flex flex-col bg-[#eaeff2] font-sans relative overflow-x-hidden">
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
         <div className="bg-gradient-to-r from-white to-sky-50 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-sky-100 gap-4 relative z-10">
@@ -128,7 +128,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </Button>
 
-            <Link to="/" className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90">
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90 text-left"
+            >
               <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
                 <img
                   src={sjvnLogo}
@@ -147,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
                 </p>
               </div>
-            </Link>
+            </button>
           </div>
 
           {/* Right Side: Breadcrumbs and Admin Badge */}
