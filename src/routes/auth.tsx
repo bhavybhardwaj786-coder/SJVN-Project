@@ -306,11 +306,11 @@ function LoginCard() {
 // --- Page Shell ---
 function AuthPage() {
   return (
-    <div className="h-dvh w-screen flex flex-col overflow-hidden select-none bg-slate-950">
+    <div className="fixed inset-0 flex flex-col overflow-hidden select-none bg-slate-950">
       <SjvnHeader />
 
       <div 
-        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-y-auto px-4 bg-cover bg-center bg-no-repeat"
+        className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden px-4 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${loginBg})` }}
       >
         {/* Background Darkening Overlay */}

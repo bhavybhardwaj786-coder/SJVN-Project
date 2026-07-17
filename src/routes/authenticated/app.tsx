@@ -994,8 +994,41 @@ const bulkToggleLockMutation = useMutation({
           </button>
         </div>
 
-        {/* Action Buttons (Lock/Unlock & Export) */}
+        {/* Action Buttons (Export & Lock/Unlock) */}
         <div className="flex flex-wrap items-center gap-3">
+          
+          {/* COMBINED EXPORT DROPDOWN */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10 text-xs font-bold border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 shadow-sm transition-all duration-200"
+                disabled={exportingSiteId === site.id}
+              >
+                {exportingSiteId === site.id ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1.5" />
+                )}
+                Export Combined Report
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-xl rounded-lg p-1 z-50">
+              <DropdownMenuItem 
+                onClick={() => handleCombinedExport(site, "pdf")}
+                className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 px-3 py-2.5 rounded"
+              >
+                <FileIcon className="h-4 w-4 mr-2 text-rose-500" /> PDF Document
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleCombinedExport(site, "excel")}
+                className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 px-3 py-2.5 rounded mt-0.5"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-600" /> Excel Spreadsheet
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {/* NEW: Portal Lock/Unlock Toggle */}
           <Button
             variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
@@ -1017,8 +1050,6 @@ const bulkToggleLockMutation = useMutation({
               <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
             )}
           </Button>
-
-          {/* ... Keep your DropdownMenu for Export here if you have one ... */}
         </div>
       </div>
     ))}
