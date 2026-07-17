@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -26,6 +26,7 @@ import {
   Clock,
   AlertCircle,
   ArrowRight,
+  Lock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/contractor/")({
@@ -87,6 +88,22 @@ function ContractorDashboard() {
     queryFn: () => formsService.getActiveForms({ role: "contractor", siteId: currentUser?.site_id }),
     enabled: !!currentUser?.site_id,
   });
+
+  const { data: siteData } = useQuery({
+  queryKey: ["site-access", currentUser?.site_id],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("sites")
+      .select("unlocked_months")
+      .eq("id", currentUser?.site_id)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  enabled: !!currentUser?.site_id,
+});
+
+const isMonthUnlocked = siteData?.unlocked_months?.includes(selectedMonth) || false;
 
   const requiredForms = (formsResult?.data || []).map((f: any) => ({
     id: f.id,
@@ -222,6 +239,23 @@ function ContractorDashboard() {
             </div>
           </motion.section>
 
+          <AnimatePresence>
+            {!isMonthUnlocked && (
+              <motion.section 
+                initial={{ opacity: 0, height: 0 }} 
+                animate={{ opacity: 1, height: "auto" }} 
+                className="mt-4"
+              >
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3 shadow-sm">
+                  <Lock className="h-6 w-6 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold">Portal Access Locked.</span> The reporting portal for {new Date(selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' })} is currently closed. Please contact your System Administrator to request an unlock.
+                  </div>
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
+
           <motion.section variants={fadeUp} className="mt-6">
             {formsLoading ? (
                <p className="text-sm text-slate-500 font-medium p-4">Loading forms...</p>
@@ -267,13 +301,20 @@ function ContractorDashboard() {
                       </p>
 
                       <div className="mt-5 flex items-center gap-2">
-                        <button 
-                          onClick={() => goToForm(id)}
-                          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:from-sky-600 hover:to-blue-700"
-                        >
-                          {mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
+                        {isMonthUnlocked ? (
+                          <button 
+                            onClick={() => goToForm(id)}
+                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:from-sky-600 hover:to-blue-700"
+                          >
+                            {mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </button>
+                        ) : (
+                          <div className="w-full rounded-lg bg-rose-100/50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 border border-rose-100">
+                            <Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />
+                            Submission Locked
+                          </div>
+                        )}
                       </div>
                     </motion.article>
                   );

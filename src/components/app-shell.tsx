@@ -27,6 +27,8 @@ async function fetchMe() {
 
   // Check role tables directly — there is no unified `profiles` /
   // `user_roles` table in this schema, just super_admins / admins / site_users.
+  // Check role tables directly — there is no unified `profiles` /
+  // `user_roles` table in this schema, just super_admins / admins / site_users.
   const [
     { data: superAdmin, error: superAdminError },
     { data: admin, error: adminError },
@@ -36,7 +38,7 @@ async function fetchMe() {
     supabase.from("admins").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("site_users")
-      .select("*, site_assignments(site_id, sites(id, code, name, location))")
+      .select("*, site_assignments(site_id, sites!fk_site_assignments_site(id, code, name, location))") // 🚀 FIXED: Using explicit FK name from your error logs
       .eq("id", user.id)
       .maybeSingle(),
   ]);

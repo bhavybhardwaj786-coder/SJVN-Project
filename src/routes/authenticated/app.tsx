@@ -12,6 +12,7 @@ import {
   ChevronDown, Sliders, FolderDown, AlertCircle, Clock,
   type LucideIcon,
   Users, LayoutGrid, ArrowLeft,
+  Lock, Unlock,
 } from "lucide-react";
 
 
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/authenticated/app")({
   component: AdminDashboard,
 });
 
-type SiteRow = { id: string; name: string; code: string };
+type SiteRow = { id: string; name: string; code: string; unlocked_months?: string[] };
 
 type SubmissionRow = {
   id: string;
@@ -209,10 +210,14 @@ function AdminDashboard() {
   const forms = formsResult?.data || [];
   const activeForms = forms.filter((f: any) => f.is_active);
 
+  // 2. Update the query inside AdminDashboard to fetch the new column
   const { data: sitesResult } = useQuery({
     queryKey: ["all-sites"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sites").select("id, name, code").order("name");
+      const { data, error } = await supabase
+        .from("sites")
+        .select("id, name, code, unlocked_months") // Added unlocked_months
+        .order("name");
       if (error) throw error;
       return data as SiteRow[];
     },
@@ -357,6 +362,34 @@ function AdminDashboard() {
     if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
     deleteMutation.mutate(formId);
   };
+
+  const toggleMonthLockMutation = useMutation({
+    mutationFn: async ({ siteId, month, isCurrentlyUnlocked }: { siteId: string, month: string, isCurrentlyUnlocked: boolean }) => {
+      const site = sites.find(s => s.id === siteId);
+      let updatedMonths = site?.unlocked_months || [];
+
+      if (isCurrentlyUnlocked) {
+        // Lock it (Remove month from array)
+        updatedMonths = updatedMonths.filter(m => m !== month);
+      } else {
+        // Unlock it (Add month to array)
+        if (!updatedMonths.includes(month)) updatedMonths.push(month);
+      }
+
+      const { error } = await supabase
+        .from("sites")
+        .update({ unlocked_months: updatedMonths })
+        .eq("id", siteId);
+
+      if (error) throw error;
+      return updatedMonths;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-sites"] });
+      toast.success("Site portal access updated successfully!");
+    },
+    onError: (err: any) => toast.error(err.message || "Failed to update access.")
+  });
 
   // --- COMBINED EXPORT LOGIC ---
   const handleCombinedExport = async (site: SiteRow, format: "pdf" | "excel") => {
@@ -689,56 +722,34 @@ function AdminDashboard() {
           </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* NEW: Site vs Contractor view switcher */}
-          <div className="inline-flex rounded-lg border bg-slate-50 p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setSiteViewMode("site");
-                setSelectedContractorId(null);
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                siteViewMode === "site"
-                  ? "bg-white text-[#095a7d] shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Form of the Site
-            </button>
-            <button
-              type="button"
-              onClick={() => setSiteViewMode("contractor")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-                siteViewMode === "contractor"
-                  ? "bg-white text-[#095a7d] shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" />
-              Form of the Contractor
-            </button>
-          </div>
+        {/* Replace your existing `<div className="flex flex-wrap items-center gap-3">` block for the site header with this: */}
 
-          {/* Combined Export Trigger */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-10 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 shrink-0 shadow-sm">
-                {exportingSiteId === site.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
-                Export All Forms Combined
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 bg-white border-slate-200 shadow-xl p-1 rounded-lg">
-              <DropdownMenuItem onClick={() => handleCombinedExport(site, "pdf")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded">
-                <FileIcon className="mr-2 h-4 w-4 text-rose-500" /> Combined PDF Report
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCombinedExport(site, "excel")} className="cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50 p-2 rounded mt-0.5">
-                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> Combined Excel Sheet
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* NEW: Portal Lock/Unlock Toggle */}
+            <Button
+              variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
+              className={
+                site.unlocked_months?.includes(selectedMonth) 
+                  ? "bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm" 
+                  : "border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
+              }
+              onClick={() => toggleMonthLockMutation.mutate({ 
+                siteId: site.id, 
+                month: selectedMonth, 
+                isCurrentlyUnlocked: site.unlocked_months?.includes(selectedMonth) || false 
+              })}
+              disabled={toggleMonthLockMutation.isPending}
+            >
+              {site.unlocked_months?.includes(selectedMonth) ? (
+                <><Unlock className="h-4 w-4 mr-1.5" /> Portal Open</>
+              ) : (
+                <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
+              )}
+            </Button>
+
+            {/* Existing Combined Export Trigger */}
+            {/* ... Keep your DropdownMenu for Export here ... */}
+          </div>
       </div>
     ))}
 

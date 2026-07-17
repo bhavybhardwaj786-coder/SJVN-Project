@@ -2,8 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { motion, AnimatePresence } from "framer-motion";
 import { submissionsService, formsService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { supabase } from "@/integrations/client";
 
 import {
   FileText,
@@ -24,6 +26,7 @@ import {
   Clock,
   AlertCircle,
   ArrowRight,
+  Lock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/site/")({
@@ -68,12 +71,28 @@ function SiteDashboard() {
 
   const { data: currentUser } = useCurrentUser();
 
-  // 1. Data Fetching Logic
+    // 1. Data Fetching Logic
   const { data: formsResult, isLoading: formsLoading } = useQuery({
-  queryKey: ["active-forms", currentUser?.site_id],
-  queryFn: () => formsService.getActiveForms({ role: "site_user", siteId: currentUser?.site_id }),
-  enabled: !!currentUser?.site_id,
-});
+    queryKey: ["active-forms", currentUser?.site_id],
+    queryFn: () => formsService.getActiveForms({ role: "site_user", siteId: currentUser?.site_id }),
+    enabled: !!currentUser?.site_id,
+  }); // Safely closes formsResult query configuration
+
+  const { data: siteData } = useQuery({
+    queryKey: ["site-access", currentUser?.site_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sites")
+        .select("unlocked_months")
+        .eq("id", currentUser?.site_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentUser?.site_id,
+  }); // Safely closes siteData query configuration
+
+  const isMonthUnlocked = siteData?.unlocked_months?.includes(selectedMonth) || false;
 
   const requiredForms = (formsResult?.data || []).map((f: any) => ({
     id: f.id,
@@ -198,6 +217,23 @@ function SiteDashboard() {
             </div>
           </section>
 
+          <AnimatePresence>
+            {!isMonthUnlocked && (
+              <motion.section 
+                initial={{ opacity: 0, height: 0 }} 
+                animate={{ opacity: 1, height: "auto" }} 
+                className="mt-4"
+              >
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 flex items-center gap-3 shadow-sm">
+                  <Lock className="h-6 w-6 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold">Portal Access Locked.</span> The reporting portal for {new Date(selectedMonth).toLocaleString('default', { month: 'long', year: 'numeric' })} is currently closed. Please contact your System Administrator to request an unlock.
+                  </div>
+                </div>
+              </motion.section>
+            )}
+          </AnimatePresence>
+
           {/* Forms Grid */}
           <section className="mt-6 pb-12">
             {formsLoading ? (
@@ -244,19 +280,26 @@ function SiteDashboard() {
                       </p>
 
                       <div className="mt-5 flex items-center gap-2">
-                        <button 
-                          onClick={() => goToForm(id)}
-                          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-sm transition ${
-                            mappedStatus === "completed"
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
-                              : mappedStatus === "in-progress"
-                              ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
-                              : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
-                          }`}
-                        >
-                          {mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
+                        {isMonthUnlocked ? (
+                          <button 
+                            onClick={() => goToForm(id)}
+                            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-sm transition ${
+                              mappedStatus === "completed"
+                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+                                : mappedStatus === "in-progress"
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                                : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
+                            }`}
+                          >
+                            {mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </button>
+                        ) : (
+                          <div className="w-full rounded-lg bg-rose-100/50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 border border-rose-100">
+                            <Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />
+                            Submission Locked
+                          </div>
+                        )}
                       </div>
                     </article>
                   );
