@@ -970,34 +970,56 @@ const bulkToggleLockMutation = useMutation({
           </h3>
         </div>
 
-        {/* Replace your existing `<div className="flex flex-wrap items-center gap-3">` block for the site header with this: */}
+        {/* --- RESTORED VIEW SWITCHER --- */}
+        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-1">
+          <button
+            onClick={() => setSiteViewMode("site")}
+            className={`rounded-md px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
+              siteViewMode === "site" 
+                ? "bg-white text-[#095a7d] shadow-sm ring-1 ring-slate-200/50" 
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+            }`}
+          >
+            Site Submissions
+          </button>
+          <button
+            onClick={() => setSiteViewMode("contractor")}
+            className={`rounded-md px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
+              siteViewMode === "contractor" 
+                ? "bg-white text-[#095a7d] shadow-sm ring-1 ring-slate-200/50" 
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+            }`}
+          >
+            Contractor Submissions
+          </button>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* NEW: Portal Lock/Unlock Toggle */}
-            <Button
-              variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
-              className={
-                site.unlocked_months?.includes(selectedMonth) 
-                  ? "bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm" 
-                  : "border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
-              }
-              onClick={() => toggleMonthLockMutation.mutate({ 
-                siteId: site.id, 
-                month: selectedMonth, 
-                isCurrentlyUnlocked: site.unlocked_months?.includes(selectedMonth) || false 
-              })}
-              disabled={toggleMonthLockMutation.isPending}
-            >
-              {site.unlocked_months?.includes(selectedMonth) ? (
-                <><Unlock className="h-4 w-4 mr-1.5" /> Portal Open</>
-              ) : (
-                <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
-              )}
-            </Button>
+        {/* Action Buttons (Lock/Unlock & Export) */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* NEW: Portal Lock/Unlock Toggle */}
+          <Button
+            variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
+            className={
+              site.unlocked_months?.includes(selectedMonth) 
+                ? "bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm" 
+                : "border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
+            }
+            onClick={() => toggleMonthLockMutation.mutate({ 
+              siteId: site.id, 
+              month: selectedMonth, 
+              isCurrentlyUnlocked: site.unlocked_months?.includes(selectedMonth) || false 
+            })}
+            disabled={toggleMonthLockMutation.isPending}
+          >
+            {site.unlocked_months?.includes(selectedMonth) ? (
+              <><Unlock className="h-4 w-4 mr-1.5" /> Portal Open</>
+            ) : (
+              <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
+            )}
+          </Button>
 
-            {/* Existing Combined Export Trigger */}
-            {/* ... Keep your DropdownMenu for Export here ... */}
-          </div>
+          {/* ... Keep your DropdownMenu for Export here if you have one ... */}
+        </div>
       </div>
     ))}
 
@@ -1150,9 +1172,9 @@ const bulkToggleLockMutation = useMutation({
                     <th className="px-6 py-3.5 font-bold text-slate-500">
                       Forms Submitted by {selectedContractor.name}
                     </th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Compliance Status</th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Download Attachments</th>
-                    <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Download Report</th>
+                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Status</th>
+                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Attachments</th>
+                    <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Report</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

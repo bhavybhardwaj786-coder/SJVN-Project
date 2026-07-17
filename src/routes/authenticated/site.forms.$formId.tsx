@@ -21,7 +21,8 @@ import {
   CheckCircle2, 
   Paperclip, 
   File, 
-  X 
+  X,
+  Lock
 } from "lucide-react";
 
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
@@ -64,13 +65,13 @@ function FillForm() {
 
   // FIXED: Query using "site_user" instead of "site" to align with database & admin dashboard
   const { data: existingResult } = useQuery({
-    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth, "site_user"],
+    queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth, "site"],
     queryFn: () =>
       submissionsService.getSubmissionForForm(
         formId, 
         currentUser?.site_id || "", 
         reportingMonth, 
-        "site_user"
+        "site" // 👈 Fixed from "site_user"
       ),
     enabled: !!currentUser?.site_id,
   });
@@ -159,7 +160,7 @@ function FillForm() {
           reportingMonth,
           data: updatedValues,
           submit,
-          submittedByRole: "site_user", // 👈 FIXED: Changed "site" to "site_user" to match Admin dashboard filters
+          submittedByRole: "site", // 👈 FIXED: Reverted back to "site" to satisfy DB constraint
         });
 
         if (result.error) throw result.error;
