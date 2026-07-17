@@ -378,8 +378,6 @@ function AdminDashboard() {
 
   const toggleMonthLockMutation = useMutation({
     mutationFn: async ({ siteId, month, isCurrentlyUnlocked }: { siteId: string, month: string, isCurrentlyUnlocked: boolean }) => {
-      const { data: sessionCheck } = await supabase.auth.getSession();
-      console.log("Session at mutation time:", sessionCheck?.session?.user?.id, sessionCheck?.session?.access_token ? "token present" : "NO TOKEN");
       const site = sites.find(s => s.id === siteId);
       let updatedMonths = site?.unlocked_months ? [...site.unlocked_months] : [];
 

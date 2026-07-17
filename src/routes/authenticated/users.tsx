@@ -190,7 +190,7 @@ function UserManagement() {
                   <th className="px-5 py-4 text-slate-700">Name</th>
                   <th className="px-5 py-4 text-slate-700">Email</th>
                   {activeTab === "admin" && <th className="px-5 py-4 text-slate-700">Role</th>}
-                  {activeTab === "site_user" || activeTab === "contractor" && <th className="px-5 py-4 text-slate-700">Site Location</th>}
+                  {(activeTab === "site_user" || activeTab === "contractor") && <th className="px-5 py-4 text-slate-700">Site Location</th>}
                   <th className="px-5 py-4 text-slate-700">Status</th>
                   <th className="px-5 py-4 text-right text-slate-700">Actions</th>
                 </tr>
@@ -247,7 +247,7 @@ function UserManagement() {
                             className={u.is_active ? "border-red-200 text-red-600 shadow-sm hover:bg-red-50" : "border-emerald-200 text-emerald-600 shadow-sm hover:bg-emerald-50"}
                             onClick={() =>
                               toggleActiveMutation.mutate({
-                                table: activeTab === "admin" ? "admins" : activeTab === "site_users" ? "site_users" : "contractors",
+                                table: activeTab === "admin" ? "admins" : activeTab === "site_user" ? "site_users" : "contractors",
                                 id: u.id,
                                 is_active: !u.is_active,
                               })
@@ -359,7 +359,7 @@ function CreateUserInlineForm({
         </div>
 
         <div className="space-y-4">
-          {role === "site_user" || role === "contractor" && (
+          {(role === "site_user" || role === "contractor") && (
             <div className="space-y-1 animate-in fade-in duration-200">
               <label className="text-xs font-bold text-slate-800">Assigned Station Location</label>
               <select
