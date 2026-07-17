@@ -168,11 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Bottom Navigation Teal Bar */}
         {/* Bottom Navigation Bar */}
         <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
-          <div className="h-full flex items-center pr-4 border-r border-white/25 shrink-0">
-            <Link to="/" className="text-white hover:text-gray-200 transition-colors" aria-label="Go to Public Home Page">
-              <Home size={20} />
-            </Link>
-          </div>
+          
 
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
             <div className="text-white text-sm font-semibold whitespace-nowrap">

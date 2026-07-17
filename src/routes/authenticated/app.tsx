@@ -749,9 +749,9 @@ function AdminDashboard() {
         <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
             <tr>
               <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
-              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Compliance Status</th>
-              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Download Attachments</th>
-              <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Download Report</th>
+              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Status</th>
+              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Attachments</th>
+              <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Report</th>
             </tr>
           </thead>
         <tbody className="divide-y divide-slate-100">
