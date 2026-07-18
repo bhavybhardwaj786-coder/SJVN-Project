@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
-import { formsService, submissionsService } from "@/services";
+import { formsService, submissionsService, sitesService } from "@/services";
+import { uploadFile } from "@/lib/apiClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -63,16 +63,13 @@ function FillForm() {
   const { data: existingResult } = useQuery({
     queryKey: ["submission-for-form", formId, currentUser?.site_id, reportingMonth, currentUser?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select("*")
-        .eq("form_id", formId)
-        .eq("site_id", currentUser?.site_id || "") // 👈 Fix: Safely handle potentially undefined site_id
-        .eq("reporting_month", reportingMonth)
-        .eq("user_id", currentUser?.id || "") // 👈 Fix: Safely handle potentially undefined user_id
-        .maybeSingle();
-
-      if (error) throw error;
+      const { data, error } = await submissionsService.getSubmissionForUser(
+        formId,
+        currentUser?.site_id || "",
+        reportingMonth,
+        currentUser?.id || ""
+      );
+      if (error) throw new Error(error);
       return { data };
     },
     enabled: !!currentUser?.site_id && !!currentUser?.id,
@@ -82,12 +79,8 @@ function FillForm() {
   const { data: siteData } = useQuery({
     queryKey: ["site-access-verification", currentUser?.site_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("unlocked_months")
-        .eq("id", currentUser?.site_id)
-        .single();
-      if (error) throw error;
+      const { data, error } = await sitesService.getSiteAccess(currentUser?.site_id || "");
+      if (error) throw new Error(error);
       return data;
     },
     enabled: !!currentUser?.site_id,
@@ -125,17 +118,9 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
               
               const uniquePath = `${formId}_${currentUser?.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
 
-              const { data, error } = await supabase.storage
-                .from("attachments")
-                .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+              const { url } = await uploadFile(uniquePath, file);
 
-              if (error) throw error;
-
-              const { data: { publicUrl } } = supabase.storage
-                .from("attachments")
-                .getPublicUrl(uniquePath);
-
-              return { url: publicUrl, name: file.name, storagePath: uniquePath };
+              return { url, name: file.name, storagePath: uniquePath };
             });
 
             const uploadedResults = await Promise.all(uploadPromises);

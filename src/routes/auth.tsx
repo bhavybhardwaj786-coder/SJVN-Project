@@ -12,8 +12,9 @@ import {
   EyeOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { supabase } from "@/integrations/client";
+import { authService } from "@/services/auth";
 
 import sjvnLogo from "../assets/sjvn-logo.jpeg";
 import loginBg from "../assets/hero-transmission.jpeg";
@@ -100,6 +101,7 @@ function BackgroundAnimation() {
 // --- Login Card ---
 function LoginCard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -115,41 +117,23 @@ function LoginCard() {
     setErrorMsg(null);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const user = await authService.login(email, password, keepSignedIn);
 
-      if (error) {
-        setErrorMsg(error.message);
-        toast.error(error.message);
-        setStatus("denied");
-        setTimeout(() => setStatus("idle"), 2600);
-        return;
-      }
+      // Replaces the old onAuthStateChange listener — invalidate now that we
+      // have a fresh session, so dashboards fetch with the new identity.
+      queryClient.invalidateQueries();
 
-      const userId = data.user.id;
-
-      const { data: superAdmin } = await supabase.from("super_admins").select("id").eq("id", userId).single();
-      if (superAdmin) { navigate({ to: "/authenticated/supadmin" }); return; }
-
-      const { data: admin } = await supabase.from("admins").select("id").eq("id", userId).single();
-      if (admin) { navigate({ to: "/authenticated/app" }); return; }
-
-      const { data: siteUser } = await supabase.from("site_users").select("id").eq("id", userId).single();
-      if (siteUser) { navigate({ to: "/authenticated/site" }); return; }
-
-      const { data: contractor } = await supabase.from("contractors").select("id").eq("id", userId).single();
-      if (contractor) { navigate({ to: "/authenticated/contractor" }); return; }
-
-      setErrorMsg("No role assigned to this account.");
-      toast.error("No role assigned to this account.");
-      setStatus("denied");
-      setTimeout(() => setStatus("idle"), 2600);
-      await supabase.auth.signOut();
+      const redirectByRole: Record<string, string> = {
+        super_admin: "/authenticated/supadmin",
+        admin: "/authenticated/app",
+        site_user: "/authenticated/site",
+        contractor: "/authenticated/contractor",
+      };
+      navigate({ to: redirectByRole[user.role] || "/authenticated/site" });
     } catch (err) {
-      setErrorMsg("Something went wrong");
-      toast.error("Something went wrong");
+      const message = err instanceof Error ? err.message : "Something went wrong";
+      setErrorMsg(message);
+      toast.error(message);
       setStatus("denied");
       setTimeout(() => setStatus("idle"), 2600);
     }

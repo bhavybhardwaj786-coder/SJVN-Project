@@ -12,7 +12,7 @@ import {
 
 import { AppShell } from "@/components/app-shell";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
+import { sitesService } from "@/services";
 import { usersService } from "@/services/users-service"
 import { Button } from "@/components/ui/button";
 
@@ -38,11 +38,9 @@ function SuperAdminDashboard() {
   const { data: sitesResult } = useQuery({
     queryKey: ["all-sites-count"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("sites")
-        .select("*", { count: 'exact', head: true });
-      if (error) throw error;
-      return count || 0;
+      const { data, error } = await sitesService.getAllSitesAdmin();
+      if (error) throw new Error(error);
+      return data?.length || 0;
     },
   });
 

@@ -3,9 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell, useMe } from "@/components/app-shell";
 import { motion, AnimatePresence } from "framer-motion";
-import { submissionsService, formsService } from "@/services";
+import { submissionsService, formsService, sitesService } from "@/services";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
 
 import {
   FileText, Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
@@ -53,15 +52,12 @@ function SiteDashboard() {
   });
 
   // ADDED: Track isLoading and isError to prevent false "Locked" states
+    // ADDED: Track isLoading and isError to prevent false "Locked" states
   const { data: siteData, isLoading: isSiteAccessLoading, isError: isSiteAccessError } = useQuery({
     queryKey: ["site-access", targetSiteId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("unlocked_months")
-        .eq("id", targetSiteId)
-        .single();
-      if (error) throw error;
+      const { data, error } = await sitesService.getSiteAccess(targetSiteId!);
+      if (error) throw new Error(error);
       return data;
     },
     enabled: !!targetSiteId,
@@ -159,7 +155,7 @@ function SiteDashboard() {
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800 flex items-center gap-3 shadow-sm">
                 <AlertTriangle className="h-6 w-6 text-orange-600 shrink-0" />
                 <div>
-                  <span className="font-bold">Permission Denied.</span> Your account lacks the database permissions to verify site status. Ensure Supabase RLS policies allow Site Users to read the "sites" table.
+                  <span className="font-bold">Permission Denied.</span> Your account lacks the database permissions to verify site status. Ensure backend permissions allow Site Users to read the "sites" table.
                 </div>
               </div>
             </section>

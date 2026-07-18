@@ -16,7 +16,8 @@ import {
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { supabase } from "@/integrations/client";
+
+import { submissionsService } from "@/services";
 
 import {
   Select,
@@ -42,16 +43,8 @@ export const Route = createFileRoute("/authenticated/$submissionId")({
     await queryClient.ensureQueryData({
       queryKey: ["submission-detail", submissionId],
       queryFn: async () => {
-        const { data, error } = await supabase
-          .from("submissions")
-          .select(`
-            id, status, data, submitted_at, updated_at, reporting_month, user_id, form_id, site_id,
-            forms(id, title, description, schema),
-            sites(id, name, code)
-          `)
-          .eq("id", submissionId)
-          .single();
-        if (error) throw error;
+        const { data, error } = await submissionsService.getSubmissionById(submissionId);
+        if (error) throw new Error(error);
         return data;
       },
     });
@@ -103,48 +96,17 @@ function SubmissionDetail() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["submission-detail", submissionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select(`
-          id, status, data, submitted_at, updated_at, reporting_month, user_id, form_id, site_id, submitted_by_role,
-          forms(id, title, description, schema),
-          sites(id, name, code)
-        `) // 👈 Added submitted_by_role here!
-        .eq("id", submissionId)
-        .single();
-      if (error) throw error;
+      const { data, error } = await submissionsService.getSubmissionById(submissionId);
+      if (error) throw new Error(error);
       return data as unknown as SubmissionDetailRow;
     },
   });
 
-  // Re-optimized name fetch using the exact database role
-  const { data: submittedByName } = useQuery({
-    queryKey: ["submission-user-name", data?.user_id, data?.submitted_by_role],
-    queryFn: async () => {
-      if (!data?.user_id) return null;
-      
-      // If submitted by site, search site_users
-      if (data.submitted_by_role === "site") {
-        const { data: siteUser } = await supabase
-          .from("site_users")
-          .select("full_name")
-          .eq("id", data.user_id)
-          .maybeSingle();
-        
-        if (siteUser?.full_name) return siteUser.full_name;
-      }
-
-      // If submitted by contractor (or fallback), search contractors table
-      const { data: contractorUser } = await supabase
-        .from("contractors")
-        .select("full_name")
-        .eq("id", data.user_id)
-        .maybeSingle();
-
-      return contractorUser?.full_name ?? "Unknown Submitter";
-    },
-    enabled: !!data?.user_id,
-  });
+  // Submitter's name now comes directly from the joined submission fetch
+  // (submissionsService.getSubmissionById) instead of a separate lookup —
+  // avoids a second request and an auth-scope mismatch (the users API is
+  // admin-only, but site_users/contractors view their own submissions too).
+  const submittedByName = (data as any)?.submitted_by_name ?? null;
 
   const fields = data?.forms?.schema?.fields || [];
   const values = data?.data || {};

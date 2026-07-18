@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/apiClient'
 
 export interface FormField {
   key: string;
@@ -27,7 +27,6 @@ export interface Form {
   updated_at: string;
 }
 
-// Strictly type the payload used for creation and updates
 export type CreateFormPayload = Omit<Form, 'id' | 'created_at' | 'updated_at'>;
 export type UpdateFormPayload = Partial<CreateFormPayload>;
 
@@ -35,24 +34,11 @@ export const formsService = {
 
   // Admin: get ALL forms, active or not, for management
   getAllForms: async () => {
-    const { data, error } = await supabase
-      .from('forms')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    return { data: data as Form[] | null, error };
+    return apiClient.get('/forms') as Promise<{ data: Form[] | null; error: string | null }>;
   },
 
-  // Strongly typed update function
   updateForm: async (id: string, updates: UpdateFormPayload) => {
-    const { data, error } = await supabase
-      .from('forms')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    return { data: data as Form | null, error };
+    return apiClient.patch(`/forms/${id}`, updates) as Promise<{ data: Form | null; error: string | null }>;
   },
 
   deactivateForm: async (id: string) => {
@@ -60,55 +46,22 @@ export const formsService = {
   },
 
   getActiveForms: async (options: { role: "site_user" | "contractor"; siteId?: string }) => {
-    const { role, siteId } = options;
-    let query = supabase
-      .from('forms')
-      .select('*')
-      .eq('is_active', true);
-
-    // Filter by target role visibility flags
-    query = role === "site_user"
-      ? query.eq('visible_to_site_users', true)
-      : query.eq('visible_to_contractors', true);
-
-    if (siteId) {
-      // safe fallbacks for the array containment array string
-      query = query.or(`site_ids.is.null,site_ids.cs.{${siteId}}`);
-    }
-
-    const { data, error } = await query.order('title');
-    return { data: data as Form[] | null, error };
+    const params = new URLSearchParams({ role: options.role });
+    if (options.siteId) params.set('siteId', options.siteId);
+    return apiClient.get(`/forms/active?${params.toString()}`) as Promise<{ data: Form[] | null; error: string | null }>;
   },
 
   getFormById: async (id: string) => {
-    const { data, error } = await supabase
-      .from('forms')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    return { data: data as Form | null, error };
+    return apiClient.get(`/forms/${id}`) as Promise<{ data: Form | null; error: string | null }>;
   },
 
-  // Super Admin only: strongly typed payload
+  // Super Admin only
   createForm: async (formData: CreateFormPayload) => {
-    const { data, error } = await supabase
-      .from('forms')
-      .insert(formData)
-      .select()
-      .single();
-    
-    return { data: data as Form | null, error };
+    return apiClient.post('/forms', formData) as Promise<{ data: Form | null; error: string | null }>;
   },
 
   deleteForm: async (formId: string) => {
-    const { error } = await supabase
-      .from("forms")
-      .delete()
-      .eq("id", formId);
-
-    if (error) throw error;
-
+    await apiClient.delete(`/forms/${formId}`);
     return { success: true };
   }
 };

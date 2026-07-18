@@ -26,9 +26,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { AppShell } from "@/components/app-shell";
-import { formsService } from "@/services";
+import { formsService, sitesService, submissionsService } from "@/services";
+import { usersService } from "@/services/users-service";
+import { downloadFile } from "@/lib/apiClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -127,7 +128,7 @@ function AdminDashboard() {
       const monthFolderStr = `SJVN_${siteName.replace(/\s+/g, "_")}_${selectedMonth}`;
       const mainFolder = zip.folder(monthFolderStr);
 
-      // Fetch all remote cloud files using secure Supabase Signed URLs
+      // Fetch all uploaded files from the backend
       const downloadPromises = allAttachments.map(async (fileInfo, idx) => {
         try {
           // 1. Identify the storage path: use explicit property if present, otherwise fallback
@@ -150,23 +151,9 @@ function AdminDashboard() {
             throw new Error("Unable to parse file location token.");
           }
 
-          // 2. Request a short-lived signed authentication token URL directly from the SDK
-          const { data: signData, error: signError } = await supabase.storage
-            .from("attachments")
-            .createSignedUrl(relativePath, 60);
-
-          if (signError || !signData?.signedUrl) {
-            console.error(`Storage lookup failed for path: ${relativePath}`, signError);
-            throw signError || new Error("Failed to generate authorization download token.");
-          }
-
-          // 3. Download the authenticated asset via the signed token securely
-          const response = await fetch(signData.signedUrl);
-          if (!response.ok) {
-            throw new Error(`HTTP Asset Fetch Failed: ${response.status}`);
-          }
-          
-          const fileBlob = await response.blob();
+          // 2 & 3. Download directly from our authenticated storage route — no
+          // separate signed-URL step needed, the download route checks the JWT itself
+          const fileBlob = await downloadFile(relativePath);
 
           // 4. Sanitize naming parameters inside the target ZIP file structure
           const cleanedParamLabel = fileInfo.paramLabel.replace(/[^a-zA-Z0-9]/g, "_");
@@ -237,11 +224,8 @@ function AdminDashboard() {
   const { data: sitesResult } = useQuery({
     queryKey: ["all-sites"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("id, name, code, unlocked_months") // Added unlocked_months
-        .order("name");
-      if (error) throw error;
+      const { data, error } = await sitesService.getAllSitesAdmin();
+      if (error) throw new Error(error);
       return data as SiteRow[];
     },
   });
@@ -253,18 +237,8 @@ function AdminDashboard() {
   const { data: submissionsResult, isLoading: submissionsLoading } = useQuery({
     queryKey: ["admin-submissions-by-month", reportingMonthDate],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select(`
-          id, status, submitted_at, updated_at, form_id, site_id, user_id, data, submitted_by_role,
-          forms(id, title, schema),
-          sites(id, name, code)
-        `)
-        .eq("reporting_month", reportingMonthDate)
-        .eq("status", "submitted") 
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
+      const { data, error } = await submissionsService.getAdminSubmissionsByMonth(reportingMonthDate, "submitted");
+      if (error) throw new Error(error);
       return data as unknown as SubmissionRow[];
     },
   });
@@ -281,11 +255,8 @@ function AdminDashboard() {
     queryKey: ["contractor-names", submitterIds],
     queryFn: async () => {
       if (submitterIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("contractors")
-        .select("*")
-        .in("id", submitterIds);
-      if (error) throw error;
+      const { data, error } = await usersService.getUsersByIds(submitterIds);
+      if (error) throw new Error(error);
       return data || [];
     },
     enabled: submitterIds.length > 0,
@@ -407,13 +378,9 @@ function AdminDashboard() {
       }
     }
 
-    const { data: updatedData, error } = await supabase
-      .from("sites")
-      .update({ unlocked_months: updatedMonths })
-      .eq("id", siteId)
-      .select();
+    const { data: updatedData, error } = await sitesService.updateSite(siteId, { unlocked_months: updatedMonths });
 
-    if (error) throw error;
+    if (error) throw new Error(error);
 
     if (!updatedData || updatedData.length === 0) {
       throw new Error("Update was blocked by database permissions (RLS). No changes were saved.");
@@ -446,13 +413,9 @@ const bulkToggleLockMutation = useMutation({
           updatedMonths = updatedMonths.filter((m) => m !== month);
         }
 
-        const { data, error } = await supabase
-          .from("sites")
-          .update({ unlocked_months: updatedMonths })
-          .eq("id", site.id)
-          .select();
+        const { data, error } = await sitesService.updateSite(site.id, { unlocked_months: updatedMonths });
 
-        if (error) throw new Error(`${site.name}: ${error.message}`);
+        if (error) throw new Error(`${site.name}: ${error}`);
         if (!data || data.length === 0) {
           throw new Error(`${site.name}: update blocked by database permissions.`);
         }

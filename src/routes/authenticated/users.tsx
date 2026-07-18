@@ -6,7 +6,7 @@ import { UserPlus, KeyRound, Ban, CheckCircle2, Loader2, X } from "lucide-react"
 import { AppShell } from "@/components/app-shell";
 import { usersService } from "@/services/users-service";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
+import { sitesService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -42,8 +42,8 @@ function UserManagement() {
   const { data: sitesResult } = useQuery({
     queryKey: ["all-sites"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sites").select("id, name, code").order("name");
-      if (error) throw error;
+      const { data, error } = await sitesService.getAllSitesAdmin();
+      if (error) throw new Error(error);
       return data;
     },
     enabled: isSuperAdmin,

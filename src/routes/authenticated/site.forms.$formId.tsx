@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app-shell";
-import { formsService, submissionsService } from "@/services";
+import { formsService, submissionsService, sitesService } from "@/services";
+import { uploadFile } from "@/lib/apiClient";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { supabase } from "@/integrations/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -80,12 +80,8 @@ function FillForm() {
   const { data: siteData } = useQuery({
     queryKey: ["site-access-verification", currentUser?.site_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("unlocked_months")
-        .eq("id", currentUser?.site_id)
-        .single();
-      if (error) throw error;
+      const { data, error } = await sitesService.getSiteAccess(currentUser?.site_id || "");
+      if (error) throw new Error(error);
       return data;
     },
     enabled: !!currentUser?.site_id,
@@ -131,17 +127,9 @@ function FillForm() {
               
               const uniquePath = `${formId}_${currentUser.site_id || 'site'}_${batchTimestamp}_${i}/${field.key}_${safeFileName}`;
 
-              const { data, error } = await supabase.storage
-                .from("attachments")
-                .upload(uniquePath, file, { cacheControl: '3600', upsert: true });
+              const { url } = await uploadFile(uniquePath, file);
 
-              if (error) throw error;
-
-              const { data: { publicUrl } } = supabase.storage
-                .from("attachments")
-                .getPublicUrl(uniquePath);
-
-              return { url: publicUrl, name: file.name, storagePath: uniquePath };
+              return { url, name: file.name, storagePath: uniquePath };
             });
 
             // Resolve all concurrent uploads for this question field together
@@ -363,7 +351,7 @@ function FillForm() {
                       {/* Question-Wise Multiple Document File Attachment Widget UI */}
                       <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200 space-y-2">
                         
-                        {/* 1. Render files that are already live on Supabase */}
+                        {/* Render files already uploaded */}
                         {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
                           <div key={`live-${idx}`} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
                             <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]">
