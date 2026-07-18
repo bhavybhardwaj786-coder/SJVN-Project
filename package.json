@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "server:dev": "tsx watch server/src/index.ts",
+    "server:start": "tsx server/src/index.ts",
+    "server:build": "tsc -p server/tsconfig.json",
     "backfill:attachments": "tsx server/scripts/backfill-attachments.ts"
   },
   "dependencies": {
