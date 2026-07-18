@@ -8,8 +8,7 @@ import {
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
-import { formsService } from "@/services";
-import { supabase } from "@/integrations/client";
+import { formsService, sitesService } from "@/services";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -153,11 +152,8 @@ function NewForm() {
   const { data: sitesResult, isLoading: sitesLoading } = useQuery({
     queryKey: ["all-sites"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sites")
-        .select("id, name, code")
-        .order("name");
-      if (error) throw error;
+      const { data, error } = await sitesService.getAllSitesAdmin();
+      if (error) throw new Error(error);
       return data as SiteRow[];
     },
     enabled: isEditMode || step === 3,

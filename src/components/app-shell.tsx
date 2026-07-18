@@ -15,53 +15,25 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { supabase } from "@/integrations/client";
+import { authService } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 
+// Replaces the old fetchMe, which had its own independent copy of the 4-table
+// role lookup and queried a `site_assignments` table that no longer exists
+// (dropped in Step 1 as dead code — this was already silently broken before
+// this migration). Now backed by the same authService everything else uses.
 async function fetchMe() {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
+  const user = await authService.getCurrentUser();
   if (!user) return null;
 
-  // Check role tables directly — there is no unified `profiles` /
-  // `user_roles` table in this schema, just super_admins / admins / site_users.
-  // Check role tables directly — there is no unified `profiles` /
-  // `user_roles` table in this schema, just super_admins / admins / site_users.
-  const [
-    { data: superAdmin, error: superAdminError },
-    { data: admin, error: adminError },
-    { data: siteUser, error: siteUserError },
-  ] = await Promise.all([
-    supabase.from("super_admins").select("*").eq("id", user.id).maybeSingle(),
-    supabase.from("admins").select("*").eq("id", user.id).maybeSingle(),
-    supabase
-      .from("site_users")
-      .select("*, site_assignments(site_id, sites!fk_site_assignments_site(id, code, name, location))") // 🚀 FIXED: Using explicit FK name from your error logs
-      .eq("id", user.id)
-      .maybeSingle(),
-  ]);
-
-  if (superAdminError) console.error("super_admins lookup failed:", superAdminError);
-  if (adminError) console.error("admins lookup failed:", adminError);
-  if (siteUserError) console.error("site_users lookup failed:", siteUserError);
-
-  const isSuperAdmin = !!superAdmin;
-  const isAdmin = isSuperAdmin || !!admin;
-
-  const profile = superAdmin ?? admin ?? siteUser ?? null;
-
-  const sites = (siteUser?.site_assignments ?? [])
-    .map((a: any) => a.sites)
-    .filter(Boolean) as { id: string; code: string; name: string; location: string | null }[];
-
   return {
-    user,
-    profile,
-    isAdmin,
-    isSuperAdmin,
-    sites,
+    user: { email: user.email },
+    profile: { full_name: user.full_name },
+    isAdmin: user.role === "admin" || user.role === "super_admin",
+    isSuperAdmin: user.role === "super_admin",
+    sites: user.site_id ? [{ id: user.site_id }] : [],
   };
 }
 
@@ -93,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    await authService.signOut();
     navigate({ to: "/auth", replace: true });
   }
 

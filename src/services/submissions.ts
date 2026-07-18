@@ -1,51 +1,22 @@
-import { supabase } from '@/lib/supabase'
+import { apiClient } from '@/lib/apiClient'
 import type { Submission } from '@/types'
 
 export const submissionsService = {
 
   // Get submissions for current user or their sites
   getMySubmissions: async (siteId?: string) => {
-    let query = supabase
-      .from('submissions')
-      .select(`
-        *,
-        sites(name, code),
-        forms(title)
-      `)
-      .order('reporting_month', { ascending: false })
-
-    if (siteId) {
-      query = query.eq('site_id', siteId)
-    }
-
-    const { data, error } = await query
-    return { data, error }
+    const params = new URLSearchParams()
+    if (siteId) params.set('siteId', siteId)
+    const qs = params.toString()
+    return apiClient.get(`/submissions${qs ? `?${qs}` : ''}`) as Promise<{ data: any[] | null; error: string | null }>
   },
 
   createSubmission: async (submission: Omit<Submission, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('submissions')
-      .upsert(submission, {
-        // Must match the DB unique constraint:
-        // (reporting_month, site_id, form_id, user_id)
-        onConflict: 'form_id,site_id,reporting_month,user_id',
-      })
-
-      .select()
-      .single();
-
-    return { data, error };
+    return apiClient.post('/submissions', submission) as Promise<{ data: Submission | null; error: string | null }>
   },
 
   updateSubmission: async (id: string, updates: Partial<Submission>) => {
-
-    const { data, error } = await supabase
-      .from('submissions')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-    return { data, error }
+    return apiClient.put(`/submissions/${id}`, updates) as Promise<{ data: Submission | null; error: string | null }>
   },
 
   submitForApproval: async (id: string) => {
@@ -55,6 +26,13 @@ export const submissionsService = {
     })
   },
 
+  // User-scoped existing-submission lookup (used by contractor_forms__formId.tsx,
+  // which filters by the specific user rather than by role)
+  getSubmissionForUser: async (formId: string, siteId: string, reportingMonth: string, userId: string) => {
+    const params = new URLSearchParams({ formId, siteId, reportingMonth, userId })
+    return apiClient.get(`/submissions/lookup?${params.toString()}`) as Promise<{ data: Submission | null; error: string | null }>
+  },
+
   // Check if a submission already exists for this form+site+month (for the fill-out page)
   getSubmissionForForm: async (
     formId: string,
@@ -62,33 +40,31 @@ export const submissionsService = {
     reportingMonth: string,
     submittedByRole: 'site' | 'contractor'
   ) => {
-    const { data, error } = await supabase
-      .from('submissions')
-
-    .select('*')
-    .eq('form_id', formId)
-    .eq('site_id', siteId)
-    .eq('reporting_month', reportingMonth)
-    .eq('submitted_by_role', submittedByRole)
-    .maybeSingle()
-  return { data, error }
-},
-
-  // Get all submissions for a specific reporting month (used by the dashboard)
-  getSubmissionsByMonth: async (reportingMonth: string, siteId?: string) => {
-    let query = supabase
-      .from('submissions')
-      .select('*')
-      .eq('reporting_month', reportingMonth)
-
-    if (siteId) query = query.eq('site_id', siteId)
-
-    const { data, error } = await query
-    return { data, error }
+    const params = new URLSearchParams({ formId, siteId, reportingMonth, submittedByRole })
+    return apiClient.get(`/submissions/lookup?${params.toString()}`) as Promise<{ data: Submission | null; error: string | null }>
   },
 
-  // Create or update in one call — relies on the unique constraint on (form_id, site_id, reporting_month)
-  // Create or update in one call — relies on the unique constraint on (form_id, site_id, reporting_month, submitted_by_role)
+  // Get all submissions for a specific reporting month (used by the dashboard)
+  getSubmissionsByMonth: async (reportingMonth: string, siteId?: string, userId?: string) => {
+    const params = new URLSearchParams({ reportingMonth })
+    if (siteId) params.set('siteId', siteId)
+    if (userId) params.set('userId', userId)
+    return apiClient.get(`/submissions/by-month?${params.toString()}`) as Promise<{ data: Submission[] | null; error: string | null }>
+  },
+
+  // Single submission with joined form+site (replaces the duplicate loader/component queries in _submissionId.tsx)
+  getSubmissionById: async (id: string) => {
+    return apiClient.get(`/submissions/${id}`) as Promise<{ data: any | null; error: string | null }>
+  },
+
+  // Admin view: submissions for a month, optionally filtered by status, joined with form+site
+  getAdminSubmissionsByMonth: async (reportingMonth: string, status?: string) => {
+    const params = new URLSearchParams({ reportingMonth })
+    if (status) params.set('status', status)
+    return apiClient.get(`/submissions/admin?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>
+  },
+
+  // Create or update in one call — relies on the unique constraint (form_id, site_id, reporting_month, user_id)
   saveOrSubmit: async (params: {
     formId: string
     siteId: string
@@ -98,37 +74,6 @@ export const submissionsService = {
     submit?: boolean
     submittedByRole: 'site' | 'contractor'
   }) => {
-    const { formId, siteId, userId, reportingMonth, data, submit, submittedByRole } = params
-    
-    const payload: any = {
-      form_id: formId,
-      site_id: siteId,
-      user_id: userId,
-      reporting_month: reportingMonth,
-      data,
-      status: submit ? 'submitted' : 'draft',
-      // Fallback to 'site' if submittedByRole is somehow undefined or null
-      submitted_by_role: submittedByRole || 'site', 
-    }
-    if (submit) {
-      payload.submitted_at = new Date().toISOString()
-    }
-
-    console.log("Upserting Payload:", payload); // 👈 This will help us debug if it still fails
-
-    const { data: result, error } = await supabase
-      .from('submissions')
-      .upsert(payload, { 
-        onConflict: 'form_id,site_id,reporting_month,user_id' 
-      })
-
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Supabase Upsert Error Detail:", error);
-    }
-
-    return { data: result, error }
+    return apiClient.post('/submissions/save-or-submit', params) as Promise<{ data: Submission | null; error: string | null }>
   }
 }

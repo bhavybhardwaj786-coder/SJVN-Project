@@ -1,58 +1,41 @@
-import { supabase } from "@/integrations/client";
-
-async function authedFetch(fnName: string, body: unknown) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionData.session?.access_token}`,
-      },
-      body: JSON.stringify(body),
-    }
-  );
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || `Failed to call ${fnName}`);
-  return json;
-}
+import { apiClient } from "@/lib/apiClient";
 
 export const usersService = {
-  async listAdmins() {
-    return supabase.from("admins").select("*").order("full_name");
+  listAdmins() {
+    return apiClient.get("/users?role=admin") as Promise<{ data: any[] | null; error: string | null }>;
   },
 
-  async listSiteUsers() {
-    return supabase
-      .from("site_users")
-      .select("*, sites(id, name, code)")
-      .order("full_name");
+  listSiteUsers() {
+    return apiClient.get("/users?role=site_user") as Promise<{ data: any[] | null; error: string | null }>;
   },
 
-   async listContractors() {
-    return supabase
-      .from("contractors")
-      .select("*, sites(id, name, code)")
-      .order("full_name");
+  listContractors() {
+    return apiClient.get("/users?role=contractor") as Promise<{ data: any[] | null; error: string | null }>;
   },
 
   createUser(payload: {
-    role: "admin" | "site_user" | "contractor";
+    role: "super_admin" | "admin" | "site_user" | "contractor";
     email: string;
     password: string;
     full_name: string;
     site_id?: string;
     designation?: string;
   }) {
-    return authedFetch("create-user", payload);
+    return apiClient.post("/users", payload);
   },
 
   resetPassword(user_id: string, new_password: string) {
-    return authedFetch("reset-password", { user_id, new_password });
+    return apiClient.post(`/users/${user_id}/reset-password`, { new_password });
   },
 
-  setActive(table: "admins" | "site_users", id: string, is_active: boolean) {
-    return supabase.from(table).update({ is_active }).eq("id", id);
+  // 'table' is kept only so existing call sites in users.tsx don't need to change —
+  // the unified backend has a single users table now, so this parameter is unused.
+  setActive(table: "admins" | "site_users" | "contractors", id: string, is_active: boolean) {
+    return apiClient.patch(`/users/${id}/active`, { is_active });
+  },
+
+  getUsersByIds(ids: string[]) {
+    const params = new URLSearchParams({ ids: ids.join(",") });
+    return apiClient.get(`/users/by-ids?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>;
   },
 };

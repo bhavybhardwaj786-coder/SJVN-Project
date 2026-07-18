@@ -16,7 +16,6 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { supabase } from "@/integrations/client";
 
 function NotFoundComponent() {
   return (
@@ -124,24 +123,19 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const router = useRouter();
-  
+
   // 1. Get the current route location
   const location = useLocation();
-  
+
   // 2. Check if the user is inside the authenticated dashboard area
   const isDashboardRoute = location.pathname.startsWith("/authenticated");
   // 2b. Check if this is the login page — only this route needs the no-scroll viewport lock
   const isAuthRoute = location.pathname === "/auth";
 
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-    });
-    return () => data.subscription.unsubscribe();
-  }, [router, queryClient]);
+  // Session-change invalidation is now handled explicitly at the point of
+  // login (auth.tsx) and logout (app-shell.tsx), instead of a reactive
+  // behavior change: signing out in one browser tab no longer automatically
+  // updates other open tabs.
 
   return (
     <QueryClientProvider client={queryClient}>

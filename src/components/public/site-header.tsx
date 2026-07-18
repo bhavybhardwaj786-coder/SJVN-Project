@@ -14,7 +14,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/client";
 import sjvnLogoImg from "../../assets/sjvn-logo.jpeg";
 import { NAV_ITEMS } from "./site-nav-data";
 
@@ -160,7 +159,7 @@ export function SiteHeader() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [authenticated, setAuthenticated] = useState(false);
 
   // Publishes the header's live rendered height (including the mobile menu
   // panel when open) as --header-height on <html>, so layouts elsewhere on
@@ -169,9 +168,9 @@ export function SiteHeader() {
 
 // --- RE-ENGINEERED INSTANT SYNCHRONIZED ROLE FETCHING ---
   const { data: currentUser } = useQuery({
-    queryKey: ["header-current-user", user?.id],
+    queryKey: ["header-current-user"],
     queryFn: () => authService.getCurrentUser(),
-    enabled: !!user,
+    enabled: authenticated,
     refetchOnWindowFocus: false,
   });
 
@@ -185,24 +184,19 @@ export function SiteHeader() {
       ? "/authenticated/contractor"
       : "/authenticated/site";
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+  authService
+    .getCurrentUser()
+    .then((user) => setAuthenticated(!!user))
+    .catch(() => setAuthenticated(false));
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     navigate({ to: "/" });
     setMobileOpen(false);
   };
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = authenticated;
 
   // Compute dynamic dashboard link target based on user roles
    
