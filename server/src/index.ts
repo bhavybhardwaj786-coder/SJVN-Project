@@ -20,5 +20,8 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/storage', storageRouter)
 
-const PORT = process.env.PORT || 4000
-app.listen(PORT, () => console.log(`API server running on http://localhost:${PORT}`))
+const PORT = Number(process.env.PORT) || 4000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
