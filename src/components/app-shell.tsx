@@ -162,10 +162,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <button
               onClick={signOut}
-              className="bg-[#ffb600] hover:bg-[#e0a100] transition-colors text-black font-bold py-1.5 px-4 rounded text-xs shadow-sm flex items-center gap-1.5"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Sign out
+              className="bg-[#ffb600] hover:bg-amber-500 active:scale-95 transition-all duration-200 transform text-black font-bold py-1.5 px-4 rounded text-xs shadow-sm flex items-center gap-1.5 hover:shadow-md hover:-translate-y-0.5 group"
+              >
+              <LogOut className="h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
+              <span>Sign out</span>
             </button>
           </div>
         </div>
