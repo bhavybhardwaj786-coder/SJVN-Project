@@ -12,6 +12,22 @@ import {
   CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2
 } from "lucide-react";
 
+import wasteIcon from "@/assets/icon/waste.png";
+import airPollutionIcon from "@/assets/icon/air-pollution.png";
+import defrostingIcon from "@/assets/icon/defrosting.png";
+import energyIcon from "@/assets/icon/energy.png";
+
+// Helper function to match form titles to your custom images
+function getCustomFormImage(title: string) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("energy")) return energyIcon;
+  if (t.includes("refrigerant") || t.includes("defrost")) return defrostingIcon;
+  if (t.includes("emission") || t.includes("air") || t.includes("stack")) return airPollutionIcon;
+  if (t.includes("waste") || t.includes("disposal")) return wasteIcon;
+  
+  return null; // Falls back to standard icons if no keyword matches
+}
+
 export const Route = createFileRoute("/authenticated/contractor/")({
   ssr: false,
   component: ContractorDashboard,
@@ -70,6 +86,7 @@ function ContractorDashboard() {
     name: f.title,
     description: f.description || "Monthly compliance report",
     icon: ICON_MAP[f.schema?.icon] || FileText,
+    customImage: getCustomFormImage(f.title), // <-- Add this new property
   }));
 
   const reportingMonthDate = `${selectedMonth}-01`;
@@ -182,15 +199,26 @@ function ContractorDashboard() {
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
               <motion.div variants={containerVariants} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {requiredForms.map(({ id, name, description, icon: Icon }) => {
+                {requiredForms.map(({ id, name, description, icon: Icon, customImage }) => {
                   const mappedStatus: MappedStatus = getOriginalStatus(id) === "submitted" ? "completed" : getOriginalStatus(id) === "draft" ? "in-progress" : "pending";
                   const s = statusStyles[mappedStatus];
                   return (
                     <motion.article variants={fadeUp} key={id} className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-blue-100 text-sky-700"><Icon className="h-5 w-5" /></div>
-                          <h3 className="text-sm font-semibold text-slate-800 leading-tight">{name}</h3>
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-50 to-blue-50/80 p-2.5 text-sky-700 ring-1 ring-sky-100 transition-transform group-hover:scale-105">
+                            {/* If a custom image matches, show it. Otherwise show standard Icon. */}
+                            {customImage ? (
+                              <img 
+                                src={customImage} 
+                                alt={`${name} icon`} 
+                                className="h-full w-full object-contain mix-blend-multiply opacity-90" 
+                              />
+                            ) : (
+                              <Icon className="h-5 w-5" />
+                            )}
+                          </div>
+                          <h3 className="text-sm font-bold text-slate-800 leading-tight">{name}</h3>
                         </div>
                         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${s.pill}`}><s.Icon className="h-3 w-3" />{s.label}</span>
                       </div>

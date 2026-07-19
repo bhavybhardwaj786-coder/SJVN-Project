@@ -12,6 +12,22 @@ import {
   CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2
 } from "lucide-react";
 
+import wasteIcon from "@/assets/icon/waste.png";
+import airPollutionIcon from "@/assets/icon/air-pollution.png";
+import defrostingIcon from "@/assets/icon/defrosting.png";
+import energyIcon from "@/assets/icon/energy.png";
+
+// Helper function to match form titles to your custom images
+function getCustomFormImage(title: string) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("energy")) return energyIcon;
+  if (t.includes("refrigerant") || t.includes("defrost")) return defrostingIcon;
+  if (t.includes("emission") || t.includes("air") || t.includes("stack")) return airPollutionIcon;
+  if (t.includes("waste") || t.includes("disposal")) return wasteIcon;
+  
+  return null; // Falls back to standard icons if no keyword matches
+}
+
 export const Route = createFileRoute("/authenticated/site/")({
   ssr: false,
   component: SiteDashboard,
@@ -70,6 +86,7 @@ function SiteDashboard() {
     name: f.title,
     description: f.description || "Monthly compliance report",
     icon: ICON_MAP[f.schema?.icon] || FileText,
+    customImage: getCustomFormImage(f.title), // <-- Add this new property
   }));
 
   const reportingMonthDate = `${selectedMonth}-01`;
@@ -89,10 +106,10 @@ function SiteDashboard() {
   const pendingCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "pending" || getOriginalStatus(f.id) === "Not Started").length;
 
   const stats = [
-    { label: "Total Forms", value: total, Icon: FileText, tint: "from-sky-50 to-blue-50 text-sky-700 ring-sky-100" },
-    { label: "Completed", value: completedCount, Icon: CheckCircle2, tint: "from-emerald-50 to-teal-50 text-emerald-700 ring-emerald-100" },
-    { label: "In Progress", value: inProgressCount, Icon: Clock, tint: "from-amber-50 to-yellow-50 text-amber-700 ring-amber-100" },
-    { label: "Pending", value: pendingCount, Icon: AlertCircle, tint: "from-sky-50 to-indigo-50 text-sky-700 ring-sky-100" },
+    { label: "Total Forms", value: total, Icon: FileText, tint: "from-sky-50/80 to-blue-50/80 text-sky-700 ring-sky-200/50" },
+    { label: "Completed", value: completedCount, Icon: CheckCircle2, tint: "from-emerald-50/80 to-green-50/80 text-emerald-700 ring-emerald-200/50" },
+    { label: "In Progress", value: inProgressCount, Icon: Clock, tint: "from-yellow-50/80 to-amber-50/80 text-amber-700 ring-amber-200/50" },
+    { label: "Pending", value: pendingCount, Icon: AlertCircle, tint: "from-blue-50/80 to-indigo-50/80 text-blue-700 ring-blue-200/50" },
   ];
 
   const goToForm = (formId: string) => navigate({ to: "/authenticated/site/forms/$formId", params: { formId }, search: { period: selectedMonth } });
@@ -184,15 +201,26 @@ function SiteDashboard() {
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {requiredForms.map(({ id, name, description, icon: Icon }) => {
+                {requiredForms.map(({ id, name, description, icon: Icon, customImage }) => {
                   const mappedStatus: MappedStatus = getOriginalStatus(id) === "submitted" ? "completed" : getOriginalStatus(id) === "draft" ? "in-progress" : "pending";
                   const s = statusStyles[mappedStatus];
                   return (
                     <article key={id} className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 to-blue-100 text-sky-700"><Icon className="h-5 w-5" /></div>
-                          <h3 className="text-sm font-semibold text-slate-800 leading-tight">{name}</h3>
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-50 to-blue-50/80 p-2.5 text-sky-700 ring-1 ring-sky-100 transition-transform group-hover:scale-105">
+                            {/* If a custom image matches, show it. Otherwise show standard Icon. */}
+                            {customImage ? (
+                              <img 
+                                src={customImage} 
+                                alt={`${name} icon`} 
+                                className="h-full w-full object-contain mix-blend-multiply opacity-90" 
+                              />
+                            ) : (
+                              <Icon className="h-5 w-5" />
+                            )}
+                          </div>
+                          <h3 className="text-sm font-bold text-slate-800 leading-tight">{name}</h3>
                         </div>
                         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${s.pill}`}><s.Icon className="h-3 w-3" />{s.label}</span>
                       </div>
