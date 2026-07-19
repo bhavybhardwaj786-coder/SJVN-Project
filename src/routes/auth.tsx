@@ -60,7 +60,7 @@ function SjvnHeader() {
   );
 }
 
-// --- Background Animation (Grid + Particles) ---
+// --- Background Animation (Particles Only) ---
 function BackgroundAnimation() {
   const [dimensions, setDimensions] = useState({ width: 1000, height: 1000 });
 
@@ -70,9 +70,6 @@ function BackgroundAnimation() {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Subtle Grid Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:4rem_4rem]" />
-      
       {/* Floating Glowing Particles */}
       {[...Array(15)].map((_, i) => (
         <motion.div
@@ -150,10 +147,23 @@ function LoginCard() {
       {/* Fully transparent container */}
       <div className="p-8 text-center">
         
-        {/* Logo Container */}
-        <div className="mx-auto mb-6 flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-white shadow-lg overflow-hidden">
+        {/* Logo Container with 3D West-to-East Rotation Animation */}
+        <motion.div 
+          whileHover={{ 
+            rotateY: 180,
+            scale: 1.05,
+            boxShadow: "0px 10px 25px rgba(6, 182, 212, 0.25)"
+          }}
+          transition={{ 
+            type: "spring", 
+            stiffness: 160, 
+            damping: 14 
+          }}
+          style={{ perspective: 1000 }} // Gives depth to the 3D flip effect
+          className="mx-auto mb-6 flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-2xl bg-white shadow-lg overflow-hidden select-none"
+          >
           <img src={sjvnLogo} alt="SJVN Logo" className="h-full w-full object-contain p-2" />
-        </div>
+        </motion.div>
 
         <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-wide">Welcome to SJVN</h2>
         <p className="mt-2 text-sm text-white/70">Business Responsibility and Sustainability Reporting Portal</p>
