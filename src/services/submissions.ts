@@ -19,12 +19,22 @@ export const submissionsService = {
     return apiClient.put(`/submissions/${id}`, updates) as Promise<{ data: Submission | null; error: string | null }>
   },
 
-  submitForApproval: async (id: string) => {
-    return submissionsService.updateSubmission(id, {
-      status: 'submitted',
-      submitted_at: new Date().toISOString()
-    })
-  },
+  // Admin action: reopen a submitted form for editing without losing its
+  // "submitted" status/history — toggling this off re-locks it.
+  // Admin action: reopen a submitted form for editing. Turning it back off
+// manually re-locks it immediately; resubmitting the form also auto-relocks
+// it server-side, so this stays in sync either way.
+setEditUnlocked: async (
+  id: string,
+  editUnlocked: boolean,
+  adminUserId?: string
+) => {
+  return submissionsService.updateSubmission(id, {
+    edit_unlocked: editUnlocked,
+    edit_unlocked_by: editUnlocked ? (adminUserId ?? null) : null,
+    edit_unlocked_at: editUnlocked ? new Date().toISOString() : null,
+  } as Partial<Submission>)
+},
 
   // User-scoped existing-submission lookup (used by contractor_forms__formId.tsx,
   // which filters by the specific user rather than by role)

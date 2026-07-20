@@ -87,7 +87,7 @@ function FillForm() {
   });
 
 const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
-  const isSubmitted = existing?.status === "submitted";
+  const isSubmitted = existing?.status === "submitted" && !existing?.edit_unlocked;
 
   const [values, setValues] = useState<Record<string, any>>({});
   const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});

@@ -89,7 +89,7 @@ function FillForm() {
 
   const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
 
-  const isSubmitted = existing?.status === "submitted";
+  const isSubmitted = existing?.status === "submitted" && !existing?.edit_unlocked;
 
   const [values, setValues] = useState<Record<string, any>>({});
   const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
@@ -239,6 +239,18 @@ function FillForm() {
                     <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Submitted
+                    </span>
+                  </motion.div>
+                )}
+                {existing?.status === "submitted" && existing?.edit_unlocked && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2, duration: 0.3 }}
+                    className="shrink-0"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                      Reopened for Editing — please review and resubmit
                     </span>
                   </motion.div>
                 )}
