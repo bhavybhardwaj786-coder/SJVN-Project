@@ -258,171 +258,199 @@ function FillForm() {
             </motion.div>
 
             <div className="p-6 sm:p-10">
-              <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {fields.map((field: any) => {
+              {/* --- NEW RENDER ENGINE START --- */}
+              {(() => {
+                // 1. Shared Field Renderer (handles both standard cards and bare table inputs)
+                console.log(JSON.stringify(formDef.schema, null, 2))
+                const renderFieldUI = (fieldKey: string, inTable: boolean = false) => {
+                  const field = fields.find((f: any) => f.key === fieldKey);
+                  if (!field) return <span className="text-red-500 text-xs">Missing Field: {fieldKey}</span>;
+
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
-                  
                   const attachedFiles = values[`${field.key}_files`] || [];
                   const localFiles = localFilesToUpload[field.key] || [];
 
                   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                     const selectedFiles = e.target.files;
                     if (!selectedFiles || selectedFiles.length === 0) return;
-
                     const newFiles = Array.from(selectedFiles);
-                    
-                    setLocalFilesToUpload(prev => ({
-                      ...prev,
-                      [field.key]: [...(prev[field.key] || []), ...newFiles]
-                    }));
-
-                    toast.success(`Locally staged ${newFiles.length} file(s) for upload.`);
+                    setLocalFilesToUpload(prev => ({ ...prev, [field.key]: [...(prev[field.key] || []), ...newFiles] }));
+                    toast.success(`Staged ${newFiles.length} file(s) for upload.`);
                   };
 
                   const removeAttachment = (idx: number, isLocal: boolean) => {
                     if (isLocal) {
-                      setLocalFilesToUpload(prev => ({
-                        ...prev,
-                        [field.key]: (prev[field.key] || []).filter((_, i) => i !== idx)
-                      }));
+                      setLocalFilesToUpload(prev => ({ ...prev, [field.key]: (prev[field.key] || []).filter((_, i) => i !== idx) }));
                     } else {
                       const updatedArray = attachedFiles.filter((_: any, i: number) => i !== idx);
-                      setValues(prev => ({
-                        ...prev,
-                        [`${field.key}_files`]: updatedArray
-                      }));
+                      setValues(prev => ({ ...prev, [`${field.key}_files`]: updatedArray }));
                     }
-                    toast.info("Attachment removed from list");
                   };
 
-                  return (
-                    <motion.div key={field.key} variants={fadeUp} className="space-y-1.5 p-4 rounded-xl border border-neutral-100 bg-white/50 shadow-sm">
-                      {field.type !== "checkbox" && (
-                        <Label className="text-sm font-semibold text-muted-foreground">
-                          {field.label}{field.required && "*"}
-                        </Label>
-                      )}
-
+                  // The actual input components stripped of padding for tables
+                  const InputComponent = (
+                    <div className="w-full space-y-2">
                       {["text", "number", "date"].includes(field.type) && (
-                        <Input
-                          type={field.type}
-                          disabled={isSubmitted}
-                          value={values[field.key] ?? ""}
-                          onChange={(e) => setField(field.key, e.target.value)}
-                          placeholder={dynamicPlaceholder}
-                          className="h-11 rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
-                        />
+                        <Input type={field.type} disabled={isSubmitted || field.readOnly} value={values[field.key] ?? ""} onChange={(e) => setField(field.key, e.target.value)} placeholder={dynamicPlaceholder} className={`h-11 rounded-md border bg-background shadow-sm ${inTable ? 'min-w-[120px]' : ''}`} />
                       )}
-
                       {field.type === "textarea" && (
-                        <Textarea
-                          disabled={isSubmitted}
-                          value={values[field.key] ?? ""}
-                          onChange={(e) => setField(field.key, e.target.value)}
-                          placeholder={dynamicPlaceholder}
-                          className="min-h-[100px] resize-none rounded-md border bg-background shadow-card transition-colors focus-visible:border-ring focus-visible:ring-ring/40"
-                        />
+                        <Textarea disabled={isSubmitted || field.readOnly} value={values[field.key] ?? ""} onChange={(e) => setField(field.key, e.target.value)} placeholder={dynamicPlaceholder} className={`min-h-[100px] resize-none rounded-md border bg-background shadow-sm ${inTable ? 'min-w-[200px]' : ''}`} />
                       )}
-
                       {field.type === "select" && (
-                        <Select
-                          disabled={isSubmitted}
-                          value={values[field.key] ?? ""}
-                          onValueChange={(v) => setField(field.key, v)}
-                        >
-                          <SelectTrigger className="h-11 rounded-md border bg-background shadow-card transition-colors focus:border-ring">
-                            <SelectValue placeholder="Select an option" />
+                        <Select disabled={isSubmitted || field.readOnly} value={values[field.key] ?? ""} onValueChange={(v) => setField(field.key, v)}>
+                          <SelectTrigger className={`h-11 rounded-md border bg-background shadow-sm ${inTable ? 'min-w-[150px]' : ''}`}>
+                            <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {field.options?.map((opt: any) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
+                            {field.options?.map((opt: any) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
                           </SelectContent>
                         </Select>
                       )}
-
                       {field.type === "checkbox" && (
-                        <div className="flex h-11 items-center gap-3 rounded-md border bg-background px-4 shadow-card">
-                          <Checkbox
-                            id={field.key}
-                            disabled={isSubmitted}
-                            checked={!!values[field.key]}
-                            onCheckedChange={(v) => setField(field.key, v)}
-                          />
-                          <label
-                            htmlFor={field.key}
-                            className="cursor-pointer select-none text-sm font-semibold text-muted-foreground"
-                          >
-                            {field.label} {field.required && "*"}
-                          </label>
+                        <div className="flex items-center gap-2 pt-2">
+                          <Checkbox id={field.key} disabled={isSubmitted || field.readOnly} checked={!!values[field.key]} onCheckedChange={(v) => setField(field.key, v)} />
+                          {inTable && <label htmlFor={field.key} className="text-xs text-muted-foreground">{field.label}</label>}
                         </div>
                       )}
-
-                      {/* Question-Wise Multiple Document File Attachment Widget UI */}
-                      <div className="mt-3 pt-2.5 border-t border-dashed border-neutral-200 space-y-2">
-                        
-                        {/* Render files already uploaded */}
-                        {attachedFiles.map((fileObj: { url: string; name: string }, idx: number) => (
-                          <div key={`live-${idx}`} className="flex items-center justify-between rounded-lg bg-[#eaf3f6] p-2 text-xs border border-[#b4d6e2]">
-                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 font-bold text-[#095a7d] hover:underline truncate max-w-[80%]">
-                              <File className="h-3.5 w-3.5 shrink-0" />
-                              {fileObj.name || `Attachment ${idx + 1}`}
-                            </a>
-                            {!isSubmitted && (
-                              <button type="button" onClick={() => removeAttachment(idx, false)} className="text-red-500 hover:text-red-700 transition p-1">
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                      
+                      {/* Attachments Section */}
+                      <div className="flex flex-col gap-1.5 mt-1">
+                        {attachedFiles.map((fileObj: any, idx: number) => (
+                          <div key={`live-${idx}`} className="flex items-center justify-between rounded bg-[#eaf3f6] p-1.5 text-[11px] border border-[#b4d6e2]">
+                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-[#095a7d] hover:underline truncate max-w-[120px]"><FileIcon className="h-3 w-3 shrink-0" /> {fileObj.name}</a>
+                            {!isSubmitted && <button type="button" onClick={() => removeAttachment(idx, false)} className="text-red-500 hover:text-red-700 p-0.5"><X className="h-3 w-3" /></button>}
                           </div>
                         ))}
-
-                        {/* 2. Render files that are currently staged locally */}
-                        {localFiles.map((file: File, idx: number) => {
-                          return (
-                            <div key={`local-${idx}`} className="flex items-center justify-between rounded-lg bg-amber-50 p-2 text-xs border border-amber-200">
-                              <div className="flex items-center gap-1.5 font-bold text-amber-800 truncate max-w-[80%]">
-                                <File className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                                {/* 👈 FIXED: Render file name as safe text instead of invoking URL.createObjectURL on render to avoid memory leak */}
-                                <span className="truncate text-amber-900">{file.name}</span>
-                                <span className="text-[10px] font-normal text-amber-500 shrink-0">(Staged)</span>
-                              </div>
-                              {!isSubmitted && (
-                                <button 
-                                  type="button" 
-                                  onClick={() => removeAttachment(idx, true)} 
-                                  className="text-red-500 hover:text-amber-700 transition p-1"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-
+                        {localFiles.map((file: File, idx: number) => (
+                          <div key={`local-${idx}`} className="flex items-center justify-between rounded bg-amber-50 p-1.5 text-[11px] border border-amber-200">
+                            <span className="truncate text-amber-900 max-w-[120px] flex items-center gap-1"><FileIcon className="h-3 w-3 shrink-0 text-amber-600" /> {file.name}</span>
+                            {!isSubmitted && <button type="button" onClick={() => removeAttachment(idx, true)} className="text-red-500 p-0.5"><X className="h-3 w-3" /></button>}
+                          </div>
+                        ))}
                         {!isSubmitted && (
-                          <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold text-gray-500 hover:text-[#095a7d] transition-colors">
-                            <Paperclip className="h-3.5 w-3.5" />
-                            Attach Supporting Documents
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="application/pdf,image/*" 
-                              multiple 
-                              onChange={handleFileUpload}
-                            />
+                          <label className="inline-flex items-center gap-1 cursor-pointer text-[10px] font-bold text-gray-500 hover:text-[#095a7d] transition-colors mt-0.5">
+                            <Paperclip className="h-3 w-3" /> Attach File
+                            <input type="file" className="hidden" accept="application/pdf,image/*" multiple onChange={handleFileUpload} />
                           </label>
                         )}
                       </div>
+                    </div>
+                  );
 
+                  if (inTable) return InputComponent;
+
+                  // Standard Card Wrapper for non-table fields
+                  return (
+                    <motion.div key={field.key} variants={fadeUp} className="space-y-1.5 p-4 rounded-xl border border-neutral-100 bg-white/50 shadow-sm">
+                      {field.type !== "checkbox" && (
+                        <Label className="text-sm font-semibold text-muted-foreground">{field.label} {field.required && "*"}</Label>
+                      )}
+                      {InputComponent}
                     </motion.div>
                   );
-                })}
+                };
 
-               {/* Replace your current `<AnimatePresence>` block at the bottom of the fields map with this: */}
+                // 2. Recursive Layout Renderer
+                const renderLayoutNode = (node: any, idx: number) => {
+                  if (node.type === "instruction") {
+                    return (
+                      <div key={idx} className="mb-6 rounded-lg bg-blue-50/50 border border-blue-100 p-4 text-sm text-blue-900 shadow-sm">
+                        <strong className="block mb-1 text-blue-950 font-bold">Instructions</strong>
+                        <p className="whitespace-pre-wrap leading-relaxed">{node.content}</p>
+                      </div>
+                    );
+                  }
+                  
+                  if (node.type === "metadata") {
+                    return (
+                      <div key={idx} className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs">
+                        {node.display.includes("reporting_month") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Reporting Month</span><span className="font-semibold text-slate-900">{new Date(reportingMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</span></div>}
+                        {node.display.includes("site_name") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Site Location</span><span className="font-semibold text-slate-900">{siteData?.name || "Unknown Site"}</span></div>}
+                        {node.display.includes("user_name") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Filled By</span><span className="font-semibold text-slate-900">{currentUser?.full_name || "Unknown"}</span></div>}
+                        {node.display.includes("date_filled") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Date Logged</span><span className="font-semibold text-slate-900">{new Date().toLocaleDateString()}</span></div>}
+                      </div>
+                    );
+                  }
 
-                <AnimatePresence>
+                  if (node.type === "section") {
+                    return (
+                      <div key={idx} className="mb-8 rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                        <div className="bg-slate-50/80 border-b border-slate-200 px-5 py-3.5">
+                          <h3 className="text-base font-bold text-slate-900">{node.title}</h3>
+                          {node.description && <p className="text-xs text-slate-500 mt-1">{node.description}</p>}
+                        </div>
+                        <div className="p-5">
+                          {node.children?.map((child: any, cIdx: number) => renderLayoutNode(child, cIdx))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (node.type === "table") {
+                    return (
+                      <div key={idx} className="overflow-x-auto w-full mb-6 rounded-lg border border-slate-200">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-slate-100/50 text-slate-700 text-xs uppercase font-bold tracking-wider">
+                            <tr>
+                              {node.columns.map((col: string, i: number) => <th key={i} className="px-4 py-3 border-b border-slate-200">{col}</th>)}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {node.rows.map((row: any[], rIdx: number) => (
+                              <tr key={rIdx} className="hover:bg-slate-50/30 transition-colors">
+                                {row.map((cell: any, cIdx: number) => (
+                                  <td key={cIdx} colSpan={cell.colSpan || 1} className="px-4 py-3 align-top">
+                                    {cell.type === "label" ? <span className="font-medium text-slate-700">{cell.value}</span> : null}
+                                    {cell.type === "field" ? renderFieldUI(cell.fieldKey, true) : null}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                            {node.summaryRow && (
+                              <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                                {node.summaryRow.map((cell: any, cIdx: number) => (
+                                  <td key={`sum-${cIdx}`} colSpan={cell.colSpan || 1} className="px-4 py-3 align-middle">
+                                    {cell.type === "label" ? <span className="text-slate-900 uppercase">{cell.value}</span> : null}
+                                    {cell.type === "field" ? renderFieldUI(cell.fieldKey, true) : null}
+                                  </td>
+                                ))}
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  }
+
+                  if (node.type === "field_group") {
+                    return (
+                      <div key={idx} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {node.children.map((fieldKey: string) => renderFieldUI(fieldKey))}
+                      </div>
+                    );
+                  }
+
+                  return null;
+                };
+
+                // 3. Fallback to Legacy Render if no layout schema exists
+                if (formDef.schema?.layout) {
+                  return (
+                    <motion.div variants={containerVariants} className="w-full space-y-2">
+                      {formDef.schema.layout.map((node: any, idx: number) => renderLayoutNode(node, idx))}
+                    </motion.div>
+                  );
+                } else {
+                  return (
+                    <motion.div variants={containerVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {fields.map((field: any) => renderFieldUI(field.key))}
+                    </motion.div>
+                  );
+                }
+              })()}
+
+              <AnimatePresence>
+              {/* --- NEW RENDER ENGINE END --- */}
                   {!isSubmitted && isMonthUnlocked && (
                     <motion.div
                       variants={fadeUp}
@@ -465,7 +493,6 @@ function FillForm() {
                     </div>
                   )}
                 </AnimatePresence>
-              </motion.div>
             </div>
           </div>
         </motion.div>
