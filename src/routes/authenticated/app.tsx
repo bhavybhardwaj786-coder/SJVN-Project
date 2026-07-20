@@ -18,7 +18,7 @@ import {
   ChevronDown, Sliders, FolderDown, AlertCircle, Clock,
   type LucideIcon,
   Users, LayoutGrid, ArrowLeft,MapPin, Check, X,
-  Lock, Unlock,
+  Lock, Unlock,Calendar
 } from "lucide-react";
 
 
@@ -745,29 +745,25 @@ const bulkToggleLockMutation = useMutation({
 
 {/* Replace the `<motion.div>` on line 545 with this updated wrapper: */}
 <motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-4">
+  {/* NEW: Native Month Picker matching the User Dashboard */}
   <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
-    <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Reporting Month</label>
-    <select
-      value={selectedMonth}
-      onChange={(e) => setSelectedMonth(e.target.value)}
-      className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
-    >
-      {Array.from({ length: 12 }, (_, i) => {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        const value = d.toISOString().slice(0, 7);
-        return (
-          <option key={value} value={value}>
-            {d.toLocaleString("default", { month: "long", year: "numeric" })}
-          </option>
-        );
-      })}
-    </select>
+    <Calendar className="h-4 w-4 text-sky-600" />
+    <label htmlFor="reporting-month" className="text-sm font-medium text-slate-700 whitespace-nowrap">
+      Reporting Month
+    </label>
+    <input 
+      id="reporting-month" 
+      type="month" 
+      value={selectedMonth} 
+      onChange={(e) => setSelectedMonth(e.target.value)} 
+      className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" 
+    />
   </div>
 
   {/* NEW: Bulk Portal Access dropdown */}
   {/* Remove 'mt-3' from this div class: */}
   <div className="relative">
+    {/* This button must always be visible to toggle the state */}
     <button
       onClick={() => setBulkDropdownOpen((o) => !o)}
       className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border bg-card px-3 text-sm shadow-card outline-none focus:border-primary"
@@ -782,47 +778,87 @@ const bulkToggleLockMutation = useMutation({
       <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
     </button>
 
-  {bulkDropdownOpen && (
-    <div className="absolute z-50 mt-1 w-full sm:w-[280px] max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl p-1">
-      {/* "All" option pinned at the top */}
-      <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 border-b border-slate-100 mb-1">
-        <input
-          type="checkbox"
-          checked={sites.length > 0 && bulkSiteIds.size === sites.length}
-          onChange={() => {
-            if (bulkSiteIds.size === sites.length) {
-              setBulkSiteIds(new Set());
-            } else {
-              setBulkSiteIds(new Set(sites.map((s) => s.id)));
-            }
-          }}
-        />
-        All Sites
-      </label>
-
-      {sites.map((site) => (
-        <label
-          key={site.id}
-          className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-        >
+    {/* ONLY the popup menu is hidden behind the condition */}
+    {bulkDropdownOpen && (
+      <div className="absolute z-50 mt-1 w-full sm:w-[320px] max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl p-1.5">
+        {/* "All Sites" option pinned at the top */}
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 mb-1">
           <input
             type="checkbox"
-            checked={bulkSiteIds.has(site.id)}
+            className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+            checked={sites.length > 0 && bulkSiteIds.size === sites.length}
             onChange={() => {
-              setBulkSiteIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(site.id)) next.delete(site.id);
-                else next.add(site.id);
-                return next;
-              });
+              if (bulkSiteIds.size === sites.length) {
+                setBulkSiteIds(new Set());
+              } else {
+                setBulkSiteIds(new Set(sites.map((s) => s.id)));
+              }
             }}
           />
-          {site.name} ({site.code})
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <Layers className="h-4 w-4" />
+          </div>
+          <span className="text-sm font-extrabold text-slate-800">
+            Select All Sites
+          </span>
         </label>
-      ))}
-    </div>
-  )}
-</div>
+
+        <div className="h-px bg-slate-100 mx-2 mb-1.5" /> {/* Divider */}
+
+        {/* Individual Site List */}
+        {sites.map((site) => {
+          const isChecked = bulkSiteIds.has(site.id);
+          
+          return (
+            <label
+              key={site.id}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 mb-0.5 transition-all duration-200 ${
+                isChecked 
+                  ? "bg-slate-50 ring-1 ring-slate-200/50 shadow-sm" 
+                  : "hover:bg-slate-50"
+              }`}
+            >
+              {/* 1. Checkbox */}
+              <input
+                type="checkbox"
+                className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={isChecked}
+                onChange={() => {
+                  setBulkSiteIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(site.id)) next.delete(site.id);
+                    else next.add(site.id);
+                    return next;
+                  });
+                }}
+              />
+
+              {/* 2. MapPin Icon Container */}
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                isChecked ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'
+              }`}>
+                <MapPin className="h-4 w-4" />
+              </div>
+
+              {/* 3. Text Container (Name & Code) */}
+              <div className="flex flex-col truncate">
+                <span className={`truncate text-sm font-bold leading-tight ${
+                  isChecked ? 'text-sky-900' : 'text-slate-700'
+                }`}>
+                  {site.name}
+                </span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                  isChecked ? 'text-sky-600' : 'text-slate-400'
+                }`}>
+                  CODE: {site.code}
+                </span>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    )}
+  </div>
 
 {/* Bulk action buttons — only show once at least one site is checked */}
 {bulkSiteIds.size > 0 && (

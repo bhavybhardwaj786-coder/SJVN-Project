@@ -61,6 +61,12 @@ function SiteDashboard() {
   // Safely resolve the target site ID
   const targetSiteId = currentUser?.site_id || me?.sites?.[0]?.id;
 
+  const { data: sitesResult } = useQuery({
+    queryKey: ["my-sites"],
+    queryFn: () => sitesService.getSites(),
+  });
+  const siteName = sitesResult?.data?.find((s: any) => s.id === targetSiteId)?.name;
+
   const { data: formsResult, isLoading: formsLoading } = useQuery({
     queryKey: ["active-forms", targetSiteId],
     queryFn: () => formsService.getActiveForms({ role: "site_user", siteId: targetSiteId }),
@@ -107,10 +113,10 @@ function SiteDashboard() {
   const pendingCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "pending" || getOriginalStatus(f.id) === "Not Started").length;
 
   const stats = [
-    { label: "Total Forms", value: total, Icon: FileText, tint: "from-sky-50/80 to-blue-50/80 text-sky-700 ring-sky-200/50" },
-    { label: "Completed", value: completedCount, Icon: CheckCircle2, tint: "from-emerald-50/80 to-green-50/80 text-emerald-700 ring-emerald-200/50" },
-    { label: "In Progress", value: inProgressCount, Icon: Clock, tint: "from-yellow-50/80 to-amber-50/80 text-amber-700 ring-amber-200/50" },
-    { label: "Pending", value: pendingCount, Icon: AlertCircle, tint: "from-blue-50/80 to-indigo-50/80 text-blue-700 ring-blue-200/50" },
+    { label: "Total Forms", value: total, Icon: FileText, tint: "bg-white text-slate-700 ring-slate-200" },
+    { label: "Completed", value: completedCount, Icon: CheckCircle2, tint: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+    { label: "In Progress", value: inProgressCount, Icon: Clock, tint: "bg-amber-50 text-amber-700 ring-amber-200" },
+    { label: "Pending", value: pendingCount, Icon: AlertCircle, tint: "bg-blue-50 text-blue-700 ring-blue-200" },
   ];
 
   const goToForm = (formId: string) => navigate({ to: "/authenticated/site/forms/$formId", params: { formId }, search: { period: selectedMonth } });
@@ -120,18 +126,34 @@ function SiteDashboard() {
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
         <div className="mx-auto w-full px-4 py-8 sm:px-6 lg:px-8">
           <section className="flex">
-            <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wider text-sky-100">Site Portal</p>
-              <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">User Dashboard</h1>
-              <p className="mt-1 text-sm text-sky-50">Complete and submit monthly environmental compliance reports.</p>
+            <div className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-5 py-5 shadow-sm sm:w-auto sm:px-6">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/25">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-indigo-100">
+                  <span className="font-semibold uppercase tracking-wide text-indigo-200">Site</span>
+                  <span className="mx-1.5 text-indigo-300">–</span>
+                  <span className="font-bold text-white">{siteName || "—"}</span>
+                </p>
+                <p className="mt-1 truncate text-sm text-indigo-100">
+                  <span className="font-semibold uppercase tracking-wide text-indigo-200">Site user</span>
+                  <span className="mx-1.5 text-indigo-300">–</span>
+                  <span className="font-bold text-white">{currentUser?.full_name || currentUser?.email || "—"}</span>
+                </p>
+                <p className="mt-2 truncate text-xs text-indigo-100">Complete and submit monthly environmental compliance reports.</p>
+              </div>
             </div>
           </section>
 
-          <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
-              <div key={label} className={`rounded-xl bg-gradient-to-br ${tint} p-4 ring-1`}>
-                <div className="flex items-center justify-between"><span className="text-xs font-medium">{label}</span><Icon className="h-4 w-4" /></div>
-                <p className="mt-2 text-2xl font-semibold">{value}</p>
+              <div key={label} className={`rounded-2xl ${tint} p-4 sm:p-5 ring-1 shadow-sm`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">{label}</span>
+                  <Icon className="h-4 w-4 shrink-0" />
+                </div>
+                <p className="mt-2 text-2xl font-bold sm:text-3xl">{value}</p>
               </div>
             ))}
           </section>
@@ -201,29 +223,29 @@ function SiteDashboard() {
             ) : requiredForms.length === 0 ? (
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                 {requiredForms.map(({ id, name, description, icon: Icon, customImage }) => {
                   const submission = getSubmission(id);
                   const mappedStatus: MappedStatus = getOriginalStatus(id) === "submitted" ? "completed" : getOriginalStatus(id) === "draft" ? "in-progress" : "pending";
                   const isReopenedForEdit = submission?.status === "submitted" && !!submission?.edit_unlocked;
                   const s = statusStyles[mappedStatus];
                   return (
-                    <article key={id} className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md">
+                    <article key={id} className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-slate-200 shadow-sm transition hover:shadow-md hover:-translate-y-0.5">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sky-50 to-blue-50/80 p-2.5 text-sky-700 ring-1 ring-sky-100 transition-transform group-hover:scale-105">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-100 overflow-hidden">
                             {/* If a custom image matches, show it. Otherwise show standard Icon. */}
                             {customImage ? (
                               <img 
                                 src={customImage} 
                                 alt={`${name} icon`} 
-                                className="h-full w-full object-contain mix-blend-multiply opacity-90" 
+                                className="h-full w-full object-contain p-2" 
                               />
                             ) : (
-                              <Icon className="h-5 w-5" />
+                              <Icon className="h-5 w-5 text-slate-600" />
                             )}
                           </div>
-                          <h3 className="text-sm font-bold text-slate-800 leading-tight">{name}</h3>
+                          <h3 className="min-w-0 truncate text-sm font-bold text-slate-800 leading-tight">{name}</h3>
                         </div>
                         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${s.pill}`}><s.Icon className="h-3 w-3" />{s.label}</span>
                       </div>
@@ -261,7 +283,7 @@ function SiteDashboard() {
                               )}
                           </button>
                         ) : (
-                          <div className="w-full rounded-lg bg-rose-100/50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 border border-rose-100"><Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />Submission Locked</div>
+                          <div className="w-full rounded-xl bg-rose-50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 ring-1 ring-rose-100"><Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />Submission Locked</div>
                         )}
                       </div>
                     </article>
