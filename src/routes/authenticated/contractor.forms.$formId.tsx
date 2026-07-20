@@ -20,9 +20,11 @@ import {
   FileText, 
   CheckCircle2, 
   Paperclip, 
-  File as FileIcon, 
+  File, 
   X,
   Lock,
+  Plus,
+  Trash2
 } from "lucide-react";
 
 export const Route = createFileRoute("/authenticated/contractor/forms/$formId")({
@@ -89,15 +91,50 @@ function FillForm() {
 const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
   const isSubmitted = existing?.status === "submitted" && !existing?.edit_unlocked;
 
+  const repeatableGroups = formDef?.schema?.repeatable_groups || [];
+
   const [values, setValues] = useState<Record<string, any>>({});
   const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
+  const [groupRows, setGroupRows] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     if (existing?.data) setValues(existing.data);
-  }, [existing]);
+
+    const groups = formDef?.schema?.repeatable_groups || [];
+    if (groups.length > 0) {
+      const initialGroups: Record<string, any[]> = {};
+      groups.forEach((g: any) => {
+        const existingRows = existing?.data?.[g.key];
+        initialGroups[g.key] =
+          Array.isArray(existingRows) && existingRows.length > 0
+            ? existingRows
+            : Array.from({ length: g.minRows || 1 }, () => ({}));
+      });
+      setGroupRows(initialGroups);
+    }
+  }, [existing, formDef]);
 
   const setField = (key: string, val: any) =>
     setValues((prev) => ({ ...prev, [key]: val }));
+
+  const setGroupField = (groupKey: string, rowIndex: number, fieldKey: string, val: any) => {
+    setGroupRows((prev) => {
+      const rows = [...(prev[groupKey] || [])];
+      rows[rowIndex] = { ...rows[rowIndex], [fieldKey]: val };
+      return { ...prev, [groupKey]: rows };
+    });
+  };
+
+  const addGroupRow = (groupKey: string) => {
+    setGroupRows((prev) => ({ ...prev, [groupKey]: [...(prev[groupKey] || []), {}] }));
+  };
+
+  const removeGroupRow = (groupKey: string, rowIndex: number) => {
+    setGroupRows((prev) => {
+      const rows = (prev[groupKey] || []).filter((_: any, i: number) => i !== rowIndex);
+      return { ...prev, [groupKey]: rows.length > 0 ? rows : [{}] };
+    });
+  };
 
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
@@ -130,13 +167,21 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
         }
 
         const result = await submissionsService.saveOrSubmit({
+
           formId,
+
           siteId: currentUser?.site_id || "",
+
           userId: currentUser?.id || "",
+
           reportingMonth,
+
           data: updatedValues,
+
           submit,
+
           submittedByRole: "contractor", // 👈 Verified: This perfectly aligns with our dashboard setup
+
         });
 
         if (result.error) throw result.error;
@@ -171,8 +216,15 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
         return val === undefined || val === null || val === "";
       });
 
-      if (emptyFields.length > 0) {
-        const missingNames = emptyFields.map((f: any) => f.label).join(", ");
+      const emptyGroupFields = repeatableGroups.some((g: any) =>
+        (groupRows[g.key] || []).some((row: any) =>
+          g.rowFields.some(
+            (rf: any) => rf.required && (row[rf.key] === undefined || row[rf.key] === null || row[rf.key] === "")
+          )
+        )
+      );
+
+      if (emptyFields.length > 0 || emptyGroupFields) {
         toast.error(`Cannot submit incomplete report.`);
         return; // Stop execution, do not trigger the database save
       }
@@ -278,13 +330,13 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
                       <div className="flex flex-col gap-1.5 mt-1">
                         {attachedFiles.map((fileObj: any, idx: number) => (
                           <div key={`live-${idx}`} className="flex items-center justify-between rounded bg-[#eaf3f6] p-1.5 text-[11px] border border-[#b4d6e2]">
-                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-[#095a7d] hover:underline truncate max-w-[120px]"><FileIcon className="h-3 w-3 shrink-0" /> {fileObj.name}</a>
+                            <a href={fileObj.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-[#095a7d] hover:underline truncate max-w-[120px]"><FileText className="h-3 w-3 shrink-0" /> {fileObj.name}</a>
                             {!isSubmitted && <button type="button" onClick={() => removeAttachment(idx, false)} className="text-red-500 hover:text-red-700 p-0.5"><X className="h-3 w-3" /></button>}
                           </div>
                         ))}
                         {localFiles.map((file: File, idx: number) => (
                           <div key={`local-${idx}`} className="flex items-center justify-between rounded bg-amber-50 p-1.5 text-[11px] border border-amber-200">
-                            <span className="truncate text-amber-900 max-w-[120px] flex items-center gap-1"><FileIcon className="h-3 w-3 shrink-0 text-amber-600" /> {file.name}</span>
+                            <span className="truncate text-amber-900 max-w-[120px] flex items-center gap-1"><FileText className="h-3 w-3 shrink-0 text-amber-600" /> {file.name}</span>
                             {!isSubmitted && <button type="button" onClick={() => removeAttachment(idx, true)} className="text-red-500 p-0.5"><X className="h-3 w-3" /></button>}
                           </div>
                         ))}
@@ -387,6 +439,94 @@ const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
                     return (
                       <div key={idx} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {node.children.map((fieldKey: string) => renderFieldUI(fieldKey))}
+                      </div>
+                    );
+                  }
+
+                  if (node.type === "repeatable_table") {
+                    const group = repeatableGroups.find((g: any) => g.key === node.groupKey);
+                    if (!group) return <span key={idx} className="text-red-500 text-xs">Missing group: {node.groupKey}</span>;
+                    const rows = groupRows[group.key] || [];
+
+                    const renderGroupFieldUI = (rowIndex: number, rowField: any) => {
+                      const value = rows[rowIndex]?.[rowField.key] ?? "";
+                      if (["text", "number", "date"].includes(rowField.type)) {
+                        return (
+                          <Input
+                            type={rowField.type}
+                            disabled={isSubmitted}
+                            value={value}
+                            onChange={(e) => setGroupField(group.key, rowIndex, rowField.key, e.target.value)}
+                            placeholder={`Enter ${rowField.label.toLowerCase()}`}
+                            className="h-11 rounded-md border bg-background shadow-sm min-w-[120px]"
+                          />
+                        );
+                      }
+                      if (rowField.type === "select") {
+                        return (
+                          <Select disabled={isSubmitted} value={value} onValueChange={(v) => setGroupField(group.key, rowIndex, rowField.key, v)}>
+                            <SelectTrigger className="h-11 rounded-md border bg-background shadow-sm min-w-[150px]">
+                              <SelectValue placeholder="Select..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {rowField.options?.map((opt: any) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      }
+                      return null;
+                    };
+
+                    return (
+                      <div key={idx} className="mb-6">
+                        {node.title && <h4 className="text-sm font-bold text-slate-800 mb-2">{node.title}</h4>}
+                        <div className="overflow-x-auto w-full rounded-lg border border-slate-200">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-100/50 text-slate-700 text-xs uppercase font-bold tracking-wider">
+                              <tr>
+                                <th className="px-4 py-3 border-b border-slate-200">S. No.</th>
+                                {group.rowFields.map((rf: any, i: number) => (
+                                  <th key={i} className="px-4 py-3 border-b border-slate-200">{rf.label}{rf.unit ? ` (${rf.unit})` : ""}</th>
+                                ))}
+                                {!isSubmitted && <th className="px-4 py-3 border-b border-slate-200 w-10"></th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {rows.map((_: any, rIdx: number) => (
+                                <tr key={rIdx} className="hover:bg-slate-50/30 transition-colors">
+                                  <td className="px-4 py-3 align-top font-medium text-slate-700">{rIdx + 1}</td>
+                                  {group.rowFields.map((rf: any, cIdx: number) => (
+                                    <td key={cIdx} className="px-4 py-3 align-top">
+                                      {renderGroupFieldUI(rIdx, rf)}
+                                    </td>
+                                  ))}
+                                  {!isSubmitted && (
+                                    <td className="px-4 py-3 align-top">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeGroupRow(group.key, rIdx)}
+                                        disabled={rows.length <= 1}
+                                        title="Remove row"
+                                        className="text-red-500 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed p-1.5"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {!isSubmitted && (
+                          <button
+                            type="button"
+                            onClick={() => addGroupRow(group.key)}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Add {group.label || "Row"}
+                          </button>
+                        )}
                       </div>
                     );
                   }
