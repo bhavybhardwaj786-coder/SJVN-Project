@@ -40,6 +40,9 @@ export interface Submission {
   submitted_at: string | null
   approved_by: string | null
   approved_at: string | null
+  edit_unlocked: boolean
+  edit_unlocked_by: string | null
+  edit_unlocked_at: string | null
   created_at: string
   updated_at: string
 }

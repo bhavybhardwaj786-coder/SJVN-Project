@@ -106,7 +106,7 @@ router.post('/', async (req: Request, res: Response<ApiResponse<Submission>>) =>
 // PUT /api/submissions/:id — partial update (replaces updateSubmission / submitForApproval)
 router.put('/:id', async (req: Request, res: Response<ApiResponse<Submission>>) => {
   try {
-    const allowedFields = ['data', 'status', 'submitted_at', 'approved_by', 'approved_at']
+    const allowedFields = ['data', 'status', 'submitted_at', 'approved_by', 'approved_at', 'edit_unlocked', 'edit_unlocked_by', 'edit_unlocked_at']
     const updates = req.body as Record<string, unknown>
     const setClauses: string[] = []
     const values: unknown[] = []
@@ -152,7 +152,11 @@ router.post('/save-or-submit', async (req: Request, res: Response<ApiResponse<Su
        ON CONFLICT (form_id, site_id, reporting_month, user_id)
        DO UPDATE SET data = EXCLUDED.data, status = EXCLUDED.status,
                       submitted_by_role = EXCLUDED.submitted_by_role,
-                      submitted_at = EXCLUDED.submitted_at, updated_at = now()
+                      submitted_at = EXCLUDED.submitted_at,
+                      edit_unlocked = CASE WHEN EXCLUDED.status = 'submitted' THEN false ELSE submissions.edit_unlocked END,
+                      edit_unlocked_by = CASE WHEN EXCLUDED.status = 'submitted' THEN NULL ELSE submissions.edit_unlocked_by END,
+                      edit_unlocked_at = CASE WHEN EXCLUDED.status = 'submitted' THEN NULL ELSE submissions.edit_unlocked_at END,
+                      updated_at = now()
        RETURNING *`,
       [formId, siteId, userId, reportingMonth, data, status, role, submittedAt]
     )
@@ -171,6 +175,7 @@ router.get('/admin', async (req: Request, res: Response<ApiResponse<any[]>>) => 
     const params: unknown[] = [reportingMonth]
     let query = `
       SELECT s.id, s.status, s.submitted_at, s.updated_at, s.form_id, s.site_id, s.user_id, s.data, s.submitted_by_role,
+        s.edit_unlocked, s.edit_unlocked_by, s.edit_unlocked_at,
         json_build_object('id', f.id, 'title', f.title, 'schema', f.schema) AS forms,
         json_build_object('id', st.id, 'name', st.name, 'code', st.code) AS sites
       FROM submissions s
