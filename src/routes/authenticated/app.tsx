@@ -2,6 +2,10 @@ import { createFileRoute, Link , redirect, useNavigate  } from "@tanstack/react-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
+import touchscreenIcon from "@/assets/icon/touchscreen.png";
+import dashedLineIcon from "@/assets/icon/dashed-line.png";
+import editIcon from "@/assets/icon/edit.png";
+
 import { motion } from "framer-motion";
 
 
@@ -13,7 +17,7 @@ import {
   ListChecks, CheckCircle2, Layers,
   ChevronDown, Sliders, FolderDown, AlertCircle, Clock,
   type LucideIcon,
-  Users, LayoutGrid, ArrowLeft,
+  Users, LayoutGrid, ArrowLeft,MapPin, Check, X,
   Lock, Unlock,
 } from "lucide-react";
 
@@ -817,19 +821,21 @@ const bulkToggleLockMutation = useMutation({
 </motion.div>
 
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
+        {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         <motion.section variants={containerVariants} className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           
-          {/* Card 1: Replaced with an Animated Rotating-Border Dropdown Selector */}
-          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 ring-1 ring-sky-100 p-5 flex flex-col justify-between">
+          {/* Card 1: Animated Rotating-Border Dropdown Selector */}
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-sky-50 to-blue-50 ring-1 ring-sky-100 p-5 flex flex-col justify-between shadow-sm">
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-sky-700">Active Sites Available</span>
-                <Layers className="h-4 w-4 text-sky-700" />
+              <div className="flex items-start justify-between">
+                <span className="text-sm font-semibold text-sky-800">Active Sites Available</span>
+                {/* Restored the standard Layers icon to the top corner */}
+                <Layers className="h-5 w-5 text-sky-700/50" />
               </div>
-              <p className="mt-2 text-2xl font-semibold text-sky-700">{totalSites}</p>
+              <p className="mt-3 text-3xl font-bold text-sky-700 tracking-tight">{totalSites}</p>
             </div>
             
-            <div className="mt-3 w-full">
+            <div className="mt-4 w-full">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="relative group w-full h-10 overflow-hidden rounded-lg p-[1.5px] focus:outline-none focus:ring-2 focus:ring-[#095a7d]/50">
@@ -843,59 +849,108 @@ const bulkToggleLockMutation = useMutation({
                           ? `${selectedSiteObj.name} (${selectedSiteObj.code})`
                           : "Choose Project Site"}
                       </span>
-                      <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform group-data-[state=open]:rotate-180" />
+                      {/* Replaced the ChevronDown icon with your touchscreen image */}
+                      <img 
+                        src={touchscreenIcon} 
+                        alt="Select Site" 
+                        className="h-4 w-4 shrink-0 ml-1 mix-blend-multiply opacity-60 transition-transform group-hover:scale-110" 
+                      />
                     </span>
                   </button>
                 </DropdownMenuTrigger>
                 
-                <DropdownMenuContent align="start" className="w-[240px] max-h-60 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-lg p-1 z-[60]">
+                <DropdownMenuContent 
+                  align="start" 
+                  className="w-[280px] max-h-[320px] overflow-y-auto bg-white border border-slate-200 shadow-2xl rounded-xl p-1.5 z-[60]"
+                >
                   <DropdownMenuItem 
                     onClick={() => handleSelectSite("")}
-                    className="cursor-pointer text-xs font-semibold text-slate-500 hover:bg-slate-50 px-2 py-2 rounded"
+                    className="cursor-pointer flex items-center gap-2 text-xs font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 px-3 py-2.5 rounded-lg transition-colors mb-1"
                   >
-                    -- Clear Selection --
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-400 group-hover:bg-rose-100 group-hover:text-rose-600">
+                      <X className="h-3.5 w-3.5" />
+                    </div>
+                    Clear Selection
                   </DropdownMenuItem>
-                  {sites.map((site) => (
-                    <DropdownMenuItem
-                      key={site.id}
-                      onClick={() => handleSelectSite(site.name)}
-                      className={`cursor-pointer text-xs font-bold text-slate-700 hover:bg-[#eaf3f6] hover:text-[#095a7d] px-2 py-2 rounded mt-0.5 transition-colors ${
-                        siteSearchQuery.toLowerCase() === site.name.toLowerCase() ? "bg-[#eaf3f6] text-[#095a7d]" : ""
-                      }`}
-                    >
-                      {site.name} ({site.code})
-                    </DropdownMenuItem>
-                  ))}
+                  
+                  <div className="h-px bg-slate-100 mx-2 mb-1" /> {/* Divider */}
+
+                  {sites.map((site) => {
+                    const isSelected = siteSearchQuery.toLowerCase() === site.name.toLowerCase();
+                    return (
+                      <DropdownMenuItem
+                        key={site.id}
+                        onClick={() => handleSelectSite(site.name)}
+                        className={`cursor-pointer flex items-center justify-between px-3 py-2.5 rounded-lg mb-0.5 transition-all duration-200 outline-none ${
+                          isSelected 
+                            ? "bg-sky-50 shadow-sm ring-1 ring-sky-200/50" 
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                            isSelected ? 'bg-sky-200/50 text-sky-700' : 'bg-slate-100 text-slate-400'
+                          }`}>
+                            <MapPin className="h-4 w-4" />
+                          </div>
+                          <div className="flex flex-col truncate">
+                            <span className={`truncate text-sm font-bold leading-tight ${
+                              isSelected ? 'text-sky-900' : 'text-slate-700'
+                            }`}>
+                              {site.name}
+                            </span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                              isSelected ? 'text-sky-600' : 'text-slate-400'
+                            }`}>
+                              CODE: {site.code}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {isSelected && (
+                          <Check className="h-4 w-4 shrink-0 text-sky-600 ml-2" />
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </motion.div>
 
           {/* Card 2: Contextual Active Form Types counter */}
-          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 ring-1 ring-amber-100 p-5 flex flex-col justify-between">
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50 ring-1 ring-amber-100 p-5 flex flex-col justify-between shadow-sm">
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-amber-700">
+              <div className="flex items-start justify-between">
+                <span className="text-sm font-semibold text-amber-800">
                   {isSiteSelected ? "Submitted This Month" : "Select Site"}
                 </span>
-                <CheckCircle2 className="h-4 w-4 text-amber-700" />
+                {isSiteSelected ? (
+                  <CheckCircle2 className="h-5 w-5 text-amber-600 opacity-80" />
+                ) : (
+                  <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
+                )}
               </div>
-              <p className="mt-2 text-2xl font-semibold text-amber-700">
+              <p className="mt-3 text-3xl font-bold text-amber-700 tracking-tight">
                 {isSiteSelected ? totalSubmitted : "—"}
               </p>
             </div>
           </motion.div>
 
           {/* Card 3: Contextual Submitted This Month tracking counter */}
-          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 ring-1 ring-emerald-100 p-5 flex flex-col justify-between">
+          <motion.div variants={fadeUp} className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 ring-1 ring-emerald-100 p-5 flex flex-col justify-between shadow-sm">
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-emerald-700">
-                  {isSiteSelected ? "Active Form Types Assigned" : "Select Site"}
+              <div className="flex items-start justify-between">
+                <span className="text-sm font-semibold text-emerald-800">
+                  {isSiteSelected ? "Assigned Form Types" : "Select Site"}
                 </span>
-                <ListChecks className="h-4 w-4 text-emerald-700" />
+                {isSiteSelected ? (
+                  <ListChecks className="h-5 w-5 text-emerald-600 opacity-80" />
+                ) : (
+                  <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
+                )}
               </div>
-              <p className="mt-2 text-2xl font-semibold text-emerald-700">
+              <p className="mt-3 text-3xl font-bold text-emerald-700 tracking-tight">
                 {isSiteSelected ? totalForms : "—"}
               </p>
             </div>
@@ -906,13 +961,13 @@ const bulkToggleLockMutation = useMutation({
             variants={fadeUp} 
             whileHover={{ y: -2 }}
             onClick={() => setActiveView(activeView === "forms" ? "matrix" : "forms")}
-            className="rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 ring-1 ring-indigo-100 p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 hover:ring-indigo-200"
+            className="group rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 ring-1 ring-indigo-100 p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 hover:ring-indigo-200 hover:shadow-md shadow-sm"
           >
             <div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/70 text-indigo-700 shadow-inner">
-                <Sliders className="h-4 w-4" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm border border-indigo-100 transition-transform duration-300 group-hover:scale-105">
+                <img src={editIcon} alt="Edit" className="h-5 w-5 mix-blend-multiply opacity-80" />
               </div>
-              <p className="mt-3 text-sm font-bold text-indigo-700">
+              <p className="mt-4 text-sm font-bold text-indigo-800 leading-tight">
                 {activeView === "forms" ? "Back to Table Submissions" : "Edit Form"}
               </p>
             </div>
