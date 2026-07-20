@@ -77,6 +77,9 @@ type SubmissionRow = {
   user_id: string;
   submitted_by_role: string;
   data: Record<string, any>;
+  edit_unlocked?: boolean;
+  edit_unlocked_by?: string | null;
+  edit_unlocked_at?: string | null;
   forms: { id: string; title: string; schema: any } | null;
   sites: { id: string; name: string; code: string } | null;
 };
@@ -301,9 +304,11 @@ function AdminDashboard() {
   const contextualActiveForms = activeForms.filter(f => {
     // If the form has a specific site visibility array, ensure this site is explicitly whitelisted
     if (f.site_ids && f.site_ids.length > 0) {
-      return selectedSiteObj ? f.site_ids.includes(selectedSiteObj.id) : false;
+      if (!selectedSiteObj || !f.site_ids.includes(selectedSiteObj.id)) return false;
     }
-    return true; // public forms
+    // Further restrict by which tab (site vs contractor) is active, using the
+    // form's own visibility flags rather than guessing from submissions.
+    return siteViewMode === "site" ? f.visible_to_site_users : f.visible_to_contractors;
   });
 
   const totalForms = isSiteSelected ? contextualActiveForms.length : activeForms.length;
@@ -316,7 +321,13 @@ function AdminDashboard() {
     return true;
   });
 
-  const totalSubmitted = isSiteSelected ? contextualSubmissions.length : submissions.length;
+  // Split further by which tab (site vs contractor) is active, so the stat
+  // card reflects only the submissions for the currently selected view.
+  const contextualSubmissionsByRole = contextualSubmissions.filter((s) =>
+    siteViewMode === "site" ? s.submitted_by_role === "site" : s.submitted_by_role === "contractor"
+  );
+
+  const totalSubmitted = isSiteSelected ? contextualSubmissionsByRole.length : submissions.length;
 
   // Contractors who submitted something for the selected site this month,
   // with a count of how many forms each one submitted. Filtered strictly to
@@ -345,6 +356,20 @@ function AdminDashboard() {
     if (!selectedContractorId) return [];
     return contextualSubmissions.filter((s) => s.user_id === selectedContractorId);
   }, [contextualSubmissions, selectedContractorId]);
+
+  // Map contractor submissions by form_id so we can look one up per form,
+  // the same way submissionMap works for the site view.
+  const contractorSubmissionMap = useMemo(() => {
+    const map = new Map<string, SubmissionRow>();
+    contractorSubmissions.forEach((s) => {
+      if (s.form_id) map.set(s.form_id, s);
+    });
+    return map;
+  }, [contractorSubmissions]);
+
+  // Forms assigned to contractors — drives the drill-down table so it shows
+  // every assigned form, including ones with no submission yet.
+  const contractorAssignedForms = activeForms.filter((f: any) => f.visible_to_contractors);
 
   const selectedContractor = siteContractors.find((c) => c.id === selectedContractorId) || null;
 
@@ -400,6 +425,20 @@ function AdminDashboard() {
     console.error("Lock error detail:", err);
     toast.error(err.message || "Failed to update access.");
   }
+});
+
+const toggleEditUnlockMutation = useMutation({
+  mutationFn: ({ submissionId, unlock }: { submissionId: string; unlock: boolean }) =>
+    submissionsService.setEditUnlocked(submissionId, unlock, currentUser?.id),
+  onSuccess: (_data, variables) => {
+    queryClient.invalidateQueries({ queryKey: ["admin-submissions-by-month", reportingMonthDate] });
+    toast.success(
+      variables.unlock
+        ? "Submission access opened — the user can now edit and resubmit."
+        : "Submission access closed — the form is locked again."
+    );
+  },
+  onError: (err: any) => toast.error(err?.message || "Failed to update edit access."),
 });
 
 const bulkToggleLockMutation = useMutation({
@@ -923,7 +962,11 @@ const bulkToggleLockMutation = useMutation({
             <div>
               <div className="flex items-start justify-between">
                 <span className="text-sm font-semibold text-amber-800">
-                  {isSiteSelected ? "Submitted This Month" : "Select Site"}
+                  {isSiteSelected
+                    ? siteViewMode === "site"
+                      ? "Site Submissions This Month"
+                      : "Contractor Submissions This Month"
+                    : "Select Site"}
                 </span>
                 {isSiteSelected ? (
                   <CheckCircle2 className="h-5 w-5 text-amber-600 opacity-80" />
@@ -942,7 +985,11 @@ const bulkToggleLockMutation = useMutation({
             <div>
               <div className="flex items-start justify-between">
                 <span className="text-sm font-semibold text-emerald-800">
-                  {isSiteSelected ? "Assigned Form Types" : "Select Site"}
+                  {isSiteSelected
+                    ? siteViewMode === "site"
+                      ? "Site Assigned Forms"
+                      : "Contractor Assigned Forms"
+                    : "Select Site"}
                 </span>
                 {isSiteSelected ? (
                   <ListChecks className="h-5 w-5 text-emerald-600 opacity-80" />
@@ -1047,27 +1094,6 @@ const bulkToggleLockMutation = useMutation({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* NEW: Portal Lock/Unlock Toggle */}
-          <Button
-            variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
-            className={
-              site.unlocked_months?.includes(selectedMonth) 
-                ? "bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm" 
-                : "border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
-            }
-            onClick={() => toggleMonthLockMutation.mutate({ 
-              siteId: site.id, 
-              month: selectedMonth, 
-              isCurrentlyUnlocked: site.unlocked_months?.includes(selectedMonth) || false 
-            })}
-            disabled={toggleMonthLockMutation.isPending}
-          >
-            {site.unlocked_months?.includes(selectedMonth) ? (
-              <><Unlock className="h-4 w-4 mr-1.5" /> Portal Open</>
-            ) : (
-              <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
-            )}
-          </Button>
         </div>
       </div>
     ))}
@@ -1105,8 +1131,20 @@ const bulkToggleLockMutation = useMutation({
                         <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <StatusBadge status={status} />
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <EditUnlockToggle
+                          submission={submission}
+                          isPending={
+                            toggleEditUnlockMutation.isPending &&
+                            toggleEditUnlockMutation.variables?.submissionId === submission?.id
+                          }
+                          onToggle={(unlock) =>
+                            submission && toggleEditUnlockMutation.mutate({ submissionId: submission.id, unlock })
+                          }
+                        />
+                        <StatusBadge status={status} />
+                      </div>
                     </td>
                     
                     {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
@@ -1227,55 +1265,83 @@ const bulkToggleLockMutation = useMutation({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {contractorSubmissions.length > 0 ? (
-                    contractorSubmissions.map((submission) => (
-                      <tr key={submission.id} className="transition-colors hover:bg-slate-50/40">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-800 text-sm">
-                            {submission.forms?.title ?? "Untitled Form"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <StatusBadge status={submission.status} />
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={zippingId === submission.id}
-                            onClick={() =>
-                              handleDownloadAttachmentsZip(
-                                submission,
-                                submission.sites?.name || "",
-                                submission.forms?.title || ""
-                              )
-                            }
-                            className="inline-flex items-center gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
-                          >
-                            {zippingId === submission.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <FolderDown className="h-3.5 w-3.5" />
+                  {contractorAssignedForms.length > 0 ? (
+                    contractorAssignedForms.map((f: any) => {
+                      const submission = contractorSubmissionMap.get(f.id);
+                      const status = submission?.status ?? "not_submitted";
+
+                      return (
+                        <tr key={f.id} className="transition-colors hover:bg-slate-50/40">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-800 text-sm">{f.title}</div>
+                            {f.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                             )}
-                            Download ZIP
-                          </Button>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Link
-                            to="/authenticated/$submissionId"
-                            params={{ submissionId: submission.id }}
-                            search={{ site: siteSearchQuery }}
-                            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
-                          >
-                            <Eye className="h-3.5 w-3.5" /> View Report
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <EditUnlockToggle
+                                submission={submission}
+                                isPending={
+                                  toggleEditUnlockMutation.isPending &&
+                                  toggleEditUnlockMutation.variables?.submissionId === submission?.id
+                                }
+                                onToggle={(unlock) =>
+                                  submission && toggleEditUnlockMutation.mutate({ submissionId: submission.id, unlock })
+                                }
+                              />
+                              <StatusBadge status={status} />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {submission ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={zippingId === submission.id}
+                                onClick={() =>
+                                  handleDownloadAttachmentsZip(
+                                    submission,
+                                    submission.sites?.name || selectedSiteObj?.name || "",
+                                    f.title
+                                  )
+                                }
+                                className="inline-flex items-center gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
+                              >
+                                {zippingId === submission.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <FolderDown className="h-3.5 w-3.5" />
+                                )}
+                                Download ZIP
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic select-none">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {submission ? (
+                              <Link
+                                to="/authenticated/$submissionId"
+                                params={{ submissionId: submission.id }}
+                                search={{ site: siteSearchQuery }}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
+                              >
+                                <Eye className="h-3.5 w-3.5" /> View Report
+                              </Link>
+                            ) : (
+                              <span className="text-xs font-medium text-slate-400 select-none pr-3">
+                                No Record
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
-                        No submissions found for this contractor.
+                        No form metrics are currently assigned to this contractor.
                       </td>
                     </tr>
                   )}
@@ -1379,6 +1445,37 @@ const bulkToggleLockMutation = useMutation({
 )}
       </motion.div>
     </AppShell>
+  );
+}
+
+function EditUnlockToggle({
+  submission,
+  isPending,
+  onToggle,
+}: {
+  submission: SubmissionRow | undefined;
+  isPending: boolean;
+  onToggle: (unlock: boolean) => void;
+}) {
+  if (!submission || submission.status !== "submitted") return null;
+  const unlocked = !!submission.edit_unlocked;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(!unlocked)}
+      disabled={isPending}
+      title={unlocked ? "Editing allowed — click to re-lock" : "Click to allow this submission to be edited again"}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+        unlocked ? "bg-emerald-500 focus:ring-emerald-300" : "bg-slate-300 focus:ring-slate-300"
+      } ${isPending ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          unlocked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }
 

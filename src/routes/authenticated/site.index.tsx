@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   FileText, Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned, Calendar,
-  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2
+  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen
 } from "lucide-react";
 
 import wasteIcon from "@/assets/icon/waste.png";
@@ -99,6 +99,7 @@ function SiteDashboard() {
 
   const submissions = submissionsResult?.data || [];
   const getOriginalStatus = (formId: string) => submissions.find((s: any) => s.form_id === formId)?.status || "Not Started";
+  const getSubmission = (formId: string) => submissions.find((s: any) => s.form_id === formId);
 
   const total = requiredForms.length;
   const completedCount = requiredForms.filter((f) => getOriginalStatus(f.id) === "submitted").length;
@@ -202,7 +203,9 @@ function SiteDashboard() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {requiredForms.map(({ id, name, description, icon: Icon, customImage }) => {
+                  const submission = getSubmission(id);
                   const mappedStatus: MappedStatus = getOriginalStatus(id) === "submitted" ? "completed" : getOriginalStatus(id) === "draft" ? "in-progress" : "pending";
+                  const isReopenedForEdit = submission?.status === "submitted" && !!submission?.edit_unlocked;
                   const s = statusStyles[mappedStatus];
                   return (
                     <article key={id} className="flex flex-col rounded-xl bg-gradient-to-br from-sky-50/60 via-white to-blue-50/40 p-5 ring-1 ring-sky-100 transition hover:shadow-md">
@@ -227,7 +230,36 @@ function SiteDashboard() {
                       <p className="mt-3 text-xs text-slate-600 line-clamp-2 flex-1">{description}</p>
                       <div className="mt-5 flex items-center gap-2">
                         {isMonthUnlocked ? (
-                          <button onClick={() => goToForm(id)} className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-sm transition ${mappedStatus === "completed" ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700" : mappedStatus === "in-progress" ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700" : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"}`}>{mappedStatus === "completed" ? "View Submission" : mappedStatus === "in-progress" ? "Continue Form" : "Fill Form"}<ArrowRight className="h-3.5 w-3.5" /></button>
+                          <button
+                            onClick={() => goToForm(id)}
+                            className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-sm transition ${
+                              isReopenedForEdit
+                                ? "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                                : mappedStatus === "completed"
+                                ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+                                : mappedStatus === "in-progress"
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                                : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
+                            }`}
+                            >
+                              {isReopenedForEdit ? (
+                                <>
+                                  Edit <SquarePen className="h-3.5 w-3.5" />
+                                </>
+                              ) : mappedStatus === "completed" ? (
+                                <>
+                                  View Submission <ArrowRight className="h-3.5 w-3.5" />
+                                </>
+                              ) : mappedStatus === "in-progress" ? (
+                                <>
+                                  Continue Form <ArrowRight className="h-3.5 w-3.5" />
+                                </>
+                              ) : (
+                                <>
+                                  Fill Form <ArrowRight className="h-3.5 w-3.5" />
+                                </>
+                              )}
+                          </button>
                         ) : (
                           <div className="w-full rounded-lg bg-rose-100/50 px-3 py-2.5 text-center text-xs font-bold text-rose-600 border border-rose-100"><Lock className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />Submission Locked</div>
                         )}
