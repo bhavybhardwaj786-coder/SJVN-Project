@@ -1047,27 +1047,6 @@ const bulkToggleLockMutation = useMutation({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* NEW: Portal Lock/Unlock Toggle */}
-          <Button
-            variant={site.unlocked_months?.includes(selectedMonth) ? "default" : "outline"}
-            className={
-              site.unlocked_months?.includes(selectedMonth) 
-                ? "bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm" 
-                : "border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
-            }
-            onClick={() => toggleMonthLockMutation.mutate({ 
-              siteId: site.id, 
-              month: selectedMonth, 
-              isCurrentlyUnlocked: site.unlocked_months?.includes(selectedMonth) || false 
-            })}
-            disabled={toggleMonthLockMutation.isPending}
-          >
-            {site.unlocked_months?.includes(selectedMonth) ? (
-              <><Unlock className="h-4 w-4 mr-1.5" /> Portal Open</>
-            ) : (
-              <><Lock className="h-4 w-4 mr-1.5" /> Portal Locked</>
-            )}
-          </Button>
         </div>
       </div>
     ))}
