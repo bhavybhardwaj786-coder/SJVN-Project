@@ -19,6 +19,7 @@ import { authService } from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
+import headerBg from "@/assets/image.png";
 
 // Replaces the old fetchMe, which had its own independent copy of the 4-table
 // role lookup and queried a `site_assignments` table that no longer exists
@@ -86,42 +87,53 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-full flex-1 flex flex-col bg-[#eaeff2] font-sans relative overflow-x-hidden">
+    <div className="flex-1 flex flex-col bg-[#eaeff2] font-sans relative overflow-x-hidden h-auto">
+      {/* 2. Header */}
       {/* 2. Header */}
       <header className="sticky top-0 z-30 w-full flex flex-col shadow-sm no-print bg-white">
-        <div className="bg-gradient-to-r from-white to-sky-50 py-4 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-sky-100 gap-4 relative z-10">
+        {/* REDUCED: py-4 to py-2.5 and gap-4 to gap-3 */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-white to-sky-50 py-2.5 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center border-b border-sky-100 gap-3 z-10">
+          <div
+            className="absolute inset-0 -z-10 bg-cover bg-center"
+            style={{ backgroundImage: `url(${headerBg})` }}
+          />
+          <div className="absolute inset-0 -z-10 bg-slate-900/10" />
+
           {/* Left Side: Logo and Titles */}
-          <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden text-[#095a7d]"
+              className="lg:hidden text-white"
               onClick={() => setOpen((o) => !o)}
               aria-label="Toggle navigation"
             >
               <Menu className="h-5 w-5" />
             </Button>
 
+            {/* Comment moved outside the button tag so it doesn't break the parser */}
             <button
               type="button"
               onClick={() => window.history.back()}
-              className="flex items-center gap-4 transition-opacity duration-150 hover:opacity-90 text-left"
+              className="flex items-center gap-3 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 px-3 py-2 shadow-sm transition-opacity duration-150 hover:opacity-90 text-left"
             >
-              <div className="bg-white p-1.5 rounded border border-gray-200 shadow-sm flex-shrink-0">
+              <div className="bg-white p-1 rounded border border-gray-200 shadow-sm flex-shrink-0">
+                {/* REDUCED: w-[72px] h-[72px] down to w-14 h-14 (56px) */}
                 <img
                   src={sjvnLogo}
                   alt="SJVN Logo"
-                  className="w-16 h-16 md:w-[72px] md:h-[72px] object-contain"
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain"
                 />
               </div>
-              <div className="flex flex-col text-gray-800">
-                <h1 className="text-2xl md:text-[28px] font-extrabold text-blue-700 tracking-tight leading-tight">
+              <div className="flex flex-col text-white">
+                {/* REDUCED: text-[28px] to text-2xl */}
+                <h1 className="text-xl md:text-2xl font-extrabold tracking-tight leading-tight">
                   SJVN Limited
                 </h1>
-                <p className="text-xs md:text-sm font-semibold mt-0.5 text-gray-700">
+                <p className="text-[10px] md:text-xs font-semibold mt-0.5 text-white/90">
                   (A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)
                 </p>
-                <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                <p className="text-[9px] md:text-[10px] text-white/75 mt-0.5">
                   ISO 9001:2015 Certified · CIN: L40101HP1988GOI008409
                 </p>
               </div>
@@ -130,7 +142,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {/* Right Side: Breadcrumbs and Admin Badge */}
           <div className="hidden md:flex flex-col items-end gap-2">
-
             {me?.isSuperAdmin ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-brand">
                 <ShieldCheck className="h-3.5 w-3.5" /> Super Admin
@@ -144,10 +155,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         {/* Bottom Navigation Teal Bar */}
-        {/* Bottom Navigation Bar */}
-        <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 md:px-8 flex justify-between items-center h-12 shadow-sm relative z-10">
+        {/* REDUCED: h-12 to h-10 */}
+        <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 px-4 md:px-8 flex justify-between items-center h-10 shadow-sm relative z-10">
           
-
           <div className="flex-1 overflow-hidden mx-4 flex items-center h-full cursor-default">
             <div className="text-white text-sm font-semibold whitespace-nowrap">
               Welcome to SJVN Limited — Business Responsibility and Sustainability Reporting Portal
@@ -162,8 +172,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <button
               onClick={signOut}
-              className="bg-[#ffb600] hover:bg-amber-500 active:scale-95 transition-all duration-200 transform text-black font-bold py-1.5 px-4 rounded text-xs shadow-sm flex items-center gap-1.5 hover:shadow-md hover:-translate-y-0.5 group"
-              >
+              className="bg-[#ffb600] hover:bg-amber-500 active:scale-95 transition-all duration-200 transform text-black font-bold py-1 px-4 rounded text-xs shadow-sm flex items-center gap-1.5 hover:shadow-md hover:-translate-y-0.5 group"
+            >
               <LogOut className="h-3.5 w-3.5 transition-transform duration-200 ease-out group-hover:translate-x-1" />
               <span>Sign out</span>
             </button>
