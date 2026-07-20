@@ -9,7 +9,8 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   FileText, Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned, Calendar,
-  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen
+  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen,
+  Building2
 } from "lucide-react";
 
 import wasteIcon from "@/assets/icon/waste.png";
