@@ -74,7 +74,25 @@ type SectionBlock = {
   children: QuestionBlock[];
 };
 
-type FormBlock = QuestionBlock | SectionBlock;
+type RepeatableRowField = FormField;
+
+// TODO: RepeatableGroupBlock is intentionally root-level only (never
+// nested inside SectionBlock.children) so that SectionBlock's
+// contract (children: QuestionBlock[]) stays untouched. Full nesting
+// support (a section containing a mix of questions and repeatable
+// groups) requires widening SectionBlock.children to
+// (QuestionBlock | RepeatableGroupBlock)[] — that's a deliberate
+// follow-up task, not an oversight here.
+type RepeatableGroupBlock = {
+  blockId: string;
+  blockType: "repeatable_group";
+  groupKey: string;
+  label: string;
+  minRows: number;
+  rowFields: RepeatableRowField[];
+};
+
+type FormBlock = QuestionBlock | SectionBlock | RepeatableGroupBlock;
 
 type SiteRow = { id: string; name: string; code: string };
 
@@ -175,7 +193,13 @@ export function compileFields(blocks: FormBlock[]): any[] {
 }
 
 export function compileLayout(blocks: FormBlock[]): any[] | undefined {
-  const hasSections = blocks.some(b => b.blockType === "section");
+  // "Any non-question block forces layout to exist" — sections and
+  // repeatable groups both need a layout node to render correctly on
+  // the fill-form pages, so anything that isn't a plain question
+  // trips this gate. Written as a negative check so a future block
+  // type (e.g. a currently-hypothetical fourth blockType) is covered
+  // automatically without this line needing to change.
+  const hasSections = blocks.some(b => b.blockType !== "question");
   if (!hasSections) return undefined;
 
   return blocks.map(b => {
@@ -216,7 +240,14 @@ export function compileLayout(blocks: FormBlock[]): any[] | undefined {
  * means adding one more branch here, nothing else in this function
  * changes.
  */
-function compileLayoutNode(block: QuestionBlock): any {
+function compileLayoutNode(block: QuestionBlock | RepeatableGroupBlock): any {
+  if (block.blockType === "repeatable_group") {
+    return {
+      type: "repeatable_table",
+      groupKey: block.groupKey,
+      title: block.label,
+    };
+  }
   return {
     type: "field_group",
     children: [block.field.key],
@@ -224,8 +255,15 @@ function compileLayoutNode(block: QuestionBlock): any {
 }
 
 export function compileRepeatableGroups(blocks: FormBlock[]): any[] | undefined {
-  // Returns undefined until Dynamic Tables are implemented
-  return undefined;
+  const groups = collectBlocksByType(blocks, "repeatable_group");
+  if (groups.length === 0) return undefined;
+
+  return groups.map((g) => ({
+    key: g.groupKey,
+    label: g.label,
+    minRows: g.minRows,
+    rowFields: g.rowFields,
+  }));
 }
 
 export function compileSchema(blocks: FormBlock[], icon: string): any {
@@ -256,7 +294,24 @@ export function compileSchema(blocks: FormBlock[], icon: string): any {
  * Returns an array (not a single block) because one field_group node
  * can list more than one field key.
  */
-function deserializeLayoutNode(node: any, fieldMap: Map<string, FormField>): QuestionBlock[] {
+function deserializeLayoutNode(
+  node: any,
+  fieldMap: Map<string, FormField>,
+  groupMap: Map<string, any>
+): (QuestionBlock | RepeatableGroupBlock)[] {
+  if (node?.type === "repeatable_table") {
+    const g = groupMap.get(node.groupKey);
+    if (!g) return [];
+    return [{
+      blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      blockType: "repeatable_group",
+      groupKey: g.key,
+      label: g.label,
+      minRows: g.minRows,
+      rowFields: g.rowFields || [],
+    }];
+  }
+
   if (node?.type !== "field_group" || !Array.isArray(node.children)) return [];
 
   const questions: QuestionBlock[] = [];
@@ -278,30 +333,55 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
   const fieldMap = new Map<string, FormField>();
   rawFields.forEach((f) => fieldMap.set(f.key, f));
 
+  const rawGroups: any[] = schema?.repeatable_groups || [];
+  const groupMap = new Map<string, any>();
+  rawGroups.forEach((g) => groupMap.set(g.key, g));
+
   const layout: any[] = schema?.layout || [];
 
-  // Fallback: If no layout exists, return flat questions
+  // Fallback: If no layout exists, return flat questions (plus any
+  // repeatable groups, which have no layout to be found through here).
   if (layout.length === 0) {
-    return rawFields.map((f) => ({
+    const flatQuestions: FormBlock[] = rawFields.map((f) => ({
       blockId: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       blockType: "question",
       field: f,
     }));
+    const flatGroups: FormBlock[] = rawGroups.map((g) => ({
+      blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      blockType: "repeatable_group",
+      groupKey: g.key,
+      label: g.label,
+      minRows: g.minRows,
+      rowFields: g.rowFields || [],
+    }));
+    return [...flatQuestions, ...flatGroups];
   }
 
   const reconstructedBlocks: FormBlock[] = [];
   const usedKeys = new Set<string>();
+  const usedGroupKeys = new Set<string>();
 
   layout.forEach((node) => {
     if (node.type === "section") {
       const sectionChildren: QuestionBlock[] = [];
 
       // Every child node of a section goes through the exact same
-      // per-node translator root-level nodes use below.
+      // per-node translator root-level nodes use below. A repeatable
+      // group nested inside a section's children is intentionally
+      // pushed to the root reconstructedBlocks array below, not into
+      // sectionChildren — RepeatableGroupBlock is root-level only.
       (node.children || []).forEach((c: any) => {
-        const questions = deserializeLayoutNode(c, fieldMap);
-        questions.forEach((q) => usedKeys.add(q.field.key));
-        sectionChildren.push(...questions);
+        const parsed = deserializeLayoutNode(c, fieldMap, groupMap);
+        parsed.forEach((block) => {
+          if (block.blockType === "question") {
+            usedKeys.add(block.field.key);
+            sectionChildren.push(block);
+          } else {
+            usedGroupKeys.add(block.groupKey);
+            reconstructedBlocks.push(block);
+          }
+        });
       });
 
       reconstructedBlocks.push({
@@ -313,9 +393,12 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
       });
 
     } else {
-      const questions = deserializeLayoutNode(node, fieldMap);
-      questions.forEach((q) => usedKeys.add(q.field.key));
-      reconstructedBlocks.push(...questions);
+      const parsed = deserializeLayoutNode(node, fieldMap, groupMap);
+      parsed.forEach((block) => {
+        if (block.blockType === "question") usedKeys.add(block.field.key);
+        else usedGroupKeys.add(block.groupKey);
+      });
+      reconstructedBlocks.push(...parsed);
     }
   });
 
@@ -326,6 +409,20 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
         blockId: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         blockType: "question",
         field: f,
+      });
+    }
+  });
+
+  // Sweep up any leftover repeatable groups not explicitly placed in the layout
+  rawGroups.forEach((g) => {
+    if (!usedGroupKeys.has(g.key)) {
+      reconstructedBlocks.push({
+        blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        blockType: "repeatable_group",
+        groupKey: g.key,
+        label: g.label,
+        minRows: g.minRows,
+        rowFields: g.rowFields || [],
       });
     }
   });
@@ -595,10 +692,59 @@ function SectionBlock({
 }
 
 // ==========================================================
+// FORM BUILDER UI COMPONENTS (continued)
+// ==========================================================
+
+interface BlockListProps {
+  blocks: FormBlock[];
+  onUpdateField: (blockIndex: number, childIndex: number | null, patch: Partial<FormField>) => void;
+  onRemoveBlock: (blockIndex: number, childIndex: number | null) => void;
+  onAddOption: (blockIndex: number, childIndex: number | null) => void;
+  onUpdateOption: (blockIndex: number, childIndex: number | null, optIndex: number, patch: Partial<FieldOption>) => void;
+  onRemoveOption: (blockIndex: number, childIndex: number | null, optIndex: number) => void;
+  onUpdateSection: (index: number, patch: Partial<SectionBlock>) => void;
+  onAddQuestion: (sectionIndex: number | null) => void;
+}
+
+function BlockList(props: BlockListProps) {
+  return (
+    <>
+      {props.blocks.map((block, index) =>
+        block.blockType === "question"
+          ? <QuestionRow
+              key={block.blockId}
+              block={block}
+              blockIndex={index}
+              childIndex={null}
+              onUpdateField={props.onUpdateField}
+              onRemoveBlock={props.onRemoveBlock}
+              onAddOption={props.onAddOption}
+              onUpdateOption={props.onUpdateOption}
+              onRemoveOption={props.onRemoveOption}
+            />
+          : <SectionBlock
+              key={block.blockId}
+              section={block}
+              index={index}
+              onUpdateSection={props.onUpdateSection}
+              onRemoveBlock={props.onRemoveBlock}
+              onAddQuestion={props.onAddQuestion}
+              onUpdateField={props.onUpdateField}
+              onAddOption={props.onAddOption}
+              onUpdateOption={props.onUpdateOption}
+              onRemoveOption={props.onRemoveOption}
+            />
+      )}
+    </>
+  );
+}
+
+// ==========================================================
 // MAIN COMPONENT
 // ==========================================================
 
 function NewForm() {
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -673,7 +819,7 @@ function NewForm() {
 
   const validateStep1 = (): string | null => (!title.trim() ? "Form name is required." : null);
 
-const validateStep2 = (): string | null => {
+  const validateStep2 = (): string | null => {
     if (blocks.length === 0) return "Add at least one question or section.";
 
     // Section-level check stays here: it's about the section container
@@ -1000,32 +1146,7 @@ const validateStep2 = (): string | null => {
                 {blocks.length === 0 && (
                   <p className="py-8 text-center text-sm text-neutral-500">No content yet. Click "Add Question" or "Add Section" to start.</p>
                 )}
-                {blocks.map((block, index) => 
-                  block.blockType === "question" 
-                    ? <QuestionRow 
-                        key={block.blockId} 
-                        block={block} 
-                        blockIndex={index} 
-                        childIndex={null} 
-                        onUpdateField={updateField}
-                        onRemoveBlock={removeBlock}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                    : <SectionBlock 
-                        key={block.blockId} 
-                        section={block} 
-                        index={index} 
-                        onUpdateSection={updateSection}
-                        onRemoveBlock={removeBlock}
-                        onAddQuestion={addQuestion}
-                        onUpdateField={updateField}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                )}
+                <BlockList blocks={blocks} onUpdateField={updateField} onRemoveBlock={removeBlock} onAddOption={addOption} onUpdateOption={updateOption} onRemoveOption={removeOption} onUpdateSection={updateSection} onAddQuestion={addQuestion} />
               </div>
               <datalist id="unit-suggestions">
                 {COMMON_UNITS.map((u) => <option key={u} value={u} />)}
@@ -1245,32 +1366,7 @@ const validateStep2 = (): string | null => {
                 {blocks.length === 0 && (
                   <p className="py-8 text-center text-sm text-neutral-500">No content yet. Click "Add Question" or "Add Section" to start.</p>
                 )}
-                {blocks.map((block, index) => 
-                  block.blockType === "question" 
-                    ? <QuestionRow 
-                        key={block.blockId} 
-                        block={block} 
-                        blockIndex={index} 
-                        childIndex={null} 
-                        onUpdateField={updateField}
-                        onRemoveBlock={removeBlock}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                    : <SectionBlock 
-                        key={block.blockId} 
-                        section={block} 
-                        index={index} 
-                        onUpdateSection={updateSection}
-                        onRemoveBlock={removeBlock}
-                        onAddQuestion={addQuestion}
-                        onUpdateField={updateField}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                )}
+                <BlockList blocks={blocks} onUpdateField={updateField} onRemoveBlock={removeBlock} onAddOption={addOption} onUpdateOption={updateOption} onRemoveOption={removeOption} onUpdateSection={updateSection} onAddQuestion={addQuestion} />
               </div>
               <datalist id="unit-suggestions">
                 {COMMON_UNITS.map((u) => <option key={u} value={u} />)}
