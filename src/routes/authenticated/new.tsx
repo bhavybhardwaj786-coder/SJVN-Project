@@ -770,41 +770,38 @@ function RepeatableGroupEditor({
     <div className="border-b border-neutral-200 py-6 first:pt-0 last:border-b-0">
       <div className="flex items-start gap-3">
         <GripVertical className="mt-2.5 h-4 w-4 shrink-0 text-neutral-300" />
-        <div className="flex-1 rounded-xl border border-teal-200 bg-teal-50/30 overflow-hidden shadow-sm">
-          <div className="bg-teal-50 border-b border-teal-100 p-4">
-            <div className="flex justify-between items-start mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800">Repeatable Group {index + 1}</span>
-              <Button size="sm" variant="ghost" className="h-7 text-destructive hover:bg-red-50 hover:text-red-700" onClick={() => onRemoveBlock(index, null)}>
-                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Group
+        <div className="flex-1 rounded-xl border border-blue-200 bg-blue-50/30 overflow-hidden shadow-sm">
+          <div className="bg-blue-50 border-b border-blue-100 p-5">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <span className="text-sm font-extrabold uppercase tracking-wider text-blue-800">Dynamic Table (User adds rows)</span>
+                <p className="text-xs text-blue-600/80 mt-1 max-w-lg leading-relaxed">
+                  Creates a spreadsheet-like table where site operators can click "+ Add Row" to log multiple entries. Define your columns below.
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" className="h-8 text-destructive hover:bg-red-50 hover:text-red-700 shrink-0" onClick={() => onRemoveBlock(index, null)}>
+                <Trash2 className="h-4 w-4 mr-1.5" /> Delete Table
               </Button>
             </div>
-            <div className="space-y-3">
-              <Input
-                value={group.label}
-                onChange={(e) => onUpdateGroup(index, { label: e.target.value })}
-                placeholder="Group Label (e.g., Refrigerant Entry)"
-                className="font-bold border-teal-200 bg-white"
-              />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-neutral-500">Group Key</Label>
-                  <Input
-                    value={group.groupKey}
-                    onChange={(e) => onUpdateGroup(index, { groupKey: e.target.value })}
-                    placeholder="e.g. refrigerants"
-                    className="border-teal-200 bg-white text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-neutral-500">Minimum Rows</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={group.minRows}
-                    onChange={(e) => onUpdateGroup(index, { minRows: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                    className="border-teal-200 bg-white text-sm"
-                  />
-                </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">Table Title *</Label>
+                <Input
+                  value={group.label}
+                  onChange={(e) => onUpdateGroup(index, { label: e.target.value })}
+                  placeholder="e.g., Location-wise Sound Sampling Logs"
+                  className="font-bold border-blue-200 bg-white shadow-sm"
+                />
+              </div>
+              <div className="w-full sm:w-32 space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700" title="How many empty rows to show by default">Starting Rows</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={group.minRows}
+                  onChange={(e) => onUpdateGroup(index, { minRows: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                  className="border-blue-200 bg-white text-sm shadow-sm"
+                />
               </div>
             </div>
           </div>
@@ -818,7 +815,7 @@ function RepeatableGroupEditor({
                   <div className="flex items-start gap-3">
                     <GripVertical className="mt-2.5 h-4 w-4 shrink-0 text-neutral-300" />
                     <div className="flex-1 space-y-3">
-                      <span className="text-xs font-medium text-neutral-500">Row Field {rIdx + 1}</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Column {rIdx + 1}</span>
                       <Input
                         value={rowField.label}
                         onChange={(e) => onUpdateRowField(index, rIdx, { label: e.target.value })}
@@ -912,8 +909,8 @@ function RepeatableGroupEditor({
                 </div>
               ))}
             </div>
-            <Button size="sm" variant="outline" className="mt-4 bg-white" onClick={() => onAddRowField(index)}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Row Field
+            <Button size="sm" variant="outline" className="mt-4 bg-white border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => onAddRowField(index)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Table Column
             </Button>
           </div>
         </div>
