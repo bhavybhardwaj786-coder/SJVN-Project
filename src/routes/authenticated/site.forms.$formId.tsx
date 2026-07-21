@@ -25,9 +25,14 @@ import {
   Lock,
   Plus,
   Trash2,
+  Wind,
+  BarChart3,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
+import { FormStepper, type WizardStep } from "@/components/form-stepper";
 
 export const Route = createFileRoute("/authenticated/site/forms/$formId")({
   ssr: false,
@@ -104,6 +109,38 @@ function FillForm() {
   const isSubmitted = existing?.status === "submitted" && !existing?.edit_unlocked;
 
   const repeatableGroups = formDef?.schema?.repeatable_groups || [];
+
+  // --- Split the layout into "global" nodes (instructions/metadata —
+  // shown on every step) and "step" nodes (the actual sections to fill in) ---
+  const allLayoutNodes: any[] = formDef?.schema?.layout || [];
+  const GLOBAL_NODE_TYPES = ["instruction", "metadata"];
+
+  const globalNodes = allLayoutNodes.filter((node: any) => GLOBAL_NODE_TYPES.includes(node.type));
+  const layoutNodes = allLayoutNodes.filter((node: any) => !GLOBAL_NODE_TYPES.includes(node.type));
+
+  function iconForNode(node: any) {
+    const t = (node.title || "").toLowerCase();
+    if (t.includes("ambient")) return Wind;
+    if (t.includes("stack") || t.includes("emission")) return BarChart3;
+    return FileText;
+  }
+
+  const wizardSteps: WizardStep[] =
+    layoutNodes.length > 1
+      ? [
+          ...layoutNodes.map((node, i) => ({
+            id: node.id || `section-${i}`,
+            title: node.title || `Section ${i + 1}`,
+            subtitle: "",
+            Icon: iconForNode(node),
+          })),
+          { id: "__review", title: "Review & Submit", subtitle: "", Icon: ShieldCheck },
+        ]
+      : [];
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const isWizardMode = wizardSteps.length > 0;
+  const isReviewStep = isWizardMode && currentStep === wizardSteps.length - 1;
 
   const [values, setValues] = useState<Record<string, any>>({});
   const [localFilesToUpload, setLocalFilesToUpload] = useState<Record<string, File[]>>({});
@@ -633,6 +670,39 @@ function FillForm() {
                 };
 
                 // 3. Fallback to Legacy Render if no layout schema exists
+                // 3. Wizard-aware render: global nodes always shown first,
+                // then the tab bar, then the current section (or Review)
+                if (isWizardMode) {
+                  return (
+                    <>
+                      {globalNodes.map((node: any, idx: number) => renderLayoutNode(node, `global-${idx}`))}
+
+                      <div className="mb-8">
+                        <FormStepper
+                          steps={wizardSteps}
+                          currentIndex={currentStep}
+                          onStepClick={setCurrentStep}
+                        />
+                      </div>
+
+                      {isReviewStep ? (
+                        <ReviewStep
+                          layoutNodes={layoutNodes}
+                          values={values}
+                          fields={fields}
+                          repeatableGroups={repeatableGroups}
+                          groupRows={groupRows}
+                        />
+                      ) : (
+                        <motion.div variants={containerVariants} className="w-full space-y-2">
+                          {renderLayoutNode(layoutNodes[currentStep], currentStep)}
+                        </motion.div>
+                      )}
+                    </>
+                  );
+                }
+
+                // Fallback: forms with only one section (or none) keep the old look
                 if (formDef.schema?.layout) {
                   return (
                     <motion.div variants={containerVariants} className="w-full space-y-2">
@@ -650,7 +720,65 @@ function FillForm() {
 
               <AnimatePresence>
               {/* --- NEW RENDER ENGINE END --- */}
-                  {!isSubmitted && isMonthUnlocked && (
+                  {isWizardMode && (
+                    <motion.div
+                      variants={fadeUp}
+                      initial="hidden"
+                      animate="show"
+                      className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 mt-4 border-t border-border/50"
+                    >
+                      <Button
+                        variant="outline"
+                        disabled={currentStep === 0}
+                        onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
+                        className="w-full sm:w-auto"
+                      >
+                        Back
+                      </Button>
+
+                      <div className="flex w-full sm:w-auto items-center justify-end gap-4">
+                        {!isSubmitted && isMonthUnlocked && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleAction(false)}
+                            disabled={save.isPending}
+                            className="w-full sm:w-auto px-8 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            Save Draft
+                          </Button>
+                        )}
+
+                        {!isReviewStep ? (
+                          <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+                            <Button
+                              onClick={() => setCurrentStep((s) => Math.min(wizardSteps.length - 1, s + 1))}
+                              className="h-12 w-full sm:w-auto px-10 rounded-md bg-gradient-to-r from-sky-500 to-blue-600 text-white text-[15px] font-bold shadow-md"
+                            >
+                              Continue
+                            </Button>
+                          </motion.div>
+                        ) : (
+                          !isSubmitted && isMonthUnlocked && (
+                            <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+                              <Button
+                                onClick={() => handleAction(true)}
+                                disabled={save.isPending}
+                                className="h-12 w-full sm:w-auto px-10 rounded-md bg-primary text-[15px] font-bold text-primary-foreground shadow-card transition-shadow hover:shadow-glow"
+                              >
+                                {save.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  "Submit Form"
+                                )}
+                              </Button>
+                            </motion.div>
+                          )
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {!isWizardMode && !isSubmitted && isMonthUnlocked && (
                     <motion.div
                       variants={fadeUp}
                       initial="hidden"
@@ -697,5 +825,208 @@ function FillForm() {
         </motion.div>
       </div>
     </AppShell>
+  );
+}
+
+// Walks a layout node (table, section, field_group — nested any depth)
+// and pulls out every field key inside it, regardless of how deeply
+// it's wrapped. This is what makes Review work for every form's shape.
+// Formats a value for read-only display the same way the submission
+// detail page does: checkboxes as Yes/No, selects show their label.
+function formatReviewValue(field: any, value: any) {
+  if (value === undefined || value === null || value === "") return "—";
+  if (field?.type === "checkbox") return value ? "Yes" : "No";
+  if (field?.type === "select") {
+    const opt = field.options?.find((o: any) => o.value === value);
+    return opt?.label ?? value;
+  }
+  return String(value);
+}
+
+// Renders one layout node read-only, reusing the SAME table shape
+// (same columns, same rows) as the fill-in view — just with plain
+// text instead of inputs. Works for any node type, any form.
+function renderReviewNode(
+  node: any,
+  idx: number,
+  values: Record<string, any>,
+  fields: any[],
+  repeatableGroups: any[],
+  groupRows: Record<string, any[]>
+) {
+  const findField = (fieldKey: string) => fields.find((f: any) => f.key === fieldKey);
+
+  if (node.type === "section") {
+    return (
+      <div key={idx} className="mb-6">
+        {node.title && <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{node.title}</h5>}
+        {node.children?.map((child: any, cIdx: number) =>
+          renderReviewNode(child, cIdx, values, fields, repeatableGroups, groupRows)
+        )}
+      </div>
+    );
+  }
+
+  if (node.type === "table") {
+    return (
+      <div key={idx} className="overflow-x-auto w-full mb-4 rounded-lg border border-slate-200">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-100/50 text-slate-700 text-xs uppercase font-bold tracking-wider">
+            <tr>
+              {node.columns.map((col: string, i: number) => (
+                <th key={i} className="px-4 py-3 border-b border-slate-200">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {node.rows.map((row: any[], rIdx: number) => (
+              <tr key={rIdx}>
+                {row.map((cell: any, cIdx: number) => (
+                  <td key={cIdx} colSpan={cell.colSpan || 1} className="px-4 py-3 align-top">
+                    {cell.type === "label" && <span className="font-medium text-slate-700">{cell.value}</span>}
+                    {cell.type === "field" && (
+                      <span className="font-semibold text-slate-900">
+                        {formatReviewValue(findField(cell.fieldKey), values[cell.fieldKey])}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {node.summaryRow && (
+              <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                {node.summaryRow.map((cell: any, cIdx: number) => (
+                  <td key={`sum-${cIdx}`} colSpan={cell.colSpan || 1} className="px-4 py-3 align-middle">
+                    {cell.type === "label" && <span className="text-slate-900 uppercase">{cell.value}</span>}
+                    {cell.type === "field" && (
+                      <span className="text-slate-900">
+                        {formatReviewValue(findField(cell.fieldKey), values[cell.fieldKey])}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (node.type === "field_group") {
+    return (
+      <div key={idx} className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {node.children.map((fieldKey: string) => {
+          const field = findField(fieldKey);
+          return (
+            <div key={fieldKey} className="rounded-lg border border-slate-200 p-3">
+              <div className="text-xs font-medium text-slate-500">{field?.label || fieldKey}</div>
+              <div className="text-sm font-semibold text-slate-900 mt-0.5">
+                {formatReviewValue(field, values[fieldKey])}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (node.type === "repeatable_table") {
+    const group = repeatableGroups.find((g: any) => g.key === node.groupKey);
+    if (!group) return null;
+    const rows = groupRows[group.key] || [];
+
+    return (
+      <div key={idx} className="mb-4">
+        {node.title && <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">{node.title}</h5>}
+        <div className="overflow-x-auto w-full rounded-lg border border-slate-200">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-100/50 text-slate-700 text-xs uppercase font-bold tracking-wider">
+              <tr>
+                <th className="px-4 py-3 border-b border-slate-200">S. No.</th>
+                {group.rowFields.map((rf: any, i: number) => (
+                  <th key={i} className="px-4 py-3 border-b border-slate-200">
+                    {rf.label}{rf.unit ? ` (${rf.unit})` : ""}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {rows.map((row: any, rIdx: number) => (
+                <tr key={rIdx}>
+                  <td className="px-4 py-3 align-top font-medium text-slate-700">{rIdx + 1}</td>
+                  {group.rowFields.map((rf: any, cIdx: number) => (
+                    <td key={cIdx} className="px-4 py-3 align-top font-semibold text-slate-900">
+                      {row?.[rf.key] ?? "—"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return null; // instruction / metadata are already shown globally, skip here
+}
+
+function ReviewStep({
+  layoutNodes,
+  values,
+  fields,
+  repeatableGroups,
+  groupRows,
+}: {
+  layoutNodes: any[];
+  values: Record<string, any>;
+  fields: any[];
+  repeatableGroups: any[];
+  groupRows: Record<string, any[]>;
+}) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
+
+  const toggle = (i: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {layoutNodes.map((node: any, i: number) => {
+        const isOpen = expanded.has(i);
+        // A step's top-level node is usually a "section" wrapping the real
+        // table(s) — show its children here so we don't print the title twice.
+        const bodyNodes = node.type === "section" ? node.children || [] : [node];
+
+        return (
+          <div key={i} className="rounded-xl border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggle(i)}
+              className="w-full flex items-center justify-between bg-slate-50 px-5 py-3.5 text-left hover:bg-slate-100 transition-colors"
+            >
+              <h4 className="text-sm font-bold text-slate-800">{node.title || `Section ${i + 1}`}</h4>
+              <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isOpen && (
+              <div className="p-5 border-t border-slate-200">
+                {bodyNodes.length === 0 && (
+                  <div className="text-sm text-slate-400 italic">No fields in this section.</div>
+                )}
+                {bodyNodes.map((child: any, cIdx: number) =>
+                  renderReviewNode(child, cIdx, values, fields, repeatableGroups, groupRows)
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
