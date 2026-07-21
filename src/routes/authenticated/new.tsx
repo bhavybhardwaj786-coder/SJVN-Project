@@ -74,7 +74,25 @@ type SectionBlock = {
   children: QuestionBlock[];
 };
 
-type FormBlock = QuestionBlock | SectionBlock;
+type RepeatableRowField = FormField;
+
+// TODO: RepeatableGroupBlock is intentionally root-level only (never
+// nested inside SectionBlock.children) so that SectionBlock's
+// contract (children: QuestionBlock[]) stays untouched. Full nesting
+// support (a section containing a mix of questions and repeatable
+// groups) requires widening SectionBlock.children to
+// (QuestionBlock | RepeatableGroupBlock)[] — that's a deliberate
+// follow-up task, not an oversight here.
+type RepeatableGroupBlock = {
+  blockId: string;
+  blockType: "repeatable_group";
+  groupKey: string;
+  label: string;
+  minRows: number;
+  rowFields: RepeatableRowField[];
+};
+
+type FormBlock = QuestionBlock | SectionBlock | RepeatableGroupBlock;
 
 type SiteRow = { id: string; name: string; code: string };
 
@@ -175,7 +193,13 @@ export function compileFields(blocks: FormBlock[]): any[] {
 }
 
 export function compileLayout(blocks: FormBlock[]): any[] | undefined {
-  const hasSections = blocks.some(b => b.blockType === "section");
+  // "Any non-question block forces layout to exist" — sections and
+  // repeatable groups both need a layout node to render correctly on
+  // the fill-form pages, so anything that isn't a plain question
+  // trips this gate. Written as a negative check so a future block
+  // type (e.g. a currently-hypothetical fourth blockType) is covered
+  // automatically without this line needing to change.
+  const hasSections = blocks.some(b => b.blockType !== "question");
   if (!hasSections) return undefined;
 
   return blocks.map(b => {
@@ -216,7 +240,14 @@ export function compileLayout(blocks: FormBlock[]): any[] | undefined {
  * means adding one more branch here, nothing else in this function
  * changes.
  */
-function compileLayoutNode(block: QuestionBlock): any {
+function compileLayoutNode(block: QuestionBlock | RepeatableGroupBlock): any {
+  if (block.blockType === "repeatable_group") {
+    return {
+      type: "repeatable_table",
+      groupKey: block.groupKey,
+      title: block.label,
+    };
+  }
   return {
     type: "field_group",
     children: [block.field.key],
@@ -224,8 +255,15 @@ function compileLayoutNode(block: QuestionBlock): any {
 }
 
 export function compileRepeatableGroups(blocks: FormBlock[]): any[] | undefined {
-  // Returns undefined until Dynamic Tables are implemented
-  return undefined;
+  const groups = collectBlocksByType(blocks, "repeatable_group");
+  if (groups.length === 0) return undefined;
+
+  return groups.map((g) => ({
+    key: g.groupKey,
+    label: g.label,
+    minRows: g.minRows,
+    rowFields: g.rowFields,
+  }));
 }
 
 export function compileSchema(blocks: FormBlock[], icon: string): any {
@@ -256,7 +294,24 @@ export function compileSchema(blocks: FormBlock[], icon: string): any {
  * Returns an array (not a single block) because one field_group node
  * can list more than one field key.
  */
-function deserializeLayoutNode(node: any, fieldMap: Map<string, FormField>): QuestionBlock[] {
+function deserializeLayoutNode(
+  node: any,
+  fieldMap: Map<string, FormField>,
+  groupMap: Map<string, any>
+): (QuestionBlock | RepeatableGroupBlock)[] {
+  if (node?.type === "repeatable_table") {
+    const g = groupMap.get(node.groupKey);
+    if (!g) return [];
+    return [{
+      blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      blockType: "repeatable_group",
+      groupKey: g.key,
+      label: g.label,
+      minRows: g.minRows,
+      rowFields: g.rowFields || [],
+    }];
+  }
+
   if (node?.type !== "field_group" || !Array.isArray(node.children)) return [];
 
   const questions: QuestionBlock[] = [];
@@ -278,30 +333,55 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
   const fieldMap = new Map<string, FormField>();
   rawFields.forEach((f) => fieldMap.set(f.key, f));
 
+  const rawGroups: any[] = schema?.repeatable_groups || [];
+  const groupMap = new Map<string, any>();
+  rawGroups.forEach((g) => groupMap.set(g.key, g));
+
   const layout: any[] = schema?.layout || [];
 
-  // Fallback: If no layout exists, return flat questions
+  // Fallback: If no layout exists, return flat questions (plus any
+  // repeatable groups, which have no layout to be found through here).
   if (layout.length === 0) {
-    return rawFields.map((f) => ({
+    const flatQuestions: FormBlock[] = rawFields.map((f) => ({
       blockId: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       blockType: "question",
       field: f,
     }));
+    const flatGroups: FormBlock[] = rawGroups.map((g) => ({
+      blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      blockType: "repeatable_group",
+      groupKey: g.key,
+      label: g.label,
+      minRows: g.minRows,
+      rowFields: g.rowFields || [],
+    }));
+    return [...flatQuestions, ...flatGroups];
   }
 
   const reconstructedBlocks: FormBlock[] = [];
   const usedKeys = new Set<string>();
+  const usedGroupKeys = new Set<string>();
 
   layout.forEach((node) => {
     if (node.type === "section") {
       const sectionChildren: QuestionBlock[] = [];
 
       // Every child node of a section goes through the exact same
-      // per-node translator root-level nodes use below.
+      // per-node translator root-level nodes use below. A repeatable
+      // group nested inside a section's children is intentionally
+      // pushed to the root reconstructedBlocks array below, not into
+      // sectionChildren — RepeatableGroupBlock is root-level only.
       (node.children || []).forEach((c: any) => {
-        const questions = deserializeLayoutNode(c, fieldMap);
-        questions.forEach((q) => usedKeys.add(q.field.key));
-        sectionChildren.push(...questions);
+        const parsed = deserializeLayoutNode(c, fieldMap, groupMap);
+        parsed.forEach((block) => {
+          if (block.blockType === "question") {
+            usedKeys.add(block.field.key);
+            sectionChildren.push(block);
+          } else {
+            usedGroupKeys.add(block.groupKey);
+            reconstructedBlocks.push(block);
+          }
+        });
       });
 
       reconstructedBlocks.push({
@@ -313,9 +393,12 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
       });
 
     } else {
-      const questions = deserializeLayoutNode(node, fieldMap);
-      questions.forEach((q) => usedKeys.add(q.field.key));
-      reconstructedBlocks.push(...questions);
+      const parsed = deserializeLayoutNode(node, fieldMap, groupMap);
+      parsed.forEach((block) => {
+        if (block.blockType === "question") usedKeys.add(block.field.key);
+        else usedGroupKeys.add(block.groupKey);
+      });
+      reconstructedBlocks.push(...parsed);
     }
   });
 
@@ -326,6 +409,20 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
         blockId: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         blockType: "question",
         field: f,
+      });
+    }
+  });
+
+  // Sweep up any leftover repeatable groups not explicitly placed in the layout
+  rawGroups.forEach((g) => {
+    if (!usedGroupKeys.has(g.key)) {
+      reconstructedBlocks.push({
+        blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        blockType: "repeatable_group",
+        groupKey: g.key,
+        label: g.label,
+        minRows: g.minRows,
+        rowFields: g.rowFields || [],
       });
     }
   });
@@ -594,11 +691,241 @@ function SectionBlock({
   );
 }
 
+interface RepeatableGroupEditorProps {
+  group: RepeatableGroupBlock;
+  index: number;
+  onUpdateGroup: (index: number, patch: Partial<RepeatableGroupBlock>) => void;
+  onRemoveBlock: (blockIndex: number, childIndex: number | null) => void;
+  onAddRowField: (groupIndex: number) => void;
+  onUpdateRowField: (groupIndex: number, rowFieldIndex: number, patch: Partial<RepeatableRowField>) => void;
+  onRemoveRowField: (groupIndex: number, rowFieldIndex: number) => void;
+  onAddRowFieldOption: (groupIndex: number, rowFieldIndex: number) => void;
+  onUpdateRowFieldOption: (groupIndex: number, rowFieldIndex: number, optIndex: number, patch: Partial<FieldOption>) => void;
+  onRemoveRowFieldOption: (groupIndex: number, rowFieldIndex: number, optIndex: number) => void;
+}
+
+function RepeatableGroupEditor({
+  group,
+  index,
+  onUpdateGroup,
+  onRemoveBlock,
+  onAddRowField,
+  onUpdateRowField,
+  onRemoveRowField,
+  onAddRowFieldOption,
+  onUpdateRowFieldOption,
+  onRemoveRowFieldOption,
+}: RepeatableGroupEditorProps) {
+  return (
+    <div className="border-b border-neutral-200 py-6 first:pt-0 last:border-b-0">
+      <div className="flex items-start gap-3">
+        <GripVertical className="mt-2.5 h-4 w-4 shrink-0 text-neutral-300" />
+        <div className="flex-1 rounded-xl border border-teal-200 bg-teal-50/30 overflow-hidden shadow-sm">
+          <div className="bg-teal-50 border-b border-teal-100 p-4">
+            <div className="flex justify-between items-start mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-800">Repeatable Group {index + 1}</span>
+              <Button size="sm" variant="ghost" className="h-7 text-destructive hover:bg-red-50 hover:text-red-700" onClick={() => onRemoveBlock(index, null)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Group
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <Input
+                value={group.label}
+                onChange={(e) => onUpdateGroup(index, { label: e.target.value })}
+                placeholder="Group Label (e.g., Refrigerant Entry)"
+                className="font-bold border-teal-200 bg-white"
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-neutral-500">Group Key</Label>
+                  <Input
+                    value={group.groupKey}
+                    onChange={(e) => onUpdateGroup(index, { groupKey: e.target.value })}
+                    placeholder="e.g. refrigerants"
+                    className="border-teal-200 bg-white text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-neutral-500">Minimum Rows</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={group.minRows}
+                    onChange={(e) => onUpdateGroup(index, { minRows: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                    className="border-teal-200 bg-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-4">
+            {group.rowFields.length === 0 && (
+              <p className="text-sm text-neutral-500 text-center py-4">No row fields in this group yet.</p>
+            )}
+            <div className="space-y-2 divide-y divide-neutral-100">
+              {group.rowFields.map((rowField, rIdx) => (
+                <div key={rowField.key} className="py-5 first:pt-0 last:pb-0 pl-2">
+                  <div className="flex items-start gap-3">
+                    <GripVertical className="mt-2.5 h-4 w-4 shrink-0 text-neutral-300" />
+                    <div className="flex-1 space-y-3">
+                      <span className="text-xs font-medium text-neutral-500">Row Field {rIdx + 1}</span>
+                      <Input
+                        value={rowField.label}
+                        onChange={(e) => onUpdateRowField(index, rIdx, { label: e.target.value })}
+                        placeholder="e.g. Refrigerant Name"
+                        className="text-sm font-medium"
+                      />
+
+                      <div className={`grid gap-3 sm:max-w-md ${rowField.type === "number" ? "grid-cols-2" : "grid-cols-1"}`}>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-neutral-500">Answer Type</Label>
+                          <Select value={rowField.type} onValueChange={(v) => onUpdateRowField(index, rIdx, { type: v as FormField["type"] })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {FIELD_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {rowField.type === "number" && (
+                          <div className="space-y-1">
+                            <Label className="text-xs text-neutral-500">Unit</Label>
+                            <Input
+                              list="unit-suggestions"
+                              value={rowField.unit ?? ""}
+                              onChange={(e) => onUpdateRowField(index, rIdx, { unit: e.target.value })}
+                              placeholder="e.g. KL, mg/L"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {rowField.type === "select" && (
+                        <div className="max-w-md space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                          <Label className="text-xs text-neutral-500">Dropdown Options</Label>
+                          {(rowField.options || []).map((opt, optIndex) => (
+                            <div key={optIndex} className="flex gap-2">
+                              <Input
+                                className="h-8 text-xs"
+                                placeholder="Option label"
+                                value={opt.label}
+                                onChange={(e) =>
+                                  onUpdateRowFieldOption(index, rIdx, optIndex, { label: e.target.value, value: slugifyKey(e.target.value) })
+                                }
+                              />
+                              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => onRemoveRowFieldOption(index, rIdx, optIndex)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onAddRowFieldOption(index, rIdx)}>
+                            <Plus className="mr-1 h-3 w-3" />
+                            Add Option
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`required-${rowField.key}`}
+                          checked={rowField.required}
+                          onCheckedChange={(v) => onUpdateRowField(index, rIdx, { required: !!v })}
+                        />
+                        <Label htmlFor={`required-${rowField.key}`} className="cursor-pointer text-xs">Required</Label>
+                      </div>
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => onRemoveRowField(index, rIdx)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="outline" className="mt-4 bg-white" onClick={() => onAddRowField(index)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Row Field
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================================
+// FORM BUILDER UI COMPONENTS (continued)
+// ==========================================================
+
+interface BlockListProps {
+  blocks: FormBlock[];
+  onUpdateField: (blockIndex: number, childIndex: number | null, patch: Partial<FormField>) => void;
+  onRemoveBlock: (blockIndex: number, childIndex: number | null) => void;
+  onAddOption: (blockIndex: number, childIndex: number | null) => void;
+  onUpdateOption: (blockIndex: number, childIndex: number | null, optIndex: number, patch: Partial<FieldOption>) => void;
+  onRemoveOption: (blockIndex: number, childIndex: number | null, optIndex: number) => void;
+  onUpdateSection: (index: number, patch: Partial<SectionBlock>) => void;
+  onAddQuestion: (sectionIndex: number | null) => void;
+  onUpdateGroup: (index: number, patch: Partial<RepeatableGroupBlock>) => void;
+  onAddRowField: (groupIndex: number) => void;
+  onUpdateRowField: (groupIndex: number, rowFieldIndex: number, patch: Partial<RepeatableRowField>) => void;
+  onRemoveRowField: (groupIndex: number, rowFieldIndex: number) => void;
+  onAddRowFieldOption: (groupIndex: number, rowFieldIndex: number) => void;
+  onUpdateRowFieldOption: (groupIndex: number, rowFieldIndex: number, optIndex: number, patch: Partial<FieldOption>) => void;
+  onRemoveRowFieldOption: (groupIndex: number, rowFieldIndex: number, optIndex: number) => void;
+}
+
+function BlockList(props: BlockListProps) {
+  return (
+    <>
+      {props.blocks.map((block, index) =>
+        block.blockType === "question"
+          ? <QuestionRow
+              key={block.blockId}
+              block={block}
+              blockIndex={index}
+              childIndex={null}
+              onUpdateField={props.onUpdateField}
+              onRemoveBlock={props.onRemoveBlock}
+              onAddOption={props.onAddOption}
+              onUpdateOption={props.onUpdateOption}
+              onRemoveOption={props.onRemoveOption}
+            />
+          : block.blockType === "section"
+          ? <SectionBlock
+              key={block.blockId}
+              section={block}
+              index={index}
+              onUpdateSection={props.onUpdateSection}
+              onRemoveBlock={props.onRemoveBlock}
+              onAddQuestion={props.onAddQuestion}
+              onUpdateField={props.onUpdateField}
+              onAddOption={props.onAddOption}
+              onUpdateOption={props.onUpdateOption}
+              onRemoveOption={props.onRemoveOption}
+            />
+          : <RepeatableGroupEditor
+              key={block.blockId}
+              group={block}
+              index={index}
+              onUpdateGroup={props.onUpdateGroup}
+              onRemoveBlock={props.onRemoveBlock}
+              onAddRowField={props.onAddRowField}
+              onUpdateRowField={props.onUpdateRowField}
+              onRemoveRowField={props.onRemoveRowField}
+              onAddRowFieldOption={props.onAddRowFieldOption}
+              onUpdateRowFieldOption={props.onUpdateRowFieldOption}
+              onRemoveRowFieldOption={props.onRemoveRowFieldOption}
+            />
+      )}
+    </>
+  );
+}
 // ==========================================================
 // MAIN COMPONENT
 // ==========================================================
 
 function NewForm() {
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -673,7 +1000,7 @@ function NewForm() {
 
   const validateStep1 = (): string | null => (!title.trim() ? "Form name is required." : null);
 
-const validateStep2 = (): string | null => {
+  const validateStep2 = (): string | null => {
     if (blocks.length === 0) return "Add at least one question or section.";
 
     // Section-level check stays here: it's about the section container
@@ -696,6 +1023,33 @@ const validateStep2 = (): string | null => {
     }
     const keys = allQuestions.map((q) => q.field.key);
     if (new Set(keys).size !== keys.length) return "Question keys must be unique.";
+
+    // Repeatable groups validate independently of questions/sections above.
+    const repeatableGroups = collectBlocksByType(blocks, "repeatable_group");
+    for (const g of repeatableGroups) {
+      if (!g.label.trim()) return "Every repeatable group needs a label.";
+      if (!g.groupKey.trim()) return "Every repeatable group needs a key.";
+      if (g.rowFields.length === 0) return `Repeatable group "${g.label}" needs at least one row field.`;
+
+      const rowKeys = g.rowFields.map((rf) => rf.key);
+      if (new Set(rowKeys).size !== rowKeys.length) {
+        return `Row fields in "${g.label}" must have unique keys.`;
+      }
+
+      for (const rf of g.rowFields) {
+        if (!rf.label.trim()) return `Every row field in "${g.label}" needs text.`;
+        if (rf.type === "select" && (!rf.options || rf.options.filter((o) => o.label.trim()).length === 0)) {
+          return `Row field "${rf.label}" in "${g.label}" needs at least one option.`;
+        }
+      }
+    }
+
+    const groupKeys = repeatableGroups.map((g) => g.groupKey);
+    if (new Set(groupKeys).size !== groupKeys.length) return "Repeatable group keys must be unique.";
+    if (groupKeys.some((gk) => keys.includes(gk))) {
+      return "A repeatable group key can't match a question key.";
+    }
+
     return null;
   };
 
@@ -775,6 +1129,86 @@ const validateStep2 = (): string | null => {
 
   const updateSection = (index: number, patch: Partial<SectionBlock>) => {
     setBlocks((prev) => prev.map((b, i) => i === index && b.blockType === "section" ? { ...b, ...patch } : b));
+  };
+
+  // --- REPEATABLE GROUP STATE HANDLERS ---
+  // Root-level only, mirroring updateQuestion's updater-function pattern
+  // so each handler stays a one-liner instead of repeating the
+  // "guard blockType, then spread" boilerplate.
+  const updateRepeatableGroupBlock = (groupIndex: number, updater: (g: RepeatableGroupBlock) => RepeatableGroupBlock) => {
+    setBlocks((prev) => prev.map((b, i) => (i === groupIndex && b.blockType === "repeatable_group" ? updater(b) : b)));
+  };
+
+  const addRepeatableGroup = () => {
+    setBlocks((prev) => [
+      ...prev,
+      {
+        blockId: `repeatable_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        blockType: "repeatable_group",
+        groupKey: newFieldKey(),
+        label: "",
+        minRows: 0,
+        rowFields: [],
+      },
+    ]);
+  };
+
+  const updateRepeatableGroup = (index: number, patch: Partial<RepeatableGroupBlock>) => {
+    updateRepeatableGroupBlock(index, (g) => ({ ...g, ...patch }));
+  };
+
+  const addRowField = (groupIndex: number) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => ({
+      ...g,
+      rowFields: [...g.rowFields, { key: newFieldKey(), label: "", type: "text", required: true }],
+    }));
+  };
+
+  const updateRowField = (groupIndex: number, rowFieldIndex: number, patch: Partial<RepeatableRowField>) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => {
+      const newRowFields = [...g.rowFields];
+      newRowFields[rowFieldIndex] = { ...newRowFields[rowFieldIndex], ...patch };
+      return { ...g, rowFields: newRowFields };
+    });
+  };
+
+  const removeRowField = (groupIndex: number, rowFieldIndex: number) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => ({
+      ...g,
+      rowFields: g.rowFields.filter((_, j) => j !== rowFieldIndex),
+    }));
+  };
+
+  const addRowFieldOption = (groupIndex: number, rowFieldIndex: number) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => {
+      const newRowFields = [...g.rowFields];
+      newRowFields[rowFieldIndex] = {
+        ...newRowFields[rowFieldIndex],
+        options: [...(newRowFields[rowFieldIndex].options || []), { label: "", value: "" }],
+      };
+      return { ...g, rowFields: newRowFields };
+    });
+  };
+
+  const updateRowFieldOption = (groupIndex: number, rowFieldIndex: number, optIndex: number, patch: Partial<FieldOption>) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => {
+      const newRowFields = [...g.rowFields];
+      const newOptions = [...(newRowFields[rowFieldIndex].options || [])];
+      newOptions[optIndex] = { ...newOptions[optIndex], ...patch };
+      newRowFields[rowFieldIndex] = { ...newRowFields[rowFieldIndex], options: newOptions };
+      return { ...g, rowFields: newRowFields };
+    });
+  };
+
+  const removeRowFieldOption = (groupIndex: number, rowFieldIndex: number, optIndex: number) => {
+    updateRepeatableGroupBlock(groupIndex, (g) => {
+      const newRowFields = [...g.rowFields];
+      newRowFields[rowFieldIndex] = {
+        ...newRowFields[rowFieldIndex],
+        options: (newRowFields[rowFieldIndex].options || []).filter((_, j) => j !== optIndex),
+      };
+      return { ...g, rowFields: newRowFields };
+    });
   };
 
   const addOption = (blockIndex: number, childIndex: number | null) => {
@@ -994,38 +1428,33 @@ const validateStep2 = (): string | null => {
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Add Section
                   </Button>
+                  <Button size="sm" variant="outline" onClick={addRepeatableGroup}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add Repeatable Group
+                  </Button>
                 </div>
               </div>
               <div className="mt-4 border-t border-neutral-200">
                 {blocks.length === 0 && (
                   <p className="py-8 text-center text-sm text-neutral-500">No content yet. Click "Add Question" or "Add Section" to start.</p>
                 )}
-                {blocks.map((block, index) => 
-                  block.blockType === "question" 
-                    ? <QuestionRow 
-                        key={block.blockId} 
-                        block={block} 
-                        blockIndex={index} 
-                        childIndex={null} 
-                        onUpdateField={updateField}
-                        onRemoveBlock={removeBlock}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                    : <SectionBlock 
-                        key={block.blockId} 
-                        section={block} 
-                        index={index} 
-                        onUpdateSection={updateSection}
-                        onRemoveBlock={removeBlock}
-                        onAddQuestion={addQuestion}
-                        onUpdateField={updateField}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                )}
+                <BlockList
+                  blocks={blocks}
+                  onUpdateField={updateField}
+                  onRemoveBlock={removeBlock}
+                  onAddOption={addOption}
+                  onUpdateOption={updateOption}
+                  onRemoveOption={removeOption}
+                  onUpdateSection={updateSection}
+                  onAddQuestion={addQuestion}
+                  onUpdateGroup={updateRepeatableGroup}
+                  onAddRowField={addRowField}
+                  onUpdateRowField={updateRowField}
+                  onRemoveRowField={removeRowField}
+                  onAddRowFieldOption={addRowFieldOption}
+                  onUpdateRowFieldOption={updateRowFieldOption}
+                  onRemoveRowFieldOption={removeRowFieldOption}
+                />
               </div>
               <datalist id="unit-suggestions">
                 {COMMON_UNITS.map((u) => <option key={u} value={u} />)}
@@ -1239,38 +1668,17 @@ const validateStep2 = (): string | null => {
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Add Section
                   </Button>
+                  <Button size="sm" variant="outline" onClick={addRepeatableGroup}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add Repeatable Group
+                  </Button>
                 </div>
               </div>
               <div className="mt-6 border-t border-neutral-200">
                 {blocks.length === 0 && (
                   <p className="py-8 text-center text-sm text-neutral-500">No content yet. Click "Add Question" or "Add Section" to start.</p>
                 )}
-                {blocks.map((block, index) => 
-                  block.blockType === "question" 
-                    ? <QuestionRow 
-                        key={block.blockId} 
-                        block={block} 
-                        blockIndex={index} 
-                        childIndex={null} 
-                        onUpdateField={updateField}
-                        onRemoveBlock={removeBlock}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                    : <SectionBlock 
-                        key={block.blockId} 
-                        section={block} 
-                        index={index} 
-                        onUpdateSection={updateSection}
-                        onRemoveBlock={removeBlock}
-                        onAddQuestion={addQuestion}
-                        onUpdateField={updateField}
-                        onAddOption={addOption}
-                        onUpdateOption={updateOption}
-                        onRemoveOption={removeOption}
-                      />
-                )}
+                <BlockList blocks={blocks} onUpdateField={updateField} onRemoveBlock={removeBlock} onAddOption={addOption} onUpdateOption={updateOption} onRemoveOption={removeOption} onUpdateSection={updateSection} onAddQuestion={addQuestion} />
               </div>
               <datalist id="unit-suggestions">
                 {COMMON_UNITS.map((u) => <option key={u} value={u} />)}
