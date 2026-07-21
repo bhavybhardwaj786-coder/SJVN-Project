@@ -79,7 +79,7 @@ function FillForm() {
   });
   const existing = existingResult?.data;
 
-  const { data: siteData } = useQuery({
+  const { data: siteData, isLoading: isSiteDataLoading } = useQuery({
     queryKey: ["site-access-verification", currentUser?.site_id],
     queryFn: async () => {
       const { data, error } = await sitesService.getSiteAccess(currentUser?.site_id || "");
@@ -88,6 +88,16 @@ function FillForm() {
     },
     enabled: !!currentUser?.site_id,
   });
+
+  const { data: allSitesResult } = useQuery({
+    queryKey: ["my-sites"],
+    queryFn: () => sitesService.getSites(),
+    enabled: !!currentUser?.site_id,
+  });
+
+  const resolvedSiteName =
+    siteData?.name ||
+    allSitesResult?.data?.find((s: any) => s.id === currentUser?.site_id)?.name;
 
   const isMonthUnlocked = siteData?.unlocked_months?.includes(period) || false;
 
@@ -115,6 +125,48 @@ function FillForm() {
       setGroupRows(initialGroups);
     }
   }, [existing, formDef]);
+
+  // --- Generic Auto-Total Calculator ---
+  // Works for EVERY form: finds any table that has a summary row,
+  // sums the numeric field values in that table's rows, and writes
+  // the result into whatever field the summary row points to.
+  useEffect(() => {
+    const layout = formDef?.schema?.layout;
+    if (!layout) return;
+
+    const tableNodes: any[] = [];
+    const walk = (nodes: any[]) => {
+      (nodes || []).forEach((node: any) => {
+        if (node.type === "table" && node.summaryRow) {
+          tableNodes.push(node);
+        }
+        if (node.children) walk(node.children);
+      });
+    };
+    walk(layout);
+
+    tableNodes.forEach((table) => {
+      const rowFieldKeys: string[] = [];
+      (table.rows || []).forEach((row: any[]) => {
+        row.forEach((cell: any) => {
+          if (cell.type === "field") rowFieldKeys.push(cell.fieldKey);
+        });
+      });
+
+      const total = rowFieldKeys.reduce((sum, key) => {
+        const num = parseFloat(values[key]);
+        return sum + (isNaN(num) ? 0 : num);
+      }, 0);
+
+      table.summaryRow.forEach((cell: any) => {
+        if (cell.type === "field" && values[cell.fieldKey] !== total) {
+          setField(cell.fieldKey, total);
+        }
+      });
+    });
+  }, [values, formDef]);
+
+
 
   const setField = (key: string, val: any) =>
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -264,10 +316,6 @@ function FillForm() {
             >
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-sky-100">
-                    <FileText className="h-3.5 w-3.5" />
-                    Monthly Compliance Report
-                  </div>
                   <h2 className="mt-1 font-display text-2xl font-bold text-white">
                     {formDef.title}
                   </h2>
@@ -306,8 +354,27 @@ function FillForm() {
               {(() => {
                 // 1. Shared Field Renderer (handles both standard cards and bare table inputs)
                 console.log(JSON.stringify(formDef.schema, null, 2))
+
+                // Collect every field key that's a summary/total field, across
+                // the whole layout (works for every form automatically)
+                const calculatedFieldKeys = new Set<string>();
+                const collectCalculated = (nodes: any[]) => {
+                  (nodes || []).forEach((node: any) => {
+                    if (node.type === "table" && node.summaryRow) {
+                      node.summaryRow.forEach((cell: any) => {
+                        if (cell.type === "field") calculatedFieldKeys.add(cell.fieldKey);
+                      });
+                    }
+                    if (node.children) collectCalculated(node.children);
+                  });
+                };
+                collectCalculated(formDef.schema?.layout || []);
+
                 const renderFieldUI = (fieldKey: string, inTable: boolean = false) => {
                   const field = fields.find((f: any) => f.key === fieldKey);
+                  const effectiveType = field?.key === "field_1784010887803_13" ? "text" : field?.type;
+                  const isCalculated = calculatedFieldKeys.has(field?.key);
+
                   if (!field) return <span className="text-red-500 text-xs">Missing Field: {fieldKey}</span>;
 
                   const dynamicPlaceholder = `Enter ${field.label.toLowerCase()}`;
@@ -335,7 +402,7 @@ function FillForm() {
                   const InputComponent = (
                     <div className="w-full space-y-2">
                       {["text", "number", "date"].includes(field.type) && (
-                        <Input type={field.type} disabled={isSubmitted || field.readOnly} value={values[field.key] ?? ""} onChange={(e) => setField(field.key, e.target.value)} placeholder={dynamicPlaceholder} className={`h-11 rounded-md border bg-background shadow-sm ${inTable ? 'min-w-[120px]' : ''}`} />
+                        <Input type={effectiveType} disabled={isSubmitted || field.readOnly || isCalculated} value={values[field.key] ?? ""} onChange={(e) => setField(field.key, e.target.value)} placeholder={dynamicPlaceholder} className={`h-11 rounded-md border bg-background shadow-sm ${isCalculated ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''} ${inTable ? 'min-w-[120px]' : ''}`} />
                       )}
                       {field.type === "textarea" && (
                         <Textarea disabled={isSubmitted || field.readOnly} value={values[field.key] ?? ""} onChange={(e) => setField(field.key, e.target.value)} placeholder={dynamicPlaceholder} className={`min-h-[100px] resize-none rounded-md border bg-background shadow-sm ${inTable ? 'min-w-[200px]' : ''}`} />
@@ -409,7 +476,7 @@ function FillForm() {
                     return (
                       <div key={idx} className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs">
                         {node.display.includes("reporting_month") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Reporting Month</span><span className="font-semibold text-slate-900">{new Date(reportingMonth).toLocaleString('default', { month: 'long', year: 'numeric' })}</span></div>}
-                        {node.display.includes("site_name") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Site Location</span><span className="font-semibold text-slate-900">{siteData?.name || "Unknown Site"}</span></div>}
+                        {node.display.includes("site_name") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Site Location</span><span className="font-semibold text-slate-900">{isSiteDataLoading ? "Loading…" : (resolvedSiteName || "Unknown Site")}</span></div>}
                         {node.display.includes("user_name") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Filled By</span><span className="font-semibold text-slate-900">{currentUser?.full_name || "Unknown"}</span></div>}
                         {node.display.includes("date_filled") && <div><span className="block font-bold text-slate-500 uppercase tracking-wider mb-1">Date Logged</span><span className="font-semibold text-slate-900">{new Date().toLocaleDateString()}</span></div>}
                       </div>
