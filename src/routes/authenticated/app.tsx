@@ -652,7 +652,7 @@ const bulkToggleLockMutation = useMutation({
         const ExcelJS = ExcelJSModule.default || ExcelJSModule;
         const workbook = new ExcelJS.Workbook();
         
-        const FISCAL_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const FISCAL_MONTHS = ["April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
         const NAVY = "FF002060";
         const GREY_HEADER = "FFA5A5A5";
         const TAN_ROW = "FFEEECE1";
@@ -759,6 +759,7 @@ const bulkToggleLockMutation = useMutation({
         const targetMonthIndex = parseInt(selectedMonth.split("-")[1], 10) - 1; 
         const fyStartYear = targetMonthIndex >= 3 ? parseInt(selectedMonth.split("-")[0], 10) : parseInt(selectedMonth.split("-")[0], 10) - 1;
         const fyLabel = `FY ${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, "0")}`;
+        const targetFiscalIndex = targetMonthIndex >= 3 ? targetMonthIndex - 3 : targetMonthIndex + 9;
 
         // 3. Generate a sheet for each form
         for (const [formTitle, subs] of Object.entries(submissionsByForm)) {
@@ -775,11 +776,24 @@ const bulkToggleLockMutation = useMutation({
             const totalColLetter = String.fromCharCode(64 + TOTAL_COL);
             const lastCol = formConfig.hasTotalCol ? totalColLetter : monthColLetter(11);
 
-            sheet.columns = [
-              { width: 5 }, { width: 42 }, { width: 8 }, { width: 8 },
-              ...FISCAL_MONTHS.map(() => ({ width: 9 })),
-              ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
-            ];
+            if (MONTH_COL_START === 5) {
+              sheet.columns = [
+                { width: 5 },   // A margin
+                { width: 42 },  // B row label
+                { width: 8 },   // C unit (left half)
+                { width: 8 },   // D unit (right half)
+                ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+                ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
+              ];
+            } else {
+              sheet.columns = [
+                { width: 5 },   // A margin
+                { width: 42 },  // B row label
+                { width: 12 },  // C unit
+                ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+                ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
+              ];
+            }
 
             sheet.getRow(2).height = 24;
             sheet.mergeCells(`B2:${lastCol}2`);
@@ -790,12 +804,21 @@ const bulkToggleLockMutation = useMutation({
             titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
             const addMetaRow = (rowNum: number, label: string, value: string) => {
-              sheet.mergeCells(`B${rowNum}:D${rowNum}`);
-              const lbl = sheet.getCell(`B${rowNum}`);
-              lbl.value = label; lbl.font = { name: "Inter", bold: true }; lbl.alignment = { horizontal: "right" };
-              sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
-              const val = sheet.getCell(`E${rowNum}`);
-              val.value = value; val.alignment = { horizontal: "left" };
+              if (MONTH_COL_START === 5) {
+                sheet.mergeCells(`B${rowNum}:D${rowNum}`);
+                sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
+                const lbl = sheet.getCell(`B${rowNum}`);
+                lbl.value = label; lbl.font = { name: "Inter", bold: true }; lbl.alignment = { horizontal: "right" };
+                const val = sheet.getCell(`E${rowNum}`);
+                val.value = value; val.alignment = { horizontal: "left" };
+              } else {
+                sheet.mergeCells(`B${rowNum}:C${rowNum}`);
+                sheet.mergeCells(`D${rowNum}:${lastCol}${rowNum}`);
+                const lbl = sheet.getCell(`B${rowNum}`);
+                lbl.value = label; lbl.font = { name: "Inter", bold: true }; lbl.alignment = { horizontal: "right" };
+                const val = sheet.getCell(`D${rowNum}`);
+                val.value = value; val.alignment = { horizontal: "left" };
+              }
             };
 
             addMetaRow(4, "Financial Year:", fyLabel);
@@ -817,13 +840,22 @@ const bulkToggleLockMutation = useMutation({
 
               const headerRowNum = cursor;
               sheet.getCell(`B${headerRowNum}`).value = section.columnHeader;
-              sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
-              sheet.getCell(`C${headerRowNum}`).value = "Unit";
-              
+              if (MONTH_COL_START === 5) {
+                sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
+                sheet.getCell(`C${headerRowNum}`).value = "Unit";
+              } else {
+                sheet.getCell(`C${headerRowNum}`).value = "Unit";
+              }
+
               FISCAL_MONTHS.forEach((m, i) => { sheet.getCell(`${monthColLetter(i)}${headerRowNum}`).value = m; });
               if (formConfig.hasTotalCol) sheet.getCell(`${totalColLetter}${headerRowNum}`).value = "Total";
 
-              const headerCols = ["B", "C", ...FISCAL_MONTHS.map((_, i) => monthColLetter(i)), ...(formConfig.hasTotalCol ? [totalColLetter] : [])];
+              const headerCols = [
+                "B", "C",
+                ...(MONTH_COL_START === 5 ? ["D"] : []),
+                ...FISCAL_MONTHS.map((_, i) => monthColLetter(i)),
+                ...(formConfig.hasTotalCol ? [totalColLetter] : []),
+              ];
               headerCols.forEach((col) => {
                 const cell = sheet.getCell(`${col}${headerRowNum}`);
                 cell.font = { name: "Inter", bold: true, color: { argb: WHITE } };
@@ -849,8 +881,12 @@ const bulkToggleLockMutation = useMutation({
                 }
 
                 sheet.getCell(`B${r}`).value = rowDef.label;
-                sheet.mergeCells(`C${r}:D${r}`);
-                sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+                if (MONTH_COL_START === 5) {
+                  sheet.mergeCells(`C${r}:D${r}`);
+                  sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+                } else {
+                  sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+                }
 
                 if (rowDef.kind === "total" && rowDef.totalOf) {
                   const [fromIdx, toIdx] = rowDef.totalOf;
@@ -870,11 +906,14 @@ const bulkToggleLockMutation = useMutation({
                     const cell = sheet.getCell(`${monthColLetter(i)}${r}`);
                     let rawVal = undefined;
 
-                    // Match submission to THIS specific column's month index (0 = Jan, 4 = May, etc.)
+                    // Fiscal index i -> actual calendar month/year, so we match the
+                    // right YEAR too, not just month number (April = index 0).
+                    const targetCalMonth = ((i + 3) % 12) + 1; // 1=Jan ... 12=Dec
+                    const targetYear = i <= 8 ? fyStartYear : fyStartYear + 1;
                     const subForMonth = subs.find((s: any) => {
                       if (!s.reporting_month) return false;
-                      const monthNum = parseInt(s.reporting_month.split("-")[1], 10) - 1;
-                      return monthNum === i;
+                      const [subYear, subMonth] = s.reporting_month.split("-").map((v: string) => parseInt(v, 10));
+                      return subMonth === targetCalMonth && subYear === targetYear;
                     });
 
                     if (subForMonth) {
@@ -892,8 +931,10 @@ const bulkToggleLockMutation = useMutation({
                     }
 
                     const numericVal = toNumericIfPossible(rawVal);
-                    if (numericVal !== undefined && numericVal !== "") cell.value = numericVal;
-                    
+                    if (i <= targetFiscalIndex) {
+                      cell.value = (numericVal !== undefined && numericVal !== "") ? numericVal : 0;
+                    }
+
                     cell.numFmt = "0.00";
                     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
                     cell.border = allBorders; cell.alignment = { horizontal: "center", vertical: "middle" };
