@@ -10,7 +10,7 @@ import {
   FileText, Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned, Calendar,
   CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen,
-  Building2
+  Building2 // <-- ADDED THIS IMPORT
 } from "lucide-react";
 
 import wasteIcon from "@/assets/icon/waste.png";
@@ -142,7 +142,7 @@ function SiteDashboard() {
                   <span className="mx-1.5 text-indigo-300">–</span>
                   <span className="font-bold text-white">{currentUser?.full_name || currentUser?.email || "—"}</span>
                 </p>
-                <p className="mt-2 truncate text-xs text-indigo-100">Complete and submit monthly environmental compliance reports.</p>
+                <p className="mt-2 truncate text-xs text-indigo-100">Complete and submit monthly BRSR reports.</p>
               </div>
             </div>
           </section>
