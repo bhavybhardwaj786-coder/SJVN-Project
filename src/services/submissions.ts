@@ -74,6 +74,11 @@ setEditUnlocked: async (
     return apiClient.get(`/submissions/admin?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>
   },
 
+  getSiteSubmissions: async (siteId: string) => {
+    const params = new URLSearchParams({ siteId, status: 'submitted' });
+    return apiClient.get(`/submissions/admin/history?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>;
+  },
+
   // Create or update in one call — relies on the unique constraint (form_id, site_id, reporting_month, user_id)
   saveOrSubmit: async (params: {
     formId: string
