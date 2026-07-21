@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -52,18 +52,48 @@ export const Route = createFileRoute("/authenticated/$submissionId")({
   component: SubmissionDetail,
 });
 
+export interface FormOption {
+  label: string;
+  value: string;
+}
+
+export interface FormFieldSchema {
+  key: string;
+  label: string;
+  type: string;
+  unit?: string;
+  required?: boolean;
+  options?: FormOption[];
+}
+
+export interface RepeatableGroupSchema {
+  key: string;
+  label: string;
+  minRows?: number;
+  rowFields: FormFieldSchema[];
+}
+
+export interface FormSchema {
+  icon?: string;
+  fields?: FormFieldSchema[];
+  layout?: any[];
+  repeatable_groups?: RepeatableGroupSchema[];
+}
+
+// Extend existing SubmissionDetailRow
 type SubmissionDetailRow = {
   id: string;
   status: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   submitted_at: string | null;
   updated_at: string;
   reporting_month: string;
   user_id: string;
   form_id: string;
   site_id: string;
-  submitted_by_role: 'site' | 'contractor'; // 👈 Added type definition
-  forms: { id: string; title: string; description: string | null; schema: any } | null;
+  submitted_by_role: 'site' | 'contractor';
+  submitted_by_name?: string | null;
+  forms: { id: string; title: string; description: string | null; schema: FormSchema } | null;
   sites: { id: string; name: string; code: string } | null;
 };
 
@@ -109,7 +139,13 @@ function SubmissionDetail() {
   const submittedByName = (data as any)?.submitted_by_name ?? null;
 
   const fields = data?.forms?.schema?.fields || [];
+  const repeatableGroups: any[] = data?.forms?.schema?.repeatable_groups || [];
   const values = data?.data || {};
+
+  const getGroupRows = useCallback((groupKey: string): Record<string, unknown>[] => {
+  const raw = values[groupKey];
+  return Array.isArray(raw) ? raw : [];
+}, [values]);
 
   // --- REFINED PDF GENERATOR (RIGHT-ALIGNED METADATA & CENTERED TABLE) ---
   const handleDownloadPdf = async () => {
@@ -206,30 +242,77 @@ autoTable(pdf, {
         ];
       });
 
-      // 4. Center table headers, data columns, and entire table wrapper
-      autoTable(pdf, {
-        startY: (pdf as any).lastAutoTable.finalY + 24,
-        head: [['Field Parameter', 'Reported Value']],
-        body: tableBody,
-        theme: 'grid',
-        headStyles: {
-          fillColor: [0, 78, 138],
-          textColor: 255,
-          fontStyle: 'bold',
-          halign: 'center' // Centers Header Texts
-        },
-        styles: {
-          font: 'helvetica',
-          fontSize: 10,
-          cellPadding: 8,
-          lineColor: [200, 200, 200],
-          lineWidth: 0.5,
-        },
-        columnStyles: {
-          0: { cellWidth: 250, halign: 'center' }, // Centers parameter text
-          1: { cellWidth: 250, halign: 'center' }  // Centers number values
-        },
-        margin: { left: (pageWidth - 500) / 2 } // Centers the entire table body horizontally on the page
+      if (fields.length > 0) {
+        autoTable(pdf, {
+          startY: (pdf as any).lastAutoTable ? (pdf as any).lastAutoTable.finalY + 24 : dividerY + 180,
+          head: [['Field Parameter', 'Reported Value']],
+          body: tableBody,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [0, 78, 138],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center'
+          },
+          styles: {
+            font: 'helvetica',
+            fontSize: 10,
+            cellPadding: 8,
+            lineColor: [200, 200, 200],
+            lineWidth: 0.5,
+          },
+          columnStyles: {
+            0: { cellWidth: 250, halign: 'center' },
+            1: { cellWidth: 250, halign: 'center' }
+          },
+          margin: { left: (pageWidth - 500) / 2 }
+        });
+      }
+
+      repeatableGroups.forEach((group: any) => {
+        const groupRows = getGroupRows(group.key);
+        if (groupRows.length === 0) return;
+
+        const headers = ["#", ...group.rowFields.map((rf: any) => rf.label + (rf.unit ? ` (${rf.unit})` : ""))];
+        const rows = groupRows.map((rowVal: any, rIdx: number) => [
+          rIdx + 1,
+          ...group.rowFields.map((rf: any) => formatFieldValue(rf, rowVal[rf.key]))
+        ]);
+
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let startY = (pdf as any).lastAutoTable ? (pdf as any).lastAutoTable.finalY + 28 : dividerY + 180;
+
+        if (startY + 50 > pageHeight) {
+          pdf.addPage();
+          startY = 40;
+        }
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(0, 78, 138);
+        pdf.text(group.label || "Repeatable Group Data", (pageWidth - 500) / 2, startY);
+
+        autoTable(pdf, {
+          startY: startY + 8,
+          head: [headers],
+          body: rows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [0, 78, 138],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center'
+          },
+          styles: {
+            font: 'helvetica',
+            fontSize: 9,
+            cellPadding: 6,
+            lineColor: [200, 200, 200],
+            lineWidth: 0.5,
+            halign: 'center',
+          },
+          margin: { left: (pageWidth - 500) / 2 }
+        });
       });
 
       pdf.save(fileName);
@@ -302,6 +385,38 @@ autoTable(pdf, {
             top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
           };
           cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+      });
+
+      repeatableGroups.forEach((group: any) => {
+        const groupRows = getGroupRows(group.key);
+        if (groupRows.length === 0) return;
+
+        sheet.addRow([]);
+        const groupHeader = sheet.addRow(["", (group.label || "Repeatable Entries").toUpperCase()]);
+        groupHeader.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF004E8A" } };
+
+        const rowHeaders = ["S. No.", ...group.rowFields.map((rf: any) => rf.label + (rf.unit ? ` (${rf.unit})` : ""))];
+        const tblHeaderRow = sheet.addRow(["", ...rowHeaders]);
+        tblHeaderRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } };
+
+        rowHeaders.forEach((_, idx) => {
+          const cell = tblHeaderRow.getCell(idx + 2);
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004E8A' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        groupRows.forEach((rowVal: any, rIdx: number) => {
+          const rowData = [rIdx + 1, ...group.rowFields.map((rf: any) => formatFieldValue(rf, rowVal[rf.key]))];
+          const dataRow = sheet.addRow(["", ...rowData]);
+
+          rowHeaders.forEach((_, idx) => {
+            const cell = dataRow.getCell(idx + 2);
+            cell.border = {
+              top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+            };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
         });
       });
 
@@ -584,11 +699,61 @@ autoTable(pdf, {
 
                 {fields.length === 0 && (
                   <div className="p-8 text-center text-sm text-muted-foreground">
-                    This form has no fields defined yet.
+                    This form has no flat fields defined.
                   </div>
                 )}
               </motion.div>
             </div>
+
+            {repeatableGroups.length > 0 && (
+              <div className="mt-8 space-y-6">
+                {repeatableGroups.map((group: any) => {
+                  const groupRows = getGroupRows(group.key);
+
+                  return (
+                    <div key={group.key} className="overflow-hidden rounded-xl border bg-background shadow-card">
+                      <div className="border-b bg-muted/20 px-5 py-3">
+                        <h3 className="font-bold text-slate-800 text-sm">{group.label || "Repeatable Entries"}</h3>
+                      </div>
+
+                      {groupRows.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-muted/10 text-xs uppercase tracking-wider select-none text-slate-700 border-b">
+                              <tr>
+                                <th className="px-4 py-3 font-bold">#</th>
+                                {group.rowFields.map((rf: any) => (
+                                  <th key={rf.key} className="px-4 py-3 font-bold">
+                                    {rf.label}
+                                    {rf.unit ? ` (${rf.unit})` : ""}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {groupRows.map((rowVal: any, rIdx: number) => (
+                                <tr key={rIdx} className={rIdx % 2 === 0 ? "bg-transparent" : "bg-muted/10"}>
+                                  <td className="px-4 py-3 font-medium text-slate-600 align-top">{rIdx + 1}</td>
+                                  {group.rowFields.map((rf: any) => (
+                                    <td key={rf.key} className="px-4 py-3 font-semibold text-slate-900 font-mono-figures align-top">
+                                      {formatFieldValue(rf, rowVal[rf.key])}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center text-xs text-muted-foreground italic">
+                          No entries submitted for this group.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </motion.div>
       </motion.div>
