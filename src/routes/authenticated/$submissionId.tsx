@@ -371,7 +371,8 @@ autoTable(pdf, {
       };
 
       type SectionRowDef = {
-        matchLabel: string;
+        fieldKey?: string; // Use the direct schema key to fetch the data
+        label?: string; // Only used for displaying the text in the row
         unit?: string;
         kind?: "data" | "header" | "total"; // default "data"
         totalOf?: [number, number]; // row-def indices (within this section's rows[]) to SUM per month
@@ -392,50 +393,82 @@ autoTable(pdf, {
               title: "A. Fuel consumption by fuel type",
               columnHeader: "Sources of Energy",
               rows: [
-                { matchLabel: "Diesel - DG onsite", unit: "KL" },
-                { matchLabel: "Diesel (Vehicles)", unit: "KL" },
-                { matchLabel: "Light Diesel Oil (LDO)", unit: "KL" },
-                { matchLabel: "Petrol", unit: "KL" },
-                { matchLabel: "LPG", unit: "KL" },
-                { matchLabel: "CNG/PNG", unit: "KL" },
-                { matchLabel: "Other fuel (Specify)", unit: "KL" },
+                { fieldKey: "field_1784010543765_2", label: "Diesel - DG onsite", unit: "KL" },
+                { fieldKey: "field_1784010715087_3", label: "Diesel (Vehicles)", unit: "KL" },
+                { fieldKey: "field_1784010812990_5", label: "Light Diesel Oil (LDO)", unit: "KL" },
+                { fieldKey: "field_1784010833341_7", label: "Petrol", unit: "KL" },
+                { fieldKey: "field_1784010840024_9", label: "LPG", unit: "KL" },
+                { fieldKey: "field_1784010876696_11", label: "CNG/PNG", unit: "KL" },
+                { fieldKey: "field_1784010887803_13", label: "Other fuel (Specify)", unit: "KL" },
               ],
             },
             {
               title: "B. Electricity purchased (Renewable and Non renewable Sources)",
               columnHeader: "Sources of Energy",
               rows: [
-                { matchLabel: "Electricity Purchased from Grid (Non renewable)", unit: "kwh" },
-                { matchLabel: "Renewable Electricity Purchased from Grid", unit: "kwh" },
-                { matchLabel: "Solar/ Wind/ Hydropower", unit: "kwh" },
+                { fieldKey: "field_1784010907586_15", label: "Electricity Purchased from Grid (Non renewable)", unit: "kwh" },
+                { fieldKey: "field_1784010929847_17", label: "Renewable Electricity Purchased from Grid", unit: "kwh" },
+                { fieldKey: "field_1784010944207_19", label: "Solar/ Wind/ Hydropower", unit: "kwh" },
               ],
             },
           ],
         },
         "other air emissions": {
-          monthStartCol: 4, // column D — this sheet's months start one column earlier
-          hasTotalCol: true, // column P (monthStartCol + 12)
+          monthStartCol: 4, 
+          hasTotalCol: true,
           sections: [
             {
               title: "305-7 NOx, SOx, and other significant air emissions by type & weight",
               columnHeader: "Emission substances",
               rows: [
-                { matchLabel: "Ambient Air Emissions", kind: "header" },
-                { matchLabel: "PM10" },
-                { matchLabel: "NOx" },
-                { matchLabel: "SOx" },
-                { matchLabel: "CO" },
-                { matchLabel: "Total Emissions", kind: "total", totalOf: [1, 4] },
-                { matchLabel: "Stack Emission (average for multiple stacks)", kind: "header" },
-                { matchLabel: "PM10" },
-                { matchLabel: "NOx" },
-                { matchLabel: "SOx" },
-                { matchLabel: "CO" },
-                { matchLabel: "Total Emissions", kind: "total", totalOf: [8, 11] },
+                { label: "Ambient Air Emissions", kind: "header" },
+                { fieldKey: "ambient_pm10", label: "PM10", unit: "kg" },
+                { fieldKey: "ambient_nox", label: "NOx", unit: "kg" },
+                { fieldKey: "ambient_sox", label: "SOx", unit: "kg" },
+                { fieldKey: "ambient_co", label: "CO", unit: "kg" },
+                { fieldKey: "ambient_total", label: "Total Emissions", kind: "total", totalOf: [1, 4] },
+                { label: "Stack Emission (average for multiple stacks)", kind: "header" },
+                { fieldKey: "field_1784011888284_63", label: "PM10", unit: "kg" },
+                { fieldKey: "field_1784011897052_65", label: "NOx", unit: "kg" },
+                { fieldKey: "field_1784011907020_67", label: "SOx", unit: "kg" },
+                { fieldKey: "field_1784011916956_69", label: "CO", unit: "kg" },
+                { fieldKey: "field_1784011927794_71", label: "Total Emissions", kind: "total", totalOf: [8, 11] },
               ],
             },
           ],
         },
+        "water withdrawal": {
+          monthStartCol: 5,
+          hasTotalCol: true,
+          sections: [
+            {
+              title: "303-1 Total water withdrawal by source",
+              columnHeader: "Water withdrawal by source",
+              rows: [
+                { fieldKey: "wd_surface_value", label: "Surface water", unit: "KL" },
+                { fieldKey: "wd_ground_value", label: "Groundwater", unit: "KL" },
+                { fieldKey: "wd_third_value", label: "Third party water", unit: "KL" },
+                { fieldKey: "wd_other_value", label: "Other sources - specify", unit: "KL" },
+                { fieldKey: "wd_total_withdrawal", label: "Total Water Withdrawal", kind: "total", totalOf: [0, 3] },
+              ],
+            },
+            {
+              title: "Water recycled",
+              columnHeader: "Parameters",
+              rows: [
+                { fieldKey: "wd_recycled_total", label: "Total Water Recycled", unit: "KL" },
+              ],
+            },
+            {
+              title: "Water Discharged",
+              columnHeader: "Water discharge by destination and level of treatment to Surface Water",
+              rows: [
+                { fieldKey: "wd_disch_notreat_value", label: "No treatment", unit: "KL" },
+                { fieldKey: "wd_disch_treat_value", label: "With treatment – please specify level of treatment", unit: "KL" },
+              ],
+            },
+          ],
+        }
       };
 
       const formKey = (data?.forms?.title || "").trim().toLowerCase();
@@ -548,7 +581,7 @@ autoTable(pdf, {
               return;
             }
 
-            sheet.getCell(`B${r}`).value = rowDef.matchLabel;
+            sheet.getCell(`B${r}`).value = rowDef.label;
             sheet.mergeCells(`C${r}:D${r}`);
             sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
 
@@ -566,8 +599,8 @@ autoTable(pdf, {
                 cell.alignment = { horizontal: "center", vertical: "middle" };
               });
             } else {
-              const field = matchField(rowDef.matchLabel);
-              const rawVal = field ? values[field.key] : undefined;
+              // Fetch the value directly using the fieldKey
+              const rawVal = rowDef.fieldKey ? values[rowDef.fieldKey] : undefined;
               const numericVal = toNumericIfPossible(rawVal);
 
               FISCAL_MONTHS.forEach((_, i) => {
@@ -601,6 +634,146 @@ autoTable(pdf, {
             cursor++;
           });
         });
+      }
+      else if (data?.forms?.schema?.layout && Array.isArray(data.forms.schema.layout)) {
+        // ---- Generic schema-driven engine: reads schema.layout + schema.fields
+        // directly, so a brand-new form needs ZERO export code added here ----
+        const layout: any[] = data.forms.schema.layout;
+        const fieldByKey = new Map<string, any>(fields.map((f: any) => [f.key, f]));
+
+        const MONTH_COL_START = 5; // column E
+        const monthColLetter = (i: number) => String.fromCharCode(64 + MONTH_COL_START + i);
+
+        sheet.columns = [
+          { width: 5 },
+          { width: 42 },
+          { width: 8 },
+          { width: 8 },
+          ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+          { width: 12 },
+        ];
+
+        sheet.getRow(2).height = 24;
+        sheet.mergeCells("B2:Q2");
+        const titleCell = sheet.getCell("B2");
+        titleCell.value = (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase();
+        titleCell.font = { name: "Inter", size: 14, bold: true, color: { argb: WHITE } };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle" };
+
+        const addMetaRow = (rowNum: number, label: string, value: string) => {
+          sheet.mergeCells(`B${rowNum}:D${rowNum}`);
+          const lbl = sheet.getCell(`B${rowNum}`);
+          lbl.value = label;
+          lbl.font = { name: "Inter", bold: true };
+          lbl.alignment = { horizontal: "right" };
+          sheet.mergeCells(`E${rowNum}:Q${rowNum}`);
+          const val = sheet.getCell(`E${rowNum}`);
+          val.value = value;
+          val.alignment = { horizontal: "left" };
+        };
+        addMetaRow(4, "Financial Year:", fyLabel);
+        addMetaRow(5, "Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
+        addMetaRow(6, "Reporting Month:", istMonthName);
+        addMetaRow(7, "Data sheets filled by:", submittedByName ?? "—");
+
+        let cursor = 9;
+        const standaloneRows: { label: string; value: string }[] = [];
+
+        layout.forEach((node: any) => {
+          if (node?.type === "section") {
+            const keys: string[] = (node.children || []).flatMap((c: any) =>
+              c?.type === "field_group" ? c.children || [] : []
+            );
+            const sectionFields = keys.map((k) => fieldByKey.get(k)).filter(Boolean);
+            if (sectionFields.length === 0) return;
+
+            cursor += 2; // gap before the section
+            sheet.mergeCells(`B${cursor}:Q${cursor}`);
+            const bar = sheet.getCell(`B${cursor}`);
+            bar.value = node.title || "Section";
+            bar.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+            bar.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+            bar.alignment = { vertical: "middle" };
+            cursor++;
+
+            const headerRowNum = cursor;
+            sheet.getCell(`B${headerRowNum}`).value = "Sources / Parameters";
+            sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
+            sheet.getCell(`C${headerRowNum}`).value = "Unit";
+            FISCAL_MONTHS.forEach((m, i) => {
+              sheet.getCell(`${monthColLetter(i)}${headerRowNum}`).value = m;
+            });
+            sheet.getCell(`Q${headerRowNum}`).value = "Total";
+            ["B", "C", ...FISCAL_MONTHS.map((_, i) => monthColLetter(i)), "Q"].forEach((col) => {
+              const cell = sheet.getCell(`${col}${headerRowNum}`);
+              cell.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GREY_HEADER } };
+              cell.border = allBorders;
+              cell.alignment = { horizontal: "center", vertical: "middle" };
+            });
+            cursor++;
+
+            sectionFields.forEach((field: any, rIdx: number) => {
+              const r = cursor;
+              sheet.getCell(`B${r}`).value = field.label;
+              sheet.mergeCells(`C${r}:D${r}`);
+              sheet.getCell(`C${r}`).value = field.unit ?? "";
+
+              const rawVal = values[field.key];
+              const numericVal = toNumericIfPossible(rawVal);
+              const rowFill = rIdx % 2 === 0 ? WHITE : TAN_ROW;
+
+              FISCAL_MONTHS.forEach((_, i) => {
+                const cell = sheet.getCell(`${monthColLetter(i)}${r}`);
+                if (i === fiscalColIndex && numericVal !== undefined && numericVal !== "") {
+                  cell.value = numericVal;
+                }
+                if (typeof numericVal === "number") cell.numFmt = "0.00";
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+                cell.border = allBorders;
+                cell.alignment = { horizontal: "center", vertical: "middle" };
+              });
+
+              const totalCell = sheet.getCell(`Q${r}`);
+              totalCell.value = { formula: `SUM(E${r}:P${r})` };
+              totalCell.numFmt = "0.00";
+              totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+              totalCell.border = allBorders;
+              totalCell.alignment = { horizontal: "center", vertical: "middle" };
+
+              ["B", "C"].forEach((col) => {
+                const cell = sheet.getCell(`${col}${r}`);
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+                cell.border = allBorders;
+                cell.alignment = { vertical: "middle", wrapText: true };
+              });
+
+              cursor++;
+            });
+          } else if (node?.type === "field_group") {
+            const key = (node.children || [])[0];
+            const field = key ? fieldByKey.get(key) : null;
+            if (field) {
+              standaloneRows.push({ label: field.label, value: `${formatFieldValue(field, values[field.key])}` });
+            }
+          }
+          // repeatable_table nodes render via the existing repeatableGroups
+          // loop further down in this function — nothing to do here.
+        });
+
+        if (standaloneRows.length > 0) {
+          cursor += 1;
+          standaloneRows.forEach((row) => {
+            const r = cursor;
+            sheet.mergeCells(`B${r}:D${r}`);
+            sheet.getCell(`B${r}`).value = row.label;
+            sheet.getCell(`B${r}`).font = { name: "Inter", bold: true };
+            sheet.mergeCells(`E${r}:Q${r}`);
+            sheet.getCell(`E${r}`).value = row.value;
+            cursor++;
+          });
+        }
       }
       else{
           const titleRow = sheet.addRow(["", (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase()]);
