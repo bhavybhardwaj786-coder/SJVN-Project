@@ -29,8 +29,10 @@ export const Route = createFileRoute("/authenticated/new")({
 });
 
 const ICON_OPTIONS = [
-  "Droplet", "Wind", "Trash2", "AlertTriangle", "Wallet", "Trees",
-  "Fuel", "Volume2", "Waves", "CloudRain", "Leaf", "MapPinned",
+  "Activity", "AlertTriangle", "Beaker", "CloudRain", "Droplet", 
+  "Factory", "Flame", "Fuel", "Gauge", "Leaf", "MapPinned", 
+  "Microscope", "Radiation", "Recycle", "Sun", "Thermometer", 
+  "Trash2", "Trees", "Truck", "Volume2", "Wallet", "Waves", "Wind", "Zap"
 ];
 
 const FIELD_TYPES = [
@@ -48,7 +50,7 @@ const COMMON_UNITS = [
 ];
 
 type FieldOption = { label: string; value: string };
-type CustomMetaAttribute = { key: string; label: string; type: "text" | "select"; options?: string };
+type CustomMetaAttribute = { key: string; label: string; type: "text" | "select" | "number" | "date"; options?: string };
 
 type FormField = {
   key: string;
@@ -193,31 +195,18 @@ export function compileFields(blocks: FormBlock[]): any[] {
 }
 
 export function compileLayout(blocks: FormBlock[]): any[] | undefined {
-  // "Any non-question block forces layout to exist" — sections and
-  // repeatable groups both need a layout node to render correctly on
-  // the fill-form pages, so anything that isn't a plain question
-  // trips this gate. Written as a negative check so a future block
-  // type (e.g. a currently-hypothetical fourth blockType) is covered
-  // automatically without this line needing to change.
   const hasSections = blocks.some(b => b.blockType !== "question");
   if (!hasSections) return undefined;
 
-  return blocks.map(b => {
-    if (b.blockType === "section") {
-      // NOTE: sections still bundle ALL their children's keys into a
-      // single field_group, rather than calling compileLayoutNode once
-      // per child. That's intentional, not an oversight — it's what
-      // preserves today's multi-column grid layout for sections with
-      // several questions (the fill-form renderer puts every key in one
-      // field_group into the same responsive grid; splitting them into
-      // one field_group each would visibly break that layout for every
-      // existing multi-question section). This only works because every
-      // section child is a QuestionBlock today. Once a section can hold
-      // a RepeatableGroupBlock too, this branch has to switch to
-      // `b.children.map(compileLayoutNode)` — you can't bundle a
-      // repeatable table's key into a field_group's children list. That
-      // switch belongs to the next task, not this one.
-      return {
+  const layout: any[] = [];
+  const rootQuestions: string[] = [];
+
+  // Group root questions together, push everything else to layout normally
+  blocks.forEach(b => {
+    if (b.blockType === "question") {
+      rootQuestions.push(b.field.key);
+    } else if (b.blockType === "section") {
+      layout.push({
         type: "section",
         title: b.title.trim(),
         description: b.description.trim(),
@@ -225,10 +214,30 @@ export function compileLayout(blocks: FormBlock[]): any[] | undefined {
           type: "field_group",
           children: b.children.map(c => c.field.key)
         }] : []
-      };
+      });
+    } else if (b.blockType === "repeatable_group") {
+      layout.push({
+        type: "repeatable_table",
+        groupKey: b.groupKey,
+        title: b.label,
+      });
     }
-    return compileLayoutNode(b);
   });
+
+  // Bundle all standalone root questions into a single wizard step
+  if (rootQuestions.length > 0) {
+    layout.unshift({
+      type: "section",
+      title: "General Questions",
+      description: "",
+      children: [{
+        type: "field_group",
+        children: rootQuestions
+      }]
+    });
+  }
+
+  return layout;
 }
 
 /**
@@ -497,12 +506,32 @@ function QuestionRow({
             {field.type === "number" && (
               <div className="space-y-1">
                 <Label className="text-xs text-neutral-500">Unit</Label>
-                <Input
-                  list="unit-suggestions"
-                  value={field.unit ?? ""}
-                  onChange={(e) => onUpdateField(blockIndex, childIndex, { unit: e.target.value })}
-                  placeholder="e.g. KL, mg/L"
-                />
+                <Select 
+                  value={COMMON_UNITS.includes(field.unit || "") ? field.unit : (field.unit ? "custom" : "none")} 
+                  onValueChange={(v) => {
+                    if (v === "custom") onUpdateField(blockIndex, childIndex, { unit: " " });
+                    else if (v === "none") onUpdateField(blockIndex, childIndex, { unit: "" });
+                    else onUpdateField(blockIndex, childIndex, { unit: v });
+                  }}
+                >
+                  <SelectTrigger className="h-10 bg-white">
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Unit</SelectItem>
+                    {COMMON_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                    <SelectItem value="custom">Add Manually...</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(!COMMON_UNITS.includes(field.unit || "") && field.unit !== undefined && field.unit !== "") && (
+                  <Input
+                    placeholder="Type custom unit..."
+                    value={field.unit.trim()}
+                    onChange={(e) => onUpdateField(blockIndex, childIndex, { unit: e.target.value || " " })}
+                    className="mt-2 h-10 bg-white"
+                    autoFocus
+                  />
+                )}
               </div>
             )}
           </div>
@@ -541,65 +570,86 @@ function QuestionRow({
             <Label htmlFor={`required-${field.key}`} className="cursor-pointer text-xs">Required</Label>
           </div>
 
-          <div className="space-y-2 pt-1">
+          <div className="space-y-3 pt-2 border-t border-neutral-100">
             <button
               type="button"
-              className="text-xs font-medium text-teal-700 underline-offset-2 transition-colors hover:text-teal-800 hover:underline"
+              className="text-xs font-bold text-teal-600 underline-offset-2 transition-colors hover:text-teal-800 hover:underline flex items-center gap-1"
               onClick={() => {
                 const newMeta = { key: `meta_${Date.now()}`, label: "", type: "text" as const, options: "" };
                 onUpdateField(blockIndex, childIndex, { metaAttributes: [...(field.metaAttributes || []), newMeta] });
               }}
             >
-              + Add sub-column (e.g. Classification, Disposal Method)
+              <Plus className="h-3 w-3" /> Add Name (e.g., Classification, Disposal Method)
             </button>
 
             {field.metaAttributes?.map((meta, mIdx) => (
-              <div key={meta.key} className="ml-1 flex max-w-2xl flex-wrap items-center gap-2 rounded-md border border-dashed border-neutral-300 bg-neutral-50 p-2 sm:flex-nowrap">
-                <Input
-                  placeholder="Sub-column title"
-                  value={meta.label}
-                  onChange={(e) => {
-                    const newMetas = [...field.metaAttributes!];
-                    newMetas[mIdx].label = e.target.value;
-                    onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
-                  }}
-                  className="h-8 min-w-[120px] flex-1 bg-white text-xs"
-                />
-                <select
-                  value={meta.type}
-                  onChange={(e) => {
-                    const newMetas = [...field.metaAttributes!];
-                    newMetas[mIdx].type = e.target.value as any;
-                    onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
-                  }}
-                  className="h-8 rounded-md border border-neutral-300 bg-white px-2 text-xs"
-                >
-                  <option value="text">Text Field</option>
-                  <option value="select">Dropdown Choice</option>
-                </select>
-                {meta.type === "select" && (
+              <div key={meta.key} className="ml-1 flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-50/50 p-3 sm:flex-row sm:items-start shadow-sm">
+                
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Name</Label>
                   <Input
-                    placeholder="Options (comma-separated)"
-                    value={meta.options || ""}
+                    placeholder="e.g. Classification"
+                    value={meta.label}
                     onChange={(e) => {
                       const newMetas = [...field.metaAttributes!];
-                      newMetas[mIdx].options = e.target.value;
+                      newMetas[mIdx].label = e.target.value;
                       onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
                     }}
-                    className="h-8 min-w-[200px] flex-1 bg-white text-xs"
+                    className="h-9 bg-white text-xs"
                   />
+                </div>
+                
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Answer Type</Label>
+                  <Select
+                    value={meta.type}
+                    onValueChange={(v) => {
+                      const newMetas = [...field.metaAttributes!];
+                      newMetas[mIdx].type = v as any;
+                      onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
+                    }}
+                  >
+                    <SelectTrigger className="h-9 bg-white text-xs border-neutral-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text Field</SelectItem>
+                      <SelectItem value="number">Number</SelectItem>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="select">Dropdown Choice</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {meta.type === "select" && (
+                  <div className="flex-[1.5] space-y-1.5">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-teal-600">Dropdown Choices</Label>
+                    <Input
+                      placeholder="e.g. High, Medium, Low"
+                      value={meta.options || ""}
+                      onChange={(e) => {
+                        const newMetas = [...field.metaAttributes!];
+                        newMetas[mIdx].options = e.target.value;
+                        onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
+                      }}
+                      className="h-9 bg-white text-xs border-teal-200"
+                    />
+                  </div>
                 )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 shrink-0 text-red-600 hover:bg-red-50"
-                  onClick={() => {
-                    const newMetas = field.metaAttributes!.filter((_, i) => i !== mIdx);
-                    onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                
+                <div className="pt-5 sm:pt-6">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 shrink-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => {
+                      const newMetas = field.metaAttributes!.filter((_, i) => i !== mIdx);
+                      onUpdateField(blockIndex, childIndex, { metaAttributes: newMetas });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -791,12 +841,32 @@ function RepeatableGroupEditor({
                         {rowField.type === "number" && (
                           <div className="space-y-1">
                             <Label className="text-xs text-neutral-500">Unit</Label>
-                            <Input
-                              list="unit-suggestions"
-                              value={rowField.unit ?? ""}
-                              onChange={(e) => onUpdateRowField(index, rIdx, { unit: e.target.value })}
-                              placeholder="e.g. KL, mg/L"
-                            />
+                            <Select 
+                              value={COMMON_UNITS.includes(rowField.unit || "") ? rowField.unit : (rowField.unit ? "custom" : "none")} 
+                              onValueChange={(v) => {
+                                if (v === "custom") onUpdateRowField(index, rIdx, { unit: " " });
+                                else if (v === "none") onUpdateRowField(index, rIdx, { unit: "" });
+                                else onUpdateRowField(index, rIdx, { unit: v });
+                              }}
+                            >
+                              <SelectTrigger className="h-10 bg-white">
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Unit</SelectItem>
+                                {COMMON_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                                <SelectItem value="custom">Add Manually...</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {(!COMMON_UNITS.includes(rowField.unit || "") && rowField.unit !== undefined && rowField.unit !== "") && (
+                              <Input
+                                placeholder="Type custom unit..."
+                                value={rowField.unit.trim()}
+                                onChange={(e) => onUpdateRowField(index, rIdx, { unit: e.target.value || " " })}
+                                className="mt-2 h-10 bg-white"
+                                autoFocus
+                              />
+                            )}
                           </div>
                         )}
                       </div>
@@ -1001,7 +1071,7 @@ function NewForm() {
   const validateStep1 = (): string | null => (!title.trim() ? "Form name is required." : null);
 
   const validateStep2 = (): string | null => {
-    if (blocks.length === 0) return "Add at least one question or section.";
+    if (blocks.length === 0) return "Add at least one question, section, or repeatable group.";
 
     // Section-level check stays here: it's about the section container
     // itself, not about any content block inside it, so it doesn't
@@ -1383,13 +1453,29 @@ function NewForm() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label>Icon</Label>
-                    <Select value={icon} onValueChange={setIcon}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label>Icon / Custom Image</Label>
+                    <Select 
+                      value={ICON_OPTIONS.includes(icon) ? icon : (icon ? "custom_image" : ICON_OPTIONS[0])} 
+                      onValueChange={(v) => {
+                        if (v === "custom_image") setIcon("");
+                        else setIcon(v);
+                      }}
+                    >
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select icon..." /></SelectTrigger>
                       <SelectContent>
                         {ICON_OPTIONS.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                        <SelectItem value="custom_image" className="font-bold text-teal-700">Custom Image URL...</SelectItem>
                       </SelectContent>
                     </Select>
+                    {(!ICON_OPTIONS.includes(icon) && icon !== undefined) && (
+                      <Input
+                        placeholder="Paste image URL here (https://...)"
+                        value={icon}
+                        onChange={(e) => setIcon(e.target.value)}
+                        className="mt-2 text-xs bg-white border-teal-200"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>How Often?</Label>
@@ -1620,13 +1706,29 @@ function NewForm() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
-                    <Label>Icon</Label>
-                    <Select value={icon} onValueChange={setIcon}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label>Icon / Custom Image</Label>
+                    <Select 
+                      value={ICON_OPTIONS.includes(icon) ? icon : (icon ? "custom_image" : ICON_OPTIONS[0])} 
+                      onValueChange={(v) => {
+                        if (v === "custom_image") setIcon("");
+                        else setIcon(v);
+                      }}
+                    >
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="Select icon..." /></SelectTrigger>
                       <SelectContent>
                         {ICON_OPTIONS.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                        <SelectItem value="custom_image" className="font-bold text-teal-700">Custom Image URL...</SelectItem>
                       </SelectContent>
                     </Select>
+                    {(!ICON_OPTIONS.includes(icon) && icon !== undefined) && (
+                      <Input
+                        placeholder="Paste image URL here (https://...)"
+                        value={icon}
+                        onChange={(e) => setIcon(e.target.value)}
+                        className="mt-2 text-xs bg-white border-teal-200"
+                        autoFocus
+                      />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>How Often?</Label>
@@ -1678,7 +1780,23 @@ function NewForm() {
                 {blocks.length === 0 && (
                   <p className="py-8 text-center text-sm text-neutral-500">No content yet. Click "Add Question" or "Add Section" to start.</p>
                 )}
-                <BlockList blocks={blocks} onUpdateField={updateField} onRemoveBlock={removeBlock} onAddOption={addOption} onUpdateOption={updateOption} onRemoveOption={removeOption} onUpdateSection={updateSection} onAddQuestion={addQuestion} />
+                <BlockList
+                  blocks={blocks}
+                  onUpdateField={updateField}
+                  onRemoveBlock={removeBlock}
+                  onAddOption={addOption}
+                  onUpdateOption={updateOption}
+                  onRemoveOption={removeOption}
+                  onUpdateSection={updateSection}
+                  onAddQuestion={addQuestion}
+                  onUpdateGroup={updateRepeatableGroup}
+                  onAddRowField={addRowField}
+                  onUpdateRowField={updateRowField}
+                  onRemoveRowField={removeRowField}
+                  onAddRowFieldOption={addRowFieldOption}
+                  onUpdateRowFieldOption={updateRowFieldOption}
+                  onRemoveRowFieldOption={removeRowFieldOption}
+                />
               </div>
               <datalist id="unit-suggestions">
                 {COMMON_UNITS.map((u) => <option key={u} value={u} />)}
@@ -1688,9 +1806,31 @@ function NewForm() {
 
           {step === 3 && (
             <section>
-              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Step 3</p>
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-teal-700">Step 3</p>
               <h2 className="mt-1 text-xl font-bold text-neutral-900">Who should see this form?</h2>
               <div className="mt-6 space-y-4 border-t border-neutral-200 pt-6">
+                
+                {/* ADDED: Audience Selector for Create Mode */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-neutral-900">Who can fill this out?</Label>
+                  <div className="flex gap-4">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={visibleToSiteUsers}
+                        onCheckedChange={(v) => setVisibleToSiteUsers(!!v)}
+                      />
+                      Site Users
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={visibleToContractors}
+                        onCheckedChange={(v) => setVisibleToContractors(!!v)}
+                      />
+                      Contractors
+                    </label>
+                  </div>
+                </div>
+
                 <div className="flex gap-4">
                   <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <input type="radio" name="visibility-mode" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
