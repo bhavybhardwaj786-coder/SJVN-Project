@@ -332,61 +332,325 @@ autoTable(pdf, {
       const ExcelJS = ExcelJSModule.default || ExcelJSModule;
 
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Submission Data");
+      const sheet = workbook.addWorksheet((data?.forms?.title || "Submission Data").slice(0, 31));
 
-      sheet.columns = [
-        { width: 5 },
-        { width: 45 },
-        { width: 35 },
-      ];
+      // ---- palette / constants lifted from the master FY annual template ----
+      const NAVY = "FF002060";
+      const GREY_HEADER = "FFA5A5A5";
+      const TAN_ROW = "FFEEECE1";
+      const TOTAL_FILL = "FFF2F2F2";
+      const WHITE = "FFFFFFFF";
+      const thin = { style: "thin" as const, color: { argb: "FF000000" } };
+      const allBorders = { top: thin, left: thin, bottom: thin, right: thin };
 
-      const titleRow = sheet.addRow(["", (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase()]);
-      titleRow.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF004E8A" } };
+      const FISCAL_MONTHS = ["Jan", "Feb", "Mar", "April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-      sheet.addRow([]);
+      const reportingDate = data?.reporting_month ? new Date(data.reporting_month) : new Date();
+      const istParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        month: "long",
+        year: "numeric",
+      }).formatToParts(reportingDate);
+      const istMonthName = istParts.find((p) => p.type === "month")?.value || "";
+      const istYear = parseInt(istParts.find((p) => p.type === "year")?.value || `${reportingDate.getFullYear()}`, 10);
+      const istMonthNum = parseInt(
+        new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "numeric" }).format(reportingDate),
+        10
+      ); // 1 = Jan ... 12 = Dec
 
-      const addMeta = (label: string, value: string) => {
-        const row = sheet.addRow(["", label, value]);
-        row.getCell(2).font = { name: "Arial", bold: true };
-        row.getCell(2).alignment = { horizontal: "right" };
-        row.getCell(3).alignment = { horizontal: "left" };
+      const fiscalColIndex = FISCAL_MONTHS.findIndex((m) => istMonthName.startsWith(m.slice(0, 3)));
+      // FY must now be derived from the real calendar month, not array position,
+      // since the columns are Jan→Dec instead of Apr→Mar
+      const fyStartYear = istMonthNum >= 4 ? istYear : istYear - 1;
+      const fyLabel = `FY ${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, "0")}`;
+
+      const toNumericIfPossible = (v: any) => {
+        if (typeof v === "number") return v;
+        if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) return Number(v);
+        return v;
       };
 
-      addMeta("Reporting Month:", data?.reporting_month ?? "—");
-      addMeta("Date of Reporting:", data?.submitted_at ? new Date(data.submitted_at).toLocaleDateString() : "—");
-      addMeta("Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
-      addMeta("Data sheets filled by:", submittedByName ?? "—");
+      type SectionRowDef = {
+        matchLabel: string;
+        unit?: string;
+        kind?: "data" | "header" | "total"; // default "data"
+        totalOf?: [number, number]; // row-def indices (within this section's rows[]) to SUM per month
+      };
+      type SectionDef = { title: string; columnHeader: string; rows: SectionRowDef[] };
+      type FormConfig = {
+        monthStartCol: number; // 5 = column E, 4 = column D, etc. — read off the actual template
+        hasTotalCol: boolean;  // false when the template has no annual "Total" column
+        sections: SectionDef[];
+      };
 
-      sheet.addRow([]);
-      sheet.addRow([]);
+      const FORM_CONFIGS: Record<string, FormConfig> = {
+        "energy consumption": {
+          monthStartCol: 5,
+          hasTotalCol: true,
+          sections: [
+            {
+              title: "A. Fuel consumption by fuel type",
+              columnHeader: "Sources of Energy",
+              rows: [
+                { matchLabel: "Diesel - DG onsite", unit: "KL" },
+                { matchLabel: "Diesel (Vehicles)", unit: "KL" },
+                { matchLabel: "Light Diesel Oil (LDO)", unit: "KL" },
+                { matchLabel: "Petrol", unit: "KL" },
+                { matchLabel: "LPG", unit: "KL" },
+                { matchLabel: "CNG/PNG", unit: "KL" },
+                { matchLabel: "Other fuel (Specify)", unit: "KL" },
+              ],
+            },
+            {
+              title: "B. Electricity purchased (Renewable and Non renewable Sources)",
+              columnHeader: "Sources of Energy",
+              rows: [
+                { matchLabel: "Electricity Purchased from Grid (Non renewable)", unit: "kwh" },
+                { matchLabel: "Renewable Electricity Purchased from Grid", unit: "kwh" },
+                { matchLabel: "Solar/ Wind/ Hydropower", unit: "kwh" },
+              ],
+            },
+          ],
+        },
+        "other air emissions": {
+          monthStartCol: 4, // column D — this sheet's months start one column earlier
+          hasTotalCol: true, // column P (monthStartCol + 12)
+          sections: [
+            {
+              title: "305-7 NOx, SOx, and other significant air emissions by type & weight",
+              columnHeader: "Emission substances",
+              rows: [
+                { matchLabel: "Ambient Air Emissions", kind: "header" },
+                { matchLabel: "PM10" },
+                { matchLabel: "NOx" },
+                { matchLabel: "SOx" },
+                { matchLabel: "CO" },
+                { matchLabel: "Total Emissions", kind: "total", totalOf: [1, 4] },
+                { matchLabel: "Stack Emission (average for multiple stacks)", kind: "header" },
+                { matchLabel: "PM10" },
+                { matchLabel: "NOx" },
+                { matchLabel: "SOx" },
+                { matchLabel: "CO" },
+                { matchLabel: "Total Emissions", kind: "total", totalOf: [8, 11] },
+              ],
+            },
+          ],
+        },
+      };
 
-      const headerRow = sheet.addRow(["", "Parameter / Question", "Reported Value"]);
-      headerRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } };
+      const formKey = (data?.forms?.title || "").trim().toLowerCase();
+      const formConfig = FORM_CONFIGS[formKey];
+      const sectionDefs = formConfig?.sections;
 
-      ['B', 'C'].forEach(col => {
-        const cell = sheet.getCell(`${col}${headerRow.number}`);
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004E8A' } };
-        cell.border = {
-          top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+      if (sectionDefs && formConfig) {
+        const MONTH_COL_START = formConfig.monthStartCol;
+        const TOTAL_COL = MONTH_COL_START + 12;
+        const monthColLetter = (i: number) => String.fromCharCode(64 + MONTH_COL_START + i);
+        const totalColLetter = String.fromCharCode(64 + TOTAL_COL);
+        const lastCol = formConfig.hasTotalCol ? totalColLetter : monthColLetter(11);
+
+        sheet.columns = [
+          { width: 5 },   // A margin
+          { width: 42 },  // B row label
+          { width: 8 },   // C unit (left half of merge)
+          { width: 8 },   // D unit (right half of merge) — or first month col, if monthStartCol === 4
+          ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+          ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
+        ];
+
+        // ---- Row 2: main title, merged across full width ----
+        sheet.getRow(2).height = 24;
+        sheet.mergeCells(`B2:${lastCol}2`);
+        const titleCell = sheet.getCell("B2");
+        titleCell.value = (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase();
+        titleCell.font = { name: "Inter", size: 14, bold: true, color: { argb: WHITE } };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle" };
+
+        // ---- Rows 4-7: meta block ----
+        const addMetaRow = (rowNum: number, label: string, value: string) => {
+          sheet.mergeCells(`B${rowNum}:D${rowNum}`);
+          const lbl = sheet.getCell(`B${rowNum}`);
+          lbl.value = label;
+          lbl.font = { name: "Inter", bold: true };
+          lbl.alignment = { horizontal: "right" };
+
+          sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
+          const val = sheet.getCell(`E${rowNum}`);
+          val.value = value;
+          val.alignment = { horizontal: "left" };
         };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      });
 
-      fields.forEach((field: any) => {
-        const label = field.label || "";
-        const filesCount = values[`${field.key}_files`]?.length || 0;
-        const attachmentText = filesCount > 0 ? ` [Has ${filesCount} Attachment(s)]` : '';
-        const val = `${formatFieldValue(field, values[field.key])}${attachmentText}`;
-        const row = sheet.addRow(["", label, val]);
+        addMetaRow(4, "Financial Year:", fyLabel);
+        addMetaRow(5, "Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
+        addMetaRow(6, "Reporting Month:", istMonthName);
+        addMetaRow(7, "Data sheets filled by:", submittedByName ?? "—");
 
-        ['B', 'C'].forEach(col => {
-          const cell = sheet.getCell(`${col}${row.number}`);
-          cell.border = {
-            top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
-          };
-          cell.alignment = { vertical: 'middle', wrapText: true };
+        // ---- Section blocks ----
+        const sectionStartRows = [11, 21, 31, 41]; // extend if a form ever needs more blocks
+        const usedFieldKeys = new Set<string>();
+        const matchField = (label: string) =>
+          fields.find(
+            (f: any) =>
+              (f.label || "").trim().toLowerCase() === label.trim().toLowerCase() &&
+              !usedFieldKeys.has(f.key)
+          );
+
+        sectionDefs.forEach((section, sIdx) => {
+          let cursor = sectionStartRows[sIdx] ?? 11;
+
+          sheet.mergeCells(`B${cursor}:${lastCol}${cursor}`);
+          const bar = sheet.getCell(`B${cursor}`);
+          bar.value = section.title;
+          bar.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+          bar.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+          bar.alignment = { vertical: "middle" };
+          cursor++;
+
+          const headerRowNum = cursor;
+          sheet.getCell(`B${headerRowNum}`).value = section.columnHeader;
+          sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
+          sheet.getCell(`C${headerRowNum}`).value = "Unit";
+          FISCAL_MONTHS.forEach((m, i) => {
+            sheet.getCell(`${monthColLetter(i)}${headerRowNum}`).value = m;
+          });
+          if (formConfig.hasTotalCol) sheet.getCell(`${totalColLetter}${headerRowNum}`).value = "Total";
+
+          const headerCols = [
+            "B", "C",
+            ...FISCAL_MONTHS.map((_, i) => monthColLetter(i)),
+            ...(formConfig.hasTotalCol ? [totalColLetter] : []),
+          ];
+          headerCols.forEach((col) => {
+            const cell = sheet.getCell(`${col}${headerRowNum}`);
+            cell.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GREY_HEADER } };
+            cell.border = allBorders;
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          });
+          cursor++;
+
+          const rowNumberByIndex: Record<number, number> = {};
+
+          section.rows.forEach((rowDef, rIdx) => {
+            const r = cursor;
+            rowNumberByIndex[rIdx] = r;
+            const rowFill = rIdx % 2 === 0 ? WHITE : TAN_ROW;
+
+            if (rowDef.kind === "header") {
+              sheet.mergeCells(`B${r}:${lastCol}${r}`);
+              const cell = sheet.getCell(`B${r}`);
+              cell.value = rowDef.matchLabel;
+              cell.font = { name: "Inter", bold: true, italic: true };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TAN_ROW } };
+              cell.alignment = { vertical: "middle" };
+              cursor++;
+              return;
+            }
+
+            sheet.getCell(`B${r}`).value = rowDef.matchLabel;
+            sheet.mergeCells(`C${r}:D${r}`);
+            sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+
+            if (rowDef.kind === "total" && rowDef.totalOf) {
+              const [fromIdx, toIdx] = rowDef.totalOf;
+              const fromRow = rowNumberByIndex[fromIdx];
+              const toRow = rowNumberByIndex[toIdx];
+              FISCAL_MONTHS.forEach((_, i) => {
+                const col = monthColLetter(i);
+                const cell = sheet.getCell(`${col}${r}`);
+                cell.value = { formula: `SUM(${col}${fromRow}:${col}${toRow})` };
+                cell.numFmt = "0.00";
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+                cell.border = allBorders;
+                cell.alignment = { horizontal: "center", vertical: "middle" };
+              });
+            } else {
+              const field = matchField(rowDef.matchLabel);
+              const rawVal = field ? values[field.key] : undefined;
+              const numericVal = toNumericIfPossible(rawVal);
+
+              FISCAL_MONTHS.forEach((_, i) => {
+                const cell = sheet.getCell(`${monthColLetter(i)}${r}`);
+                if (i === fiscalColIndex && numericVal !== undefined && numericVal !== "") {
+                  cell.value = numericVal;
+                }
+                cell.numFmt = "0.00";
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+                cell.border = allBorders;
+                cell.alignment = { horizontal: "center", vertical: "middle" };
+              });
+            }
+
+            if (formConfig.hasTotalCol) {
+              const totalCell = sheet.getCell(`${totalColLetter}${r}`);
+              totalCell.value = { formula: `SUM(${monthColLetter(0)}${r}:${monthColLetter(11)}${r})` };
+              totalCell.numFmt = "0.00";
+              totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+              totalCell.border = allBorders;
+              totalCell.alignment = { horizontal: "center", vertical: "middle" };
+            }
+
+            ["B", "C"].forEach((col) => {
+              const cell = sheet.getCell(`${col}${r}`);
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+              cell.border = allBorders;
+              cell.alignment = { vertical: "middle", wrapText: true };
+            });
+
+            cursor++;
+          });
         });
-      });
+      }
+      else{
+          const titleRow = sheet.addRow(["", (data?.forms?.title ?? "Environmental Compliance Form").toUpperCase()]);
+          titleRow.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF004E8A" } };
+
+          sheet.addRow([]);
+
+          const addMeta = (label: string, value: string) => {
+            const row = sheet.addRow(["", label, value]);
+            row.getCell(2).font = { name: "Arial", bold: true };
+            row.getCell(2).alignment = { horizontal: "right" };
+            row.getCell(3).alignment = { horizontal: "left" };
+          };
+
+          addMeta("Reporting Month:", data?.reporting_month ?? "—");
+          addMeta("Date of Reporting:", data?.submitted_at ? new Date(data.submitted_at).toLocaleDateString() : "—");
+          addMeta("Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
+          addMeta("Data sheets filled by:", submittedByName ?? "—");
+
+          sheet.addRow([]);
+          sheet.addRow([]);
+
+          const headerRow = sheet.addRow(["", "Parameter / Question", "Reported Value"]);
+          headerRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } };
+
+          ['B', 'C'].forEach(col => {
+            const cell = sheet.getCell(`${col}${headerRow.number}`);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004E8A' } };
+            cell.border = {
+              top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+            };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+
+          fields.forEach((field: any) => {
+            const label = field.label || "";
+            const filesCount = values[`${field.key}_files`]?.length || 0;
+            const attachmentText = filesCount > 0 ? ` [Has ${filesCount} Attachment(s)]` : '';
+            const val = `${formatFieldValue(field, values[field.key])}${attachmentText}`;
+            const row = sheet.addRow(["", label, val]);
+
+            ['B', 'C'].forEach(col => {
+              const cell = sheet.getCell(`${col}${row.number}`);
+              cell.border = {
+                top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+              };
+              cell.alignment = { vertical: 'middle', wrapText: true };
+            });
+          });
+        }
 
       repeatableGroups.forEach((group: any) => {
         const groupRows = getGroupRows(group.key);
