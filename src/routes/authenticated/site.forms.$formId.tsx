@@ -455,9 +455,23 @@ function FillForm() {
                         </Select>
                       )}
                       {field.type === "checkbox" && (
-                        <div className="flex items-center gap-2 pt-2">
-                          <Checkbox id={field.key} disabled={isSubmitted || field.readOnly} checked={!!values[field.key]} onCheckedChange={(v) => setField(field.key, v)} />
-                          {inTable && <label htmlFor={field.key} className="text-xs text-muted-foreground">{field.label}</label>}
+                        <div className="flex items-center gap-5 pt-1.5">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox 
+                              disabled={isSubmitted || field.readOnly || isCalculated} 
+                              checked={values[field.key] === true} 
+                              onCheckedChange={() => setField(field.key, true)} 
+                            />
+                            <span className={inTable ? "text-xs text-slate-600" : "text-sm font-medium text-slate-700"}>Yes</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox 
+                              disabled={isSubmitted || field.readOnly || isCalculated} 
+                              checked={values[field.key] === false} 
+                              onCheckedChange={() => setField(field.key, false)} 
+                            />
+                            <span className={inTable ? "text-xs text-slate-600" : "text-sm font-medium text-slate-700"}>No</span>
+                          </label>
                         </div>
                       )}
                       
@@ -490,9 +504,7 @@ function FillForm() {
                   // Standard Card Wrapper for non-table fields
                   return (
                     <motion.div key={field.key} variants={fadeUp} className="space-y-1.5 p-4 rounded-xl border border-neutral-100 bg-white/50 shadow-sm">
-                      {field.type !== "checkbox" && (
-                        <Label className="text-sm font-semibold text-muted-foreground">{field.label} {field.required && "*"}</Label>
-                      )}
+                      <Label className="text-sm font-semibold text-muted-foreground">{field.label} {field.required && "*"}</Label>
                       {InputComponent}
                     </motion.div>
                   );
