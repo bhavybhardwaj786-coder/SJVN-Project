@@ -74,8 +74,9 @@ setEditUnlocked: async (
     return apiClient.get(`/submissions/admin?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>
   },
 
-  getSiteSubmissions: async (siteId: string) => {
+  getSiteSubmissions: async (siteId: string, formId?: string) => {
     const params = new URLSearchParams({ siteId, status: 'submitted' });
+    if (formId) params.set('formId', formId);
     return apiClient.get(`/submissions/admin/history?${params.toString()}`) as Promise<{ data: any[] | null; error: string | null }>;
   },
 

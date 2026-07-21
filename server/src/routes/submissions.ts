@@ -197,6 +197,36 @@ router.get('/admin', async (req: Request, res: Response<ApiResponse<any[]>>) => 
   }
 })
 
+// GET /api/submissions/admin/history?siteId=&formId=&status= — all submissions for one form+site across time (used by getSiteSubmissions)
+router.get('/admin/history', async (req: Request, res: Response<ApiResponse<any[]>>) => {
+  try {
+    const siteId = req.query.siteId as string
+    const formId = req.query.formId as string | undefined
+    const status = req.query.status as string | undefined
+    const params: unknown[] = [siteId]
+    let query = `
+      SELECT s.*
+      FROM submissions s
+      WHERE s.site_id = $1
+    `
+    if (formId) {
+      params.push(formId)
+      query += ` AND s.form_id = $${params.length}`
+    }
+    if (status) {
+      params.push(status)
+      query += ` AND s.status = $${params.length}`
+    }
+    query += ' ORDER BY s.reporting_month ASC'
+
+    const result = await pool.query(query, params)
+    res.json({ data: result.rows, error: null })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ data: null, error: (err as Error).message })
+  }
+})
+
 // GET /api/submissions/:id — single submission with joined forms+sites
 // (replaces both the route loader and component query in _submissionId.tsx)
 router.get('/:id', async (req: Request, res: Response<ApiResponse<any>>) => {

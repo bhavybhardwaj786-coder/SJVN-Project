@@ -53,13 +53,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nav = me?.isSuperAdmin
     ? [
-        // { to: "/authenticated/supadmin", label: "Super Admin Dashboard", icon: ShieldCheck, exact: true },
-        // { to: "/authenticated/users", label: "User Management", icon: Users },
-      ]
-    : me?.isAdmin
-    ? [
-        // { to: "/authenticated/app", label: "Admin Dashboard", icon: LayoutDashboard, exact: true },
-        // { to: "/authenticated/new", label: "Form Builder", icon: FormInput },
+        { to: "/authenticated/supadmin", label: "Super Admin Dashboard", icon: ShieldCheck, exact: true },
+        { to: "/authenticated/users", label: "User Management", icon: Users },
       ]
     : [];
 

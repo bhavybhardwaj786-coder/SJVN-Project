@@ -343,7 +343,7 @@ autoTable(pdf, {
       const thin = { style: "thin" as const, color: { argb: "FF000000" } };
       const allBorders = { top: thin, left: thin, bottom: thin, right: thin };
 
-      const FISCAL_MONTHS = ["Jan", "Feb", "Mar", "April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const FISCAL_MONTHS = ["April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 
       const reportingDate = data?.reporting_month ? new Date(data.reporting_month) : new Date();
       const istParts = new Intl.DateTimeFormat("en-US", {
@@ -363,6 +363,23 @@ autoTable(pdf, {
       // since the columns are Jan→Dec instead of Apr→Mar
       const fyStartYear = istMonthNum >= 4 ? istYear : istYear - 1;
       const fyLabel = `FY ${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, "0")}`;
+
+      // Pull every other submitted month for this form+site so past months
+      // aren't left blank — current month's own `values` always wins its column.
+      const { data: historyRows } = await submissionsService.getSiteSubmissions(data?.site_id as string, data?.form_id as string);
+      const valuesByFiscalIndex: Record<number, Record<string, any>> = {};
+      (historyRows || []).forEach((row: any) => {
+        const rowDate = new Date(row.reporting_month);
+        const rowParts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }).formatToParts(rowDate);
+        const rowMonthName = rowParts.find((p) => p.type === "month")?.value || "";
+        const rowYear = parseInt(rowParts.find((p) => p.type === "year")?.value || `${rowDate.getFullYear()}`, 10);
+        const rowMonthNum = parseInt(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "numeric" }).format(rowDate), 10);
+        const rowFyStartYear = rowMonthNum >= 4 ? rowYear : rowYear - 1;
+        if (rowFyStartYear !== fyStartYear) return; // ignore rows outside this fiscal year
+        const idx = FISCAL_MONTHS.findIndex((m) => rowMonthName.startsWith(m.slice(0, 3)));
+        if (idx !== -1) valuesByFiscalIndex[idx] = row.data || {};
+      });
+      valuesByFiscalIndex[fiscalColIndex] = values; // current submission's own data wins its own column
 
       const toNumericIfPossible = (v: any) => {
         if (typeof v === "number") return v;
@@ -468,6 +485,46 @@ autoTable(pdf, {
               ],
             },
           ],
+        },
+        "waste disposal": {
+          monthStartCol: 5,
+          hasTotalCol: true,
+          sections: [
+            {
+              title: "306-3 Waste Generated",
+              columnHeader: "Type of Waste",
+              rows: [
+                { fieldKey: "wd_plastic_qty", label: "Plastic waste (Hazardous)", unit: "Metric Tons" },
+                { fieldKey: "wd_ewaste_qty", label: "E-waste (Hazardous)", unit: "Metric Tons" },
+                { fieldKey: "wd_biomed_qty", label: "Bio-medical waste (Hazardous)", unit: "Metric Tons" },
+                { fieldKey: "wd_cd_qty", label: "Construction & Demolition (Non-hazardous)", unit: "Metric Tons" },
+                { fieldKey: "wd_battery_qty", label: "Battery waste (Hazardous)", unit: "Metric Tons" },
+                { fieldKey: "wd_otherhaz_qty", label: "Other hazardous waste", unit: "Metric Tons" },
+                { fieldKey: "wd_othernonhaz_qty", label: "Other non-hazardous waste", unit: "Metric Tons" },
+                { fieldKey: "wd_total_produced", label: "TOTAL WASTE GENERATED", kind: "total", totalOf: [0, 6] },
+              ],
+            },
+            {
+              title: "306-4 Waste diverted from disposal",
+              columnHeader: "Category of Waste",
+              rows: [
+                { fieldKey: "wd_recov_recycled", label: "Recycled", unit: "Metric Tons" },
+                { fieldKey: "wd_recov_reused", label: "Re-used", unit: "Metric Tons" },
+                { fieldKey: "wd_recov_other", label: "Other recovery operations", unit: "Metric Tons" },
+                { fieldKey: "wd_recov_total", label: "TOTAL RECOVERED", kind: "total", totalOf: [0, 2] },
+              ],
+            },
+            {
+              title: "306-5 Waste directed to disposal",
+              columnHeader: "Category of Waste",
+              rows: [
+                { fieldKey: "wd_disp_incin", label: "Incineration", unit: "Metric Tons" },
+                { fieldKey: "wd_disp_landfill", label: "Landfilling", unit: "Metric Tons" },
+                { fieldKey: "wd_disp_other", label: "Other disposal operations", unit: "Metric Tons" },
+                { fieldKey: "wd_disp_total", label: "TOTAL DISPOSED", kind: "total", totalOf: [0, 2] },
+              ],
+            },
+          ],
         }
       };
 
@@ -475,21 +532,135 @@ autoTable(pdf, {
       const formConfig = FORM_CONFIGS[formKey];
       const sectionDefs = formConfig?.sections;
 
-      if (sectionDefs && formConfig) {
+      if (formKey.includes("refrigerant") || formKey.includes("ozone")) {
+        const lastCol = "H";
+        
+        sheet.columns = [
+          { width: 5 },   // A margin
+          { width: 10 },  // B S.No.
+          { width: 25 },  // C Source
+          { width: 25 },  // D Location
+          { width: 20 },  // E Manufacturer
+          { width: 20 },  // F Year
+          { width: 25 },  // G Name
+          { width: 15 },  // H Quantity
+        ];
+
+        sheet.getRow(2).height = 24;
+        sheet.mergeCells(`B2:${lastCol}2`);
+        const titleCell = sheet.getCell("B2");
+        titleCell.value = (data?.forms?.title ?? "Refrigerant & ODS Report").toUpperCase();
+        titleCell.font = { name: "Inter", size: 14, bold: true, color: { argb: WHITE } };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle" };
+
+        const addMetaRow = (rowNum: number, label: string, value: string) => {
+          sheet.mergeCells(`B${rowNum}:D${rowNum}`);
+          sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
+          const lbl = sheet.getCell(`B${rowNum}`);
+          lbl.value = label;
+          lbl.font = { name: "Inter", bold: true };
+          lbl.alignment = { horizontal: "right" };
+          const val = sheet.getCell(`E${rowNum}`);
+          val.value = value;
+          val.alignment = { horizontal: "left" };
+        };
+
+        addMetaRow(4, "Financial Year:", fyLabel);
+        addMetaRow(5, "Location / Site:", `${data?.sites?.name ?? ""} (${data?.sites?.code ?? ""})`);
+        addMetaRow(6, "Reporting Month:", istMonthName);
+        addMetaRow(7, "Data sheets filled by:", submittedByName ?? "—");
+
+        let cursor = 11;
+        sheet.mergeCells(`B${cursor}:${lastCol}${cursor}`);
+        const bar = sheet.getCell(`B${cursor}`);
+        bar.value = "Refrigerant Equipment & Quantities";
+        bar.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+        bar.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+        bar.alignment = { vertical: "middle" };
+        cursor++;
+
+        const headerRowNum = cursor;
+        const headers = ["S. No.", "Source of Emission", "Location", "Manufacturer", "Year Installed", "Refrigerant Name", "Quantity (Tons)"];
+        const headerCols = ["B", "C", "D", "E", "F", "G", "H"];
+        
+        headers.forEach((h, i) => {
+          const cell = sheet.getCell(`${headerCols[i]}${headerRowNum}`);
+          cell.value = h;
+          cell.font = { name: "Inter", bold: true, color: { argb: WHITE } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GREY_HEADER } };
+          cell.border = allBorders;
+          cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        });
+        cursor++;
+
+        const groupRows = getGroupRows("refrigerants");
+        if (groupRows.length === 0) {
+           sheet.mergeCells(`B${cursor}:${lastCol}${cursor}`);
+           const cell = sheet.getCell(`B${cursor}`);
+           cell.value = "No refrigerants reported for this period.";
+           cell.border = allBorders;
+           cell.alignment = { horizontal: "center" };
+        } else {
+           groupRows.forEach((rowVal: any, rIdx: number) => {
+              const r = cursor;
+              const rowFill = rIdx % 2 === 0 ? WHITE : TAN_ROW;
+              
+              const sourceField = repeatableGroups.find((g:any) => g.key === "refrigerants")?.rowFields?.find((rf:any) => rf.key === "source");
+              const sourceLabel = sourceField?.options?.find((o:any) => o.value === rowVal.source)?.label || rowVal.source || "—";
+              
+              let yearStr = rowVal.year_installed || "—";
+              if (yearStr !== "—" && yearStr.includes("-")) {
+                 yearStr = new Date(yearStr).getFullYear().toString();
+              }
+
+              const rowData = [
+                rIdx + 1,
+                sourceLabel,
+                rowVal.location || "—",
+                rowVal.manufacturer || "—",
+                yearStr,
+                rowVal.name || "—",
+                Number(rowVal.quantity) || 0
+              ];
+
+              rowData.forEach((val, i) => {
+                 const cell = sheet.getCell(`${headerCols[i]}${r}`);
+                 cell.value = val;
+                 if (i === 6) cell.numFmt = "0.00";
+                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
+                 cell.border = allBorders;
+                 cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+              });
+              cursor++;
+           });
+        }
+      }
+      else if (sectionDefs && formConfig) {
         const MONTH_COL_START = formConfig.monthStartCol;
         const TOTAL_COL = MONTH_COL_START + 12;
         const monthColLetter = (i: number) => String.fromCharCode(64 + MONTH_COL_START + i);
         const totalColLetter = String.fromCharCode(64 + TOTAL_COL);
         const lastCol = formConfig.hasTotalCol ? totalColLetter : monthColLetter(11);
 
-        sheet.columns = [
-          { width: 5 },   // A margin
-          { width: 42 },  // B row label
-          { width: 8 },   // C unit (left half of merge)
-          { width: 8 },   // D unit (right half of merge) — or first month col, if monthStartCol === 4
-          ...FISCAL_MONTHS.map(() => ({ width: 9 })),
-          ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
-        ];
+        if (MONTH_COL_START === 5) {
+          sheet.columns = [
+            { width: 5 },   // A margin
+            { width: 42 },  // B row label
+            { width: 8 },   // C unit (left half)
+            { width: 8 },   // D unit (right half)
+            ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+            ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
+          ];
+        } else {
+          sheet.columns = [
+            { width: 5 },   // A margin
+            { width: 42 },  // B row label
+            { width: 12 },  // C unit
+            ...FISCAL_MONTHS.map(() => ({ width: 9 })),
+            ...(formConfig.hasTotalCol ? [{ width: 12 }] : []),
+          ];
+        }
 
         // ---- Row 2: main title, merged across full width ----
         sheet.getRow(2).height = 24;
@@ -502,16 +673,27 @@ autoTable(pdf, {
 
         // ---- Rows 4-7: meta block ----
         const addMetaRow = (rowNum: number, label: string, value: string) => {
-          sheet.mergeCells(`B${rowNum}:D${rowNum}`);
-          const lbl = sheet.getCell(`B${rowNum}`);
-          lbl.value = label;
-          lbl.font = { name: "Inter", bold: true };
-          lbl.alignment = { horizontal: "right" };
-
-          sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
-          const val = sheet.getCell(`E${rowNum}`);
-          val.value = value;
-          val.alignment = { horizontal: "left" };
+          if (MONTH_COL_START === 5) {
+            sheet.mergeCells(`B${rowNum}:D${rowNum}`);
+            sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
+            const lbl = sheet.getCell(`B${rowNum}`);
+            lbl.value = label;
+            lbl.font = { name: "Inter", bold: true };
+            lbl.alignment = { horizontal: "right" };
+            const val = sheet.getCell("E" + rowNum);
+            val.value = value;
+            val.alignment = { horizontal: "left" };
+          } else {
+            sheet.mergeCells(`B${rowNum}:C${rowNum}`);
+            sheet.mergeCells(`D${rowNum}:${lastCol}${rowNum}`);
+            const lbl = sheet.getCell(`B${rowNum}`);
+            lbl.value = label;
+            lbl.font = { name: "Inter", bold: true };
+            lbl.alignment = { horizontal: "right" };
+            const val = sheet.getCell("D" + rowNum);
+            val.value = value;
+            val.alignment = { horizontal: "left" };
+          }
         };
 
         addMetaRow(4, "Financial Year:", fyLabel);
@@ -522,12 +704,6 @@ autoTable(pdf, {
         // ---- Section blocks ----
         const sectionStartRows = [11, 21, 31, 41]; // extend if a form ever needs more blocks
         const usedFieldKeys = new Set<string>();
-        const matchField = (label: string) =>
-          fields.find(
-            (f: any) =>
-              (f.label || "").trim().toLowerCase() === label.trim().toLowerCase() &&
-              !usedFieldKeys.has(f.key)
-          );
 
         sectionDefs.forEach((section, sIdx) => {
           let cursor = sectionStartRows[sIdx] ?? 11;
@@ -542,8 +718,12 @@ autoTable(pdf, {
 
           const headerRowNum = cursor;
           sheet.getCell(`B${headerRowNum}`).value = section.columnHeader;
-          sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
-          sheet.getCell(`C${headerRowNum}`).value = "Unit";
+          if (MONTH_COL_START === 5) {
+            sheet.mergeCells(`C${headerRowNum}:D${headerRowNum}`);
+            sheet.getCell(`C${headerRowNum}`).value = "Unit";
+          } else {
+            sheet.getCell(`C${headerRowNum}`).value = "Unit";
+          }
           FISCAL_MONTHS.forEach((m, i) => {
             sheet.getCell(`${monthColLetter(i)}${headerRowNum}`).value = m;
           });
@@ -551,6 +731,7 @@ autoTable(pdf, {
 
           const headerCols = [
             "B", "C",
+            ...(MONTH_COL_START === 5 ? ["D"] : []),
             ...FISCAL_MONTHS.map((_, i) => monthColLetter(i)),
             ...(formConfig.hasTotalCol ? [totalColLetter] : []),
           ];
@@ -573,7 +754,7 @@ autoTable(pdf, {
             if (rowDef.kind === "header") {
               sheet.mergeCells(`B${r}:${lastCol}${r}`);
               const cell = sheet.getCell(`B${r}`);
-              cell.value = rowDef.matchLabel;
+              cell.value = rowDef.label;
               cell.font = { name: "Inter", bold: true, italic: true };
               cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TAN_ROW } };
               cell.alignment = { vertical: "middle" };
@@ -582,8 +763,12 @@ autoTable(pdf, {
             }
 
             sheet.getCell(`B${r}`).value = rowDef.label;
-            sheet.mergeCells(`C${r}:D${r}`);
-            sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+            if (MONTH_COL_START === 5) {
+              sheet.mergeCells(`C${r}:D${r}`);
+              sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+            } else {
+              sheet.getCell(`C${r}`).value = rowDef.unit ?? "";
+            }
 
             if (rowDef.kind === "total" && rowDef.totalOf) {
               const [fromIdx, toIdx] = rowDef.totalOf;
@@ -592,7 +777,13 @@ autoTable(pdf, {
               FISCAL_MONTHS.forEach((_, i) => {
                 const col = monthColLetter(i);
                 const cell = sheet.getCell(`${col}${r}`);
-                cell.value = { formula: `SUM(${col}${fromRow}:${col}${toRow})` };
+                let colSum = 0;
+                for (let currRow = fromRow; currRow <= toRow; currRow++) {
+                  const val = sheet.getCell(`${col}${currRow}`).value;
+                  if (typeof val === "number") colSum += val;
+                  else if (val && typeof (val as any).result === "number") colSum += (val as any).result;
+                }
+                cell.value = { formula: `SUM(${col}${fromRow}:${col}${toRow})`, result: colSum };
                 cell.numFmt = "0.00";
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
                 cell.border = allBorders;
@@ -605,8 +796,10 @@ autoTable(pdf, {
 
               FISCAL_MONTHS.forEach((_, i) => {
                 const cell = sheet.getCell(`${monthColLetter(i)}${r}`);
-                if (i === fiscalColIndex && numericVal !== undefined && numericVal !== "") {
-                  cell.value = numericVal;
+                if (i <= fiscalColIndex) {
+                  const monthVals = valuesByFiscalIndex[i];
+                  const monthNumericVal = toNumericIfPossible(rowDef.fieldKey && monthVals ? monthVals[rowDef.fieldKey] : undefined);
+                  cell.value = monthNumericVal !== undefined && monthNumericVal !== "" ? monthNumericVal : 0;
                 }
                 cell.numFmt = "0.00";
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
@@ -617,7 +810,13 @@ autoTable(pdf, {
 
             if (formConfig.hasTotalCol) {
               const totalCell = sheet.getCell(`${totalColLetter}${r}`);
-              totalCell.value = { formula: `SUM(${monthColLetter(0)}${r}:${monthColLetter(11)}${r})` };
+              let rowSum = 0;
+              for (let i = 0; i < 12; i++) {
+                const val = sheet.getCell(`${monthColLetter(i)}${r}`).value;
+                if (typeof val === "number") rowSum += val;
+                else if (val && typeof (val as any).result === "number") rowSum += (val as any).result;
+              }
+              totalCell.value = { formula: `SUM(${monthColLetter(0)}${r}:${monthColLetter(11)}${r})`, result: rowSum };
               totalCell.numFmt = "0.00";
               totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
               totalCell.border = allBorders;
@@ -726,17 +925,25 @@ autoTable(pdf, {
 
               FISCAL_MONTHS.forEach((_, i) => {
                 const cell = sheet.getCell(`${monthColLetter(i)}${r}`);
-                if (i === fiscalColIndex && numericVal !== undefined && numericVal !== "") {
-                  cell.value = numericVal;
+                if (i <= fiscalColIndex) {
+                  const monthVals = valuesByFiscalIndex[i];
+                  const monthNumericVal = toNumericIfPossible(monthVals ? monthVals[field.key] : undefined);
+                  cell.value = monthNumericVal !== undefined && monthNumericVal !== "" ? monthNumericVal : 0;
                 }
-                if (typeof numericVal === "number") cell.numFmt = "0.00";
+                if (typeof cell.value === "number") cell.numFmt = "0.00";
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowFill } };
                 cell.border = allBorders;
                 cell.alignment = { horizontal: "center", vertical: "middle" };
               });
 
               const totalCell = sheet.getCell(`Q${r}`);
-              totalCell.value = { formula: `SUM(E${r}:P${r})` };
+              let rowSum = 0;
+              for (let i = 0; i < 12; i++) {
+                const val = sheet.getCell(`${monthColLetter(i)}${r}`).value;
+                if (typeof val === "number") rowSum += val;
+                else if (val && typeof (val as any).result === "number") rowSum += (val as any).result;
+              }
+              totalCell.value = { formula: `SUM(E${r}:P${r})`, result: rowSum };
               totalCell.numFmt = "0.00";
               totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
               totalCell.border = allBorders;
@@ -825,8 +1032,9 @@ autoTable(pdf, {
           });
         }
 
-      repeatableGroups.forEach((group: any) => {
-        const groupRows = getGroupRows(group.key);
+      if (!formKey.includes("refrigerant") && !formKey.includes("ozone")) {
+        repeatableGroups.forEach((group: any) => {
+          const groupRows = getGroupRows(group.key);
         if (groupRows.length === 0) return;
 
         sheet.addRow([]);
@@ -856,6 +1064,7 @@ autoTable(pdf, {
           });
         });
       });
+      } // Closes the refrigerant guard check
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
