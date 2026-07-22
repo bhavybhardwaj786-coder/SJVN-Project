@@ -10,6 +10,63 @@ export const WHITE = "FFFFFFFF";
 const thin = { style: "thin" as const, color: { argb: "FF000000" } };
 const allBorders = { top: thin, left: thin, bottom: thin, right: thin };
 
+/**
+ * Draws the "Financial Year / Location / Reporting Month / Report Type"
+ * block as an actual bordered, shaded table (label cell shaded + bold,
+ * value cell white) instead of plain unbordered text sitting on the sheet.
+ * Used by every branch below (refrigerant, FORM_CONFIGS matrix forms,
+ * generic schema-layout forms, and the plain fallback table) so the meta
+ * block looks identical everywhere — individual exports, combined exports,
+ * contractor and user reports alike, since they all funnel through this
+ * one shared worksheet builder.
+ */
+function drawMetaInfoTable(
+  sheet: ExcelJS.Worksheet,
+  startRow: number,
+  labelColStart: string,
+  labelColEnd: string,
+  valueColStart: string,
+  valueColEnd: string,
+  rows: { label: string; value: string }[],
+) {
+  const colsInRange = (start: string, end: string): string[] => {
+    const cols: string[] = [];
+    for (let c = start.charCodeAt(0); c <= end.charCodeAt(0); c++) cols.push(String.fromCharCode(c));
+    return cols;
+  };
+  const labelCols = colsInRange(labelColStart, labelColEnd);
+  const valueCols = colsInRange(valueColStart, valueColEnd);
+
+  rows.forEach((rowDef, idx) => {
+    const rowNum = startRow + idx;
+    sheet.getRow(rowNum).height = 20;
+
+    if (labelColStart !== labelColEnd) sheet.mergeCells(`${labelColStart}${rowNum}:${labelColEnd}${rowNum}`);
+    if (valueColStart !== valueColEnd) sheet.mergeCells(`${valueColStart}${rowNum}:${valueColEnd}${rowNum}`);
+
+    const lbl = sheet.getCell(`${labelColStart}${rowNum}`);
+    lbl.value = rowDef.label;
+    lbl.font = { name: "Inter", bold: true };
+    lbl.alignment = { horizontal: "right", vertical: "middle" };
+
+    const val = sheet.getCell(`${valueColStart}${rowNum}`);
+    val.value = rowDef.value;
+    val.font = { name: "Inter" };
+    val.alignment = { horizontal: "left", vertical: "middle" };
+
+    labelCols.forEach((col) => {
+      const cell = sheet.getCell(`${col}${rowNum}`);
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+      cell.border = allBorders;
+    });
+    valueCols.forEach((col) => {
+      const cell = sheet.getCell(`${col}${rowNum}`);
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: WHITE } };
+      cell.border = allBorders;
+    });
+  });
+}
+
 export const FISCAL_MONTHS = [
   "April", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
 ];
@@ -60,21 +117,25 @@ export const FORM_CONFIGS: Record<string, FormConfig> = {
     hasTotalCol: true,
     sections: [
       {
-        title: "305-7 NOx, SOx, and other significant air emissions by type & weight",
+        title: "305-7 Ambient Air Emissions",
         columnHeader: "Emission substances",
         rows: [
-          { label: "Ambient Air Emissions", kind: "header" },
           { fieldKey: "ambient_pm10", matchLabel: "PM10 (Ambient)", label: "PM10", unit: "kg" },
           { fieldKey: "ambient_nox", matchLabel: "NOx (Ambient)", label: "NOx", unit: "kg" },
           { fieldKey: "ambient_sox", matchLabel: "SOx (Ambient)", label: "SOx", unit: "kg" },
           { fieldKey: "ambient_co", matchLabel: "CO (Ambient)", label: "CO", unit: "kg" },
-          { fieldKey: "ambient_total", matchLabel: "Total Ambient Emissions", label: "Total Emissions", kind: "total", totalOf: [1, 4] },
-          { label: "Stack Emission (average for multiple stacks)", kind: "header" },
+          { fieldKey: "ambient_total", matchLabel: "Total Ambient Emissions", label: "Total Emissions", kind: "total", totalOf: [0, 3] },
+        ],
+      },
+      {
+        title: "305-7 Stack Emission (average for multiple stacks)",
+        columnHeader: "Emission substances",
+        rows: [
           { fieldKey: "field_1784011888284_63", matchLabel: "PM10 (Stack)", label: "PM10", unit: "kg" },
           { fieldKey: "field_1784011897052_65", matchLabel: "NOx (Stack)", label: "NOx", unit: "kg" },
           { fieldKey: "field_1784011907020_67", matchLabel: "SOx (Stack)", label: "SOx", unit: "kg" },
           { fieldKey: "field_1784011916956_69", matchLabel: "CO (Stack)", label: "CO", unit: "kg" },
-          { fieldKey: "field_1784011927794_71", matchLabel: "Total Stack Emissions", label: "Total Emissions", kind: "total", totalOf: [8, 11] },
+          { fieldKey: "field_1784011927794_71", matchLabel: "Total Stack Emissions", label: "Total Emissions", kind: "total", totalOf: [0, 3] },
         ],
       },
     ],
@@ -251,22 +312,13 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
     titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    const addMetaRow = (rowNum: number, label: string, value: string) => {
-      sheet.mergeCells(`B${rowNum}:D${rowNum}`);
-      sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
-      const lbl = sheet.getCell(`B${rowNum}`);
-      lbl.value = label;
-      lbl.font = { name: "Inter", bold: true };
-      lbl.alignment = { horizontal: "right" };
-      const val = sheet.getCell(`E${rowNum}`);
-      val.value = value;
-      val.alignment = { horizontal: "left" };
-    };
+    drawMetaInfoTable(sheet, 4, "B", "D", "E", lastCol, [
+      { label: "Financial Year:", value: fyLabel },
+      { label: "Location / Site:", value: `${siteName} (${siteCode})` },
+      { label: "Reporting Month:", value: reportingMonthLabel },
+      { label: metaRow7Label, value: metaRow7Value },
+    ]);
 
-    addMetaRow(4, "Financial Year:", fyLabel);
-    addMetaRow(5, "Location / Site:", `${siteName} (${siteCode})`);
-    addMetaRow(6, "Reporting Month:", reportingMonthLabel);
-    addMetaRow(7, metaRow7Label, metaRow7Value);
 
     let cursor = 11;
     sheet.mergeCells(`B${cursor}:${lastCol}${cursor}`);
@@ -366,40 +418,32 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
     titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    const addMetaRow = (rowNum: number, label: string, value: string) => {
-      if (MONTH_COL_START === 5) {
-        sheet.mergeCells(`B${rowNum}:D${rowNum}`);
-        sheet.mergeCells(`E${rowNum}:${lastCol}${rowNum}`);
-        const lbl = sheet.getCell(`B${rowNum}`);
-        lbl.value = label;
-        lbl.font = { name: "Inter", bold: true };
-        lbl.alignment = { horizontal: "right" };
-        const val = sheet.getCell("E" + rowNum);
-        val.value = value;
-        val.alignment = { horizontal: "left" };
-      } else {
-        sheet.mergeCells(`B${rowNum}:C${rowNum}`);
-        sheet.mergeCells(`D${rowNum}:${lastCol}${rowNum}`);
-        const lbl = sheet.getCell(`B${rowNum}`);
-        lbl.value = label;
-        lbl.font = { name: "Inter", bold: true };
-        lbl.alignment = { horizontal: "right" };
-        const val = sheet.getCell("D" + rowNum);
-        val.value = value;
-        val.alignment = { horizontal: "left" };
-      }
-    };
+    if (MONTH_COL_START === 5) {
+      drawMetaInfoTable(sheet, 4, "B", "D", "E", lastCol, [
+        { label: "Financial Year:", value: fyLabel },
+        { label: "Location / Site:", value: `${siteName} (${siteCode})` },
+        { label: "Reporting Month:", value: reportingMonthLabel },
+        { label: metaRow7Label, value: metaRow7Value },
+      ]);
+    } else {
+      drawMetaInfoTable(sheet, 4, "B", "C", "D", lastCol, [
+        { label: "Financial Year:", value: fyLabel },
+        { label: "Location / Site:", value: `${siteName} (${siteCode})` },
+        { label: "Reporting Month:", value: reportingMonthLabel },
+        { label: metaRow7Label, value: metaRow7Value },
+      ]);
+    }
 
-    addMetaRow(4, "Financial Year:", fyLabel);
-    addMetaRow(5, "Location / Site:", `${siteName} (${siteCode})`);
-    addMetaRow(6, "Reporting Month:", reportingMonthLabel);
-    addMetaRow(7, metaRow7Label, metaRow7Value);
-
-    const sectionStartRows = [11, 21, 31, 41];
     const usedFieldKeys = new Set<string>();
+    // Running cursor instead of fixed absolute row jumps (11/21/31/41) — a
+    // hardcoded 10-row-per-section budget left uneven gaps depending on how
+    // many rows a given section actually used (a 2-row section vs a 7-row
+    // section). Tracking where the previous section actually ended and
+    // adding exactly one blank row keeps spacing identical everywhere.
+    let nextSectionStart = 11;
 
-    formConfig.sections.forEach((section, sIdx) => {
-      let cursor = sectionStartRows[sIdx] ?? 11;
+    formConfig.sections.forEach((section) => {
+      let cursor = nextSectionStart;
 
       sheet.mergeCells(`B${cursor}:${lastCol}${cursor}`);
       const bar = sheet.getCell(`B${cursor}`);
@@ -521,6 +565,82 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
 
         cursor++;
       });
+
+      // Auto-generated section total row: sums every plain data row in this
+      // section (skips "header" rows and any row that's already a manual
+      // "total" row, so forms that already define their own subtotal — e.g.
+      // waste disposal, other air emissions — don't get a duplicate). Only
+      // added when the section doesn't already end with one, so authors can
+      // still hand-roll a totalOf row (with custom totalOf ranges for
+      // sub-groups) when that's needed instead.
+      const lastRowDef = section.rows[section.rows.length - 1];
+      const sectionAlreadyEndsInTotal = lastRowDef?.kind === "total";
+
+      if (!sectionAlreadyEndsInTotal) {
+        const dataRowNumbers = section.rows
+          .map((rowDef, rIdx) => (rowDef.kind === "header" || rowDef.kind === "total" ? null : rowNumberByIndex[rIdx]))
+          .filter((rn): rn is number => rn !== null && rn !== undefined);
+
+        if (dataRowNumbers.length > 0) {
+          const r = cursor;
+
+          sheet.getCell(`B${r}`).value = "Total";
+          sheet.getCell(`B${r}`).font = { name: "Inter", bold: true };
+          if (MONTH_COL_START === 5) {
+            sheet.mergeCells(`C${r}:D${r}`);
+          }
+          // Unit column intentionally left blank — no unit applies to a total.
+
+          FISCAL_MONTHS.forEach((_, i) => {
+            const col = monthColLetter(i);
+            const cell = sheet.getCell(`${col}${r}`);
+            let colSum = 0;
+            dataRowNumbers.forEach((rn) => {
+              const val = sheet.getCell(`${col}${rn}`).value;
+              if (typeof val === "number") colSum += val;
+              else if (val && typeof (val as any).result === "number") colSum += (val as any).result;
+            });
+            const formulaRefs = dataRowNumbers.map((rn) => `${col}${rn}`).join(",");
+            cell.value = { formula: `SUM(${formulaRefs})`, result: colSum };
+            cell.numFmt = "0.00";
+            cell.font = { name: "Inter", bold: true };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+            cell.border = allBorders;
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          });
+
+          if (formConfig.hasTotalCol) {
+            const totalCell = sheet.getCell(`${totalColLetter}${r}`);
+            let rowSum = 0;
+            for (let i = 0; i < 12; i++) {
+              const val = sheet.getCell(`${monthColLetter(i)}${r}`).value;
+              if (typeof val === "number") rowSum += val;
+              else if (val && typeof (val as any).result === "number") rowSum += (val as any).result;
+            }
+            totalCell.value = { formula: `SUM(${monthColLetter(0)}${r}:${monthColLetter(11)}${r})`, result: rowSum };
+            totalCell.numFmt = "0.00";
+            totalCell.font = { name: "Inter", bold: true };
+            totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+            totalCell.border = allBorders;
+            totalCell.alignment = { horizontal: "center", vertical: "middle" };
+          }
+
+          ["B", "C"].forEach((col) => {
+            const cell = sheet.getCell(`${col}${r}`);
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+            cell.border = allBorders;
+            cell.alignment = { vertical: "middle", wrapText: true };
+          });
+
+          cursor++;
+        }
+      }
+
+      // Next section's title bar starts one blank row after wherever this
+      // section actually ended (title + header + rows + total, whatever
+      // combination applied) — same one-row gap everywhere, regardless of
+      // how many rows this particular section used.
+      nextSectionStart = cursor + 1;
     });
   } else if (layout && Array.isArray(layout)) {
     const fieldByKey = new Map<string, any>(fields.map((f: any) => [f.key, f]));
@@ -545,23 +665,20 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
     titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-    const addMetaRow = (rowNum: number, label: string, value: string) => {
-      sheet.mergeCells(`B${rowNum}:D${rowNum}`);
-      const lbl = sheet.getCell(`B${rowNum}`);
-      lbl.value = label;
-      lbl.font = { name: "Inter", bold: true };
-      lbl.alignment = { horizontal: "right" };
-      sheet.mergeCells(`E${rowNum}:Q${rowNum}`);
-      const val = sheet.getCell(`E${rowNum}`);
-      val.value = value;
-      val.alignment = { horizontal: "left" };
-    };
-    addMetaRow(4, "Financial Year:", fyLabel);
-    addMetaRow(5, "Location / Site:", `${siteName} (${siteCode})`);
-    addMetaRow(6, "Reporting Month:", reportingMonthLabel);
-    addMetaRow(7, metaRow7Label, metaRow7Value);
+    drawMetaInfoTable(sheet, 4, "B", "D", "E", "Q", [
+      { label: "Financial Year:", value: fyLabel },
+      { label: "Location / Site:", value: `${siteName} (${siteCode})` },
+      { label: "Reporting Month:", value: reportingMonthLabel },
+      { label: metaRow7Label, value: metaRow7Value },
+    ]);
 
     let cursor = 9;
+    // First section keeps the original 2-row offset (lands on row 11, same
+    // as the FORM_CONFIGS branch's fixed start). Every section after that
+    // only adds 1 blank row after wherever the previous one actually ended,
+    // so gaps stay identical regardless of section length — same fix as
+    // the FORM_CONFIGS branch above.
+    let isFirstSection = true;
     const standaloneRows: { label: string; value: string }[] = [];
 
     layout.forEach((node: any) => {
@@ -572,7 +689,8 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
         const sectionFields = keys.map((k) => fieldByKey.get(k)).filter(Boolean);
         if (sectionFields.length === 0) return;
 
-        cursor += 2;
+        cursor += isFirstSection ? 2 : 1;
+        isFirstSection = false;
         sheet.mergeCells(`B${cursor}:Q${cursor}`);
         const bar = sheet.getCell(`B${cursor}`);
         bar.value = node.title || "Section";
@@ -643,6 +761,60 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
 
           cursor++;
         });
+
+        // Auto-generated section total row — same behavior as the
+        // FORM_CONFIGS branch above: sums every field row just rendered in
+        // this section, left column stays blank (no unit for a total).
+        if (sectionFields.length > 0) {
+          const totalRowStart = cursor - sectionFields.length;
+          const dataRowNumbers = Array.from({ length: sectionFields.length }, (_, i) => totalRowStart + i);
+          const r = cursor;
+
+          sheet.getCell(`B${r}`).value = "Total";
+          sheet.getCell(`B${r}`).font = { name: "Inter", bold: true };
+          sheet.mergeCells(`C${r}:D${r}`);
+
+          FISCAL_MONTHS.forEach((_, i) => {
+            const col = monthColLetter(i);
+            const cell = sheet.getCell(`${col}${r}`);
+            let colSum = 0;
+            dataRowNumbers.forEach((rn) => {
+              const val = sheet.getCell(`${col}${rn}`).value;
+              if (typeof val === "number") colSum += val;
+              else if (val && typeof (val as any).result === "number") colSum += (val as any).result;
+            });
+            const formulaRefs = dataRowNumbers.map((rn) => `${col}${rn}`).join(",");
+            cell.value = { formula: `SUM(${formulaRefs})`, result: colSum };
+            cell.numFmt = "0.00";
+            cell.font = { name: "Inter", bold: true };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+            cell.border = allBorders;
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          });
+
+          const totalCell = sheet.getCell(`Q${r}`);
+          let rowSum = 0;
+          for (let i = 0; i < 12; i++) {
+            const val = sheet.getCell(`${monthColLetter(i)}${r}`).value;
+            if (typeof val === "number") rowSum += val;
+            else if (val && typeof (val as any).result === "number") rowSum += (val as any).result;
+          }
+          totalCell.value = { formula: `SUM(E${r}:P${r})`, result: rowSum };
+          totalCell.numFmt = "0.00";
+          totalCell.font = { name: "Inter", bold: true };
+          totalCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+          totalCell.border = allBorders;
+          totalCell.alignment = { horizontal: "center", vertical: "middle" };
+
+          ["B", "C"].forEach((col) => {
+            const cell = sheet.getCell(`${col}${r}`);
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_FILL } };
+            cell.border = allBorders;
+            cell.alignment = { vertical: "middle", wrapText: true };
+          });
+
+          cursor++;
+        }
       } else if (node?.type === "field_group") {
         const key = (node.children || [])[0];
         const field = key ? fieldByKey.get(key) : null;
@@ -675,18 +847,13 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
     const titleRow = sheet.addRow(["", (formTitle || "Environmental Compliance Form").toUpperCase()]);
     titleRow.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF004E8A" } };
 
-    sheet.addRow([]);
+    const blankRow = sheet.addRow([]);
 
-    const addMeta = (label: string, value: string) => {
-      const row = sheet.addRow(["", label, value]);
-      row.getCell(2).font = { name: "Arial", bold: true };
-      row.getCell(2).alignment = { horizontal: "right" };
-      row.getCell(3).alignment = { horizontal: "left" };
-    };
-
-    addMeta("Reporting Month:", reportingMonthLabel ?? "—");
-    addMeta("Location / Site:", `${siteName ?? ""} (${siteCode ?? ""})`);
-    addMeta(metaRow7Label, metaRow7Value ?? "—");
+    drawMetaInfoTable(sheet, blankRow.number + 1, "B", "B", "C", "C", [
+      { label: "Reporting Month:", value: reportingMonthLabel ?? "—" },
+      { label: "Location / Site:", value: `${siteName ?? ""} (${siteCode ?? ""})` },
+      { label: metaRow7Label, value: metaRow7Value ?? "—" },
+    ]);
 
     sheet.addRow([]);
     sheet.addRow([]);
@@ -726,13 +893,35 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
       groupHeader.font = { name: "Arial", size: 11, bold: true, color: { argb: "FF004E8A" } };
 
       const rowHeaders = ["S. No.", ...group.rowFields.map((rf: any) => rf.label + (rf.unit ? ` (${rf.unit})` : ""))];
+
+      // This appendix sits in the same worksheet as the main matrix table
+      // above it, which sizes columns for month data (narrow, ~9 wide) —
+      // far too narrow for headers like "Quantity (Tons)" or "Disposal
+      // Method", which were getting cut off/overlapping. Widen (never
+      // narrow) each column this table actually uses so every header and
+      // value fits, based on the longest string that column will hold.
+      rowHeaders.forEach((header, idx) => {
+        const colLetter = String.fromCharCode("B".charCodeAt(0) + idx);
+        const longestValue = groupRows.reduce((max: number, rowVal: any) => {
+          const rf = group.rowFields[idx - 1]; // idx 0 is "S. No.", so rowFields start at idx 1
+          if (!rf) return max;
+          const text = String(formatFieldValue(rf, rowVal[rf.key]) ?? "");
+          return Math.max(max, text.length);
+        }, 0);
+        const desiredWidth = Math.max(header.length, longestValue) + 4;
+        const col = sheet.getColumn(colLetter);
+        if (!col.width || col.width < desiredWidth) col.width = desiredWidth;
+      });
+
       const tblHeaderRow = sheet.addRow(["", ...rowHeaders]);
+      tblHeaderRow.height = 20;
       tblHeaderRow.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } };
 
       rowHeaders.forEach((_, idx) => {
         const cell = tblHeaderRow.getCell(idx + 2);
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF004E8A" } };
-        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = allBorders;
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
       });
 
       groupRows.forEach((rowVal: any, rIdx: number) => {
@@ -741,7 +930,7 @@ export function buildFormWorksheet(params: BuildFormWorksheetParams): ExcelJS.Wo
 
         rowHeaders.forEach((_, idx) => {
           const cell = dataRow.getCell(idx + 2);
-          cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          cell.border = allBorders;
           cell.alignment = { horizontal: "center", vertical: "middle" };
         });
       });
