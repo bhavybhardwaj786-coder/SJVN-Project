@@ -210,11 +210,25 @@ const formTitle = data.forms?.title ?? "Environmental Compliance Form";
 pdf.text(formTitle, pageWidth / 2, dividerY + 26, { align: "center" });
 
 // 5. Metadata block below the title, shown as a small bordered table
+      // Reporting month is stored as a UTC timestamp (e.g. midnight IST on the
+      // 1st serializes as "...T18:30:00.000Z" the evening before in UTC), so it
+      // must be reformatted in the site's own timezone (Asia/Kolkata) rather
+      // than printed as the raw ISO string — otherwise July shows up as June.
+      const monthLabel = (() => {
+        try {
+          return new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", month: "long", year: "numeric" }).format(
+            new Date(data.reporting_month)
+          );
+        } catch {
+          return data.reporting_month;
+        }
+      })();
+
 autoTable(pdf, {
   startY: dividerY + 40,
   body: [
     ["Site", `${data.sites?.name ?? ""} (${data.sites?.code ?? ""})`],
-    ["Reporting Month", data.reporting_month],
+    ["Reporting Month", monthLabel],
     ["Submitted By", submittedByName ?? "—"],
   ],
   theme: 'grid',
@@ -233,43 +247,98 @@ autoTable(pdf, {
   margin: { left: (pageWidth - 500) / 2 },
 });
 
-      const tableBody = fields.map((field: any) => {
-        const filesCount = values[`${field.key}_files`]?.length || 0;
-        const attachmentText = filesCount > 0 ? `(${filesCount} Doc Attached)` : '';
-        return [
-          field.label || "",
-          `${formatFieldValue(field, values[field.key])} ${attachmentText}`.trim()
-        ];
-      });
+      // ---- shared layout constants + small drawing helpers for the redesigned body ----
+      const contentWidth = 500;
+      const marginX = (pageWidth - contentWidth) / 2;
 
-      if (fields.length > 0) {
+      // Solid rounded bar used for every section heading — keeps the "one month, one clean sheet"
+      // data-sheet feel instead of the old plain grid table.
+      const drawSectionBar = (y: number, title: string, rightLabel?: string, height = 26) => {
+        pdf.setFillColor(0, 78, 138);
+        pdf.roundedRect(marginX, y, contentWidth, height, 4, 4, "F");
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(height >= 26 ? 11 : 9.5);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(title, marginX + 12, y + height / 2 + 3.5);
+        if (rightLabel) {
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8.5);
+          pdf.setTextColor(200, 220, 240);
+          pdf.text(rightLabel, marginX + contentWidth - 12, y + height / 2 + 3.5, { align: "right" });
+        }
+      };
+
+      // 6. Reported parameters — section-aware, schema-driven renderer.
+      // Mirrors the "generic schema-driven engine" already used by the Excel export
+      // (reads schema.layout + schema.fields directly), so a brand-new form with
+      // sections defined in the form builder needs ZERO extra PDF code — it just works.
+      // Forms without any sections defined fall back to a single flat sheet, same as before.
+      let cursorY = (pdf as any).lastAutoTable.finalY + 26;
+      const fieldByKey = new Map<string, any>(fields.map((f: any) => [f.key, f]));
+      const layout: any[] | undefined = data?.forms?.schema?.layout;
+
+      const ensureSpace = (neededHeight: number) => {
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        if (cursorY + neededHeight > pageHeight - 60) {
+          pdf.addPage();
+          cursorY = 50;
+        }
+      };
+
+      // Renders one titled sub-section: navy bar + its own "Field Parameter / Reported
+      // Value" table, so every question sits under the sub-form heading it actually
+      // belongs to (e.g. "303-1 Total water withdrawal by source", "Water recycled",
+      // "Water Discharged") instead of one long undifferentiated list.
+      const renderFieldSection = (title: string, sectionFields: any[], rightLabel?: string) => {
+        if (!sectionFields || sectionFields.length === 0) return;
+        ensureSpace(60);
+        drawSectionBar(cursorY, (title || "Section").toUpperCase(), rightLabel, 24);
+        cursorY += 24;
+
+        const body = sectionFields.map((field: any) => {
+          const label = field.unit ? `${field.label} (${field.unit})` : field.label || "";
+          return [label, formatFieldValue(field, values[field.key])];
+        });
+
         autoTable(pdf, {
-          startY: (pdf as any).lastAutoTable ? (pdf as any).lastAutoTable.finalY + 24 : dividerY + 180,
-          head: [['Field Parameter', 'Reported Value']],
-          body: tableBody,
-          theme: 'grid',
+          startY: cursorY,
+          head: [["Field Parameter", "Reported Value"]],
+          body,
+          theme: "striped",
           headStyles: {
             fillColor: [0, 78, 138],
             textColor: 255,
-            fontStyle: 'bold',
-            halign: 'center'
+            fontStyle: "bold",
+            halign: "left",
+            fontSize: 9.5,
           },
+          alternateRowStyles: { fillColor: [244, 248, 252] },
           styles: {
-            font: 'helvetica',
+            font: "helvetica",
             fontSize: 10,
-            cellPadding: 8,
-            lineColor: [200, 200, 200],
-            lineWidth: 0.5,
+            cellPadding: { top: 7, bottom: 7, left: 12, right: 10 },
+            lineColor: [225, 230, 238],
+            lineWidth: 0.4,
+            textColor: [55, 60, 70],
+            valign: "middle",
           },
           columnStyles: {
-            0: { cellWidth: 250, halign: 'center' },
-            1: { cellWidth: 250, halign: 'center' }
+            0: { cellWidth: 300, fontStyle: "bold", textColor: [40, 55, 80] },
+            1: { cellWidth: 200, fontStyle: "bold", textColor: [0, 78, 138] },
           },
-          margin: { left: (pageWidth - 500) / 2 }
+          margin: { left: marginX, right: pageWidth - marginX - contentWidth },
+          didDrawCell: (hookData: any) => {
+            // slim navy accent bar on every parameter row — sits in the padding gutter, never over text
+            if (hookData.section === "body" && hookData.column.index === 0) {
+              pdf.setFillColor(0, 78, 138);
+              pdf.rect(hookData.cell.x, hookData.cell.y, 2.5, hookData.cell.height, "F");
+            }
+          },
         });
-      }
+        cursorY = (pdf as any).lastAutoTable.finalY + 24;
+      };
 
-      repeatableGroups.forEach((group: any) => {
+      const renderGroupTable = (group: any) => {
         const groupRows = getGroupRows(group.key);
         if (groupRows.length === 0) return;
 
@@ -279,41 +348,274 @@ autoTable(pdf, {
           ...group.rowFields.map((rf: any) => formatFieldValue(rf, rowVal[rf.key]))
         ]);
 
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        let startY = (pdf as any).lastAutoTable ? (pdf as any).lastAutoTable.finalY + 28 : dividerY + 180;
-
-        if (startY + 50 > pageHeight) {
-          pdf.addPage();
-          startY = 40;
-        }
-
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(11);
-        pdf.setTextColor(0, 78, 138);
-        pdf.text(group.label || "Repeatable Group Data", (pageWidth - 500) / 2, startY);
+        ensureSpace(70);
+        drawSectionBar(
+          cursorY,
+          (group.label || "Repeatable Group Data").toUpperCase(),
+          `${groupRows.length} ${groupRows.length === 1 ? "entry" : "entries"}`,
+          22
+        );
+        cursorY += 22;
 
         autoTable(pdf, {
-          startY: startY + 8,
+          startY: cursorY,
           head: [headers],
           body: rows,
-          theme: 'grid',
+          theme: "striped",
           headStyles: {
-            fillColor: [0, 78, 138],
-            textColor: 255,
-            fontStyle: 'bold',
-            halign: 'center'
+            fillColor: [230, 236, 245],
+            textColor: [0, 78, 138],
+            fontStyle: "bold",
+            halign: "center",
+            fontSize: 8.5,
+            lineColor: [200, 210, 225],
+            lineWidth: 0.4,
           },
+          alternateRowStyles: { fillColor: [248, 250, 253] },
           styles: {
-            font: 'helvetica',
+            font: "helvetica",
+            fontSize: 8.5,
+            cellPadding: 6,
+            lineColor: [225, 230, 238],
+            lineWidth: 0.4,
+            halign: "center",
+            textColor: [70, 75, 85],
+          },
+          columnStyles: {
+            0: { cellWidth: 24, fontStyle: "bold", textColor: [0, 78, 138], fillColor: [244, 248, 252] },
+          },
+          margin: { left: marginX, right: pageWidth - marginX - contentWidth },
+        });
+        cursorY = (pdf as any).lastAutoTable.finalY + 24;
+      };
+
+      // ---- Renders a "table"-type section child: a real grid exactly like the
+      // one shown in the form-fill wizard (e.g. S.No / Source / Unit / External-
+      // On-site / Reported Value), reading child.columns + child.rows directly
+      // from the schema. Cells of type "label" print as-is; cells of type
+      // "field" resolve fieldKey against the submitted values (through
+      // formatFieldValue, so selects/checkboxes still render their option
+      // labels). If the schema defines a summaryRow (e.g. "TOTAL WATER
+      // WITHDRAWAL"), it's appended as a highlighted final row, honoring any
+      // colSpan on its label cells.
+      const renderTableSectionChild = (child: any) => {
+        if (!child.columns || !child.rows) return;
+        ensureSpace(60);
+
+        const resolveCell = (cell: any) =>
+          cell?.type === "field"
+            ? formatFieldValue(fieldByKey.get(cell.fieldKey), values[cell.fieldKey])
+            : cell?.value ?? "";
+
+        const body = child.rows.map((row: any[]) => row.map(resolveCell));
+
+        let summaryRowIndex = -1;
+        if (child.summaryRow) {
+          const summaryBody = child.summaryRow.map((cell: any) => {
+            const text = resolveCell(cell);
+            return cell.colSpan ? { content: text, colSpan: cell.colSpan } : text;
+          });
+          body.push(summaryBody);
+          summaryRowIndex = body.length - 1;
+        }
+
+        autoTable(pdf, {
+          startY: cursorY,
+          head: [child.columns],
+          body,
+          theme: "grid",
+          headStyles: {
+            fillColor: [230, 236, 245],
+            textColor: [0, 78, 138],
+            fontStyle: "bold",
+            halign: "center",
+            fontSize: 8.5,
+            lineColor: [200, 210, 225],
+            lineWidth: 0.4,
+          },
+          alternateRowStyles: { fillColor: [248, 250, 253] },
+          styles: {
+            font: "helvetica",
             fontSize: 9,
             cellPadding: 6,
-            lineColor: [200, 200, 200],
-            lineWidth: 0.5,
-            halign: 'center',
+            lineColor: [225, 230, 238],
+            lineWidth: 0.4,
+            halign: "center",
+            valign: "middle",
+            textColor: [60, 65, 75],
           },
-          margin: { left: (pageWidth - 500) / 2 }
+          didParseCell: (hookData: any) => {
+            if (hookData.section === "body" && hookData.row.index === summaryRowIndex) {
+              hookData.cell.styles.fillColor = [0, 78, 138];
+              hookData.cell.styles.textColor = 255;
+              hookData.cell.styles.fontStyle = "bold";
+            }
+          },
+          margin: { left: marginX, right: pageWidth - marginX - contentWidth },
         });
-      });
+        cursorY = (pdf as any).lastAutoTable.finalY + 16;
+      };
+
+      // ---- Renders a "field_group"-type section child: a short label/value
+      // list for a handful of standalone questions inside an otherwise
+      // table-driven section (e.g. "Other Source (Specify)" sitting alongside
+      // the withdrawal-by-source table). An optional child.title prints as a
+      // small heading above the list.
+      const renderFieldGroupChild = (child: any) => {
+        const keys: string[] = child.children || [];
+        const groupFields = keys.map((k) => fieldByKey.get(k)).filter(Boolean);
+        if (groupFields.length === 0) return;
+
+        if (child.title) {
+          ensureSpace(24);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(9.5);
+          pdf.setTextColor(0, 78, 138);
+          pdf.text(child.title, marginX, cursorY + 9);
+          cursorY += 16;
+        }
+
+        const body = groupFields.map((field: any) => {
+          const label = field.unit ? `${field.label} (${field.unit})` : field.label || "";
+          return [label, formatFieldValue(field, values[field.key])];
+        });
+
+        ensureSpace(40);
+        autoTable(pdf, {
+          startY: cursorY,
+          body,
+          theme: "striped",
+          alternateRowStyles: { fillColor: [244, 248, 252] },
+          styles: {
+            font: "helvetica",
+            fontSize: 9.5,
+            cellPadding: { top: 6, bottom: 6, left: 12, right: 10 },
+            lineColor: [225, 230, 238],
+            lineWidth: 0.4,
+            textColor: [55, 60, 70],
+            valign: "middle",
+          },
+          columnStyles: {
+            0: { cellWidth: 300, fontStyle: "bold", textColor: [40, 55, 80] },
+            1: { cellWidth: 200, fontStyle: "bold", textColor: [0, 78, 138] },
+          },
+          margin: { left: marginX, right: pageWidth - marginX - contentWidth },
+        });
+        cursorY = (pdf as any).lastAutoTable.finalY + 16;
+      };
+
+      // ---- Renders a "repeatable_table"-type section child inline, in the
+      // exact position the schema places it — instead of only at the very end
+      // of the document, disconnected from the section it actually belongs to.
+      const renderedGroupKeys = new Set<string>();
+      const renderRepeatableTableChild = (child: any) => {
+        const group = repeatableGroups.find((g: any) => g.key === child.groupKey);
+        if (!group) return;
+        renderedGroupKeys.add(group.key);
+        renderGroupTable(group);
+      };
+
+      // Recursively collects every field key referenced anywhere inside a
+      // section's children, regardless of which child type carries it (table
+      // rows, table summaryRow, or field_group), so "did this field get shown
+      // somewhere" is answered correctly instead of only checking field_group.
+      const collectPlacedKeys = (section: any, placedKeys: Set<string>) => {
+        (section.children || []).forEach((child: any) => {
+          if (child.type === "table") {
+            (child.rows || []).forEach((row: any[]) =>
+              row.forEach((cell: any) => {
+                if (cell?.type === "field") placedKeys.add(cell.fieldKey);
+              })
+            );
+            (child.summaryRow || []).forEach((cell: any) => {
+              if (cell?.type === "field") placedKeys.add(cell.fieldKey);
+            });
+          } else if (child.type === "field_group") {
+            (child.children || []).forEach((k: string) => placedKeys.add(k));
+          }
+          // repeatable_table fields live in repeatable_groups/values, not in
+          // schema.fields, so they never need to count toward leftovers.
+        });
+      };
+
+      const renderSection = (section: any) => {
+        const hasContent = (section.children || []).some((child: any) => {
+          if (child.type === "table") return (child.rows || []).length > 0;
+          if (child.type === "field_group")
+            return (child.children || []).some((k: string) => fieldByKey.has(k));
+          if (child.type === "repeatable_table")
+            return getGroupRows(child.groupKey).length > 0;
+          return false;
+        });
+        if (!hasContent) return;
+
+        ensureSpace(40);
+        drawSectionBar(cursorY, (section.title || "Section").toUpperCase());
+        cursorY += 26;
+
+        (section.children || []).forEach((child: any) => {
+          if (child.type === "table") renderTableSectionChild(child);
+          else if (child.type === "field_group") renderFieldGroupChild(child);
+          else if (child.type === "repeatable_table") renderRepeatableTableChild(child);
+        });
+
+        cursorY += 8;
+      };
+
+      if (layout && Array.isArray(layout) && layout.length > 0) {
+        // Schema defines sub-forms/sections — walk them in the order they were
+        // built, exactly like the Excel generic engine does. Every child type a
+        // section can actually contain (table, field_group, repeatable_table) is
+        // handled here, in place, instead of only field_group being recognized.
+        const placedKeys = new Set<string>();
+
+        layout.forEach((node: any) => {
+          if (node?.type === "section") {
+            collectPlacedKeys(node, placedKeys);
+            renderSection(node);
+          } else if (node?.type === "field_group") {
+            // Standalone ungrouped questions at the root of the layout
+            const keys: string[] = node.children || [];
+            keys.forEach((k) => placedKeys.add(k));
+            const groupFields = keys.map((k) => fieldByKey.get(k)).filter(Boolean);
+            renderFieldSection(node.title || "General Questions", groupFields);
+          }
+          // metadata / instruction nodes are informational only and are
+          // already covered by the report header — nothing to render here.
+        });
+
+        // Any field never referenced by a layout node — e.g. added to the form
+        // after its sections were last saved — still needs to show up somewhere.
+        const leftoverFields = fields.filter((f: any) => !placedKeys.has(f.key));
+        renderFieldSection("Additional Parameters", leftoverFields);
+
+        // Any repeatable group not already rendered inline via a
+        // repeatable_table node still needs to appear.
+        repeatableGroups.forEach((group: any) => {
+          if (!renderedGroupKeys.has(group.key)) renderGroupTable(group);
+        });
+      } else {
+        // No sections defined on this form — single flat data sheet, same as before.
+        renderFieldSection("Reported Parameters", fields, monthLabel);
+        repeatableGroups.forEach((group: any) => renderGroupTable(group));
+      }
+
+      // 7. Consistent footer on every page — page count + generation context, brand rule above it
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        const footerY = pdf.internal.pageSize.getHeight() - 34;
+        pdf.setDrawColor(215, 222, 232);
+        pdf.setLineWidth(0.75);
+        pdf.line(40, footerY, pageWidth - 40, footerY);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(140, 145, 155);
+        pdf.text(`SJVN Limited  •  ${monthLabel} Environmental Report`, 40, footerY + 14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(0, 78, 138);
+        pdf.text(`Page ${i} of ${pageCount}`, pageWidth - 40, footerY + 14, { align: "right" });
+      }
 
       pdf.save(fileName);
       toast.success("Report PDF generated successfully!");
