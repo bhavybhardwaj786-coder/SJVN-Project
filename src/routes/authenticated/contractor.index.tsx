@@ -122,7 +122,7 @@ function ContractorDashboard() {
   return (
     <AppShell>
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
-        <motion.div initial="hidden" animate="show" variants={containerVariants} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <motion.div initial="hidden" animate="show" variants={containerVariants} className="w-full px-4 py-8 sm:px-6 lg:px-8">
           <motion.section variants={fadeUp} className="flex">
             <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-sky-100">Contractor Portal</p>
