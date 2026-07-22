@@ -440,9 +440,9 @@ export function buildBlocksFromSchema(schema: any): FormBlock[] {
 }
 
 const STEPS = [
-  { id: 1, label: "Form Details", desc: "Name and describe the form" },
-  { id: 2, label: "Questions", desc: "What data should sites log?" },
-  { id: 3, label: "Site Visibility", desc: "Who can see this form" },
+  { id: 1, label: "Form Details", desc: "Name and describe the form", icon: Settings2 },
+  { id: 2, label: "Questions", desc: "What data should sites log?", icon: ListChecks },
+  { id: 3, label: "Site Visibility", desc: "Who can see this form", icon: Users },
 ] as const;
 
 const EDIT_SECTIONS = [
@@ -1636,77 +1636,108 @@ function NewForm() {
   // ==========================================================
   return (
     <AppShell>
-      <button
-        onClick={() => navigate({ to: "/authenticated/app" })}
-        className="mb-8 inline-flex items-center gap-1.5 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to dashboard
-      </button>
+      <div className="w-full px-4 sm:px-8 lg:px-12">
+        {/* Top bar */}
+        <div className="mb-6 flex items-center justify-between">
+          <button
+            onClick={() => navigate({ to: "/authenticated/app" })}
+            className="inline-flex items-center gap-1.5 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to dashboard
+          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-neutral-400">Autosaved just now</span>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
+              <Save className="h-3.5 w-3.5" />
+              Save draft
+            </Button>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 gap-10 pb-16 lg:grid-cols-[220px_1fr]">
-        <nav className="hidden lg:block">
-          <div className="sticky top-6 space-y-1">
-            {STEPS.map((s) => (
+        {/* Step navigator: horizontal cards */}
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {STEPS.map((s) => {
+            const isActive = step === s.id;
+            const isDone = step > s.id;
+            const clickable = s.id < step || step === 3;
+            return (
               <button
                 key={s.id}
-                onClick={() => (s.id < step || step === 3 ? setStep(s.id) : undefined)}
+                onClick={() => (clickable ? setStep(s.id) : undefined)}
                 disabled={s.id > step}
-                className={`flex w-full items-start gap-3 border-l-2 px-3 py-2.5 text-left transition-colors ${
-                  step === s.id ? "border-teal-700" : "border-transparent"
-                } ${s.id > step ? "cursor-default opacity-40" : "hover:border-neutral-300"}`}
+                className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
+                  isActive
+                    ? "border-transparent bg-gradient-to-r from-sky-500 to-indigo-600 shadow-sm"
+                    : "border-neutral-200 bg-white"
+                } ${s.id > step ? "cursor-default opacity-60" : clickable ? "hover:border-neutral-300" : ""}`}
               >
                 <span
-                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                    step === s.id
-                      ? "border-teal-700 bg-teal-700 text-white"
-                      : step > s.id
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                      : "border-neutral-300 text-neutral-400"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : isDone
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-neutral-100 text-neutral-400"
                   }`}
                 >
-                  {step > s.id ? <Check className="h-3 w-3" /> : s.id}
+                  {isDone ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
                 </span>
                 <span>
-                  <span className={`block text-sm ${step === s.id ? "font-semibold text-neutral-900" : "text-neutral-500"}`}>{s.label}</span>
-                  <span className="block text-xs text-neutral-400">{s.desc}</span>
+                  <span className={`block text-[11px] font-semibold uppercase tracking-wider ${isActive ? "text-sky-100" : "text-neutral-400"}`}>
+                    Step {s.id}{isDone ? " · Done" : ""}
+                  </span>
+                  <span className={`block text-sm font-bold ${isActive ? "text-white" : "text-neutral-900"}`}>{s.label}</span>
+                  <span className={`block text-xs ${isActive ? "text-sky-100" : "text-neutral-500"}`}>{s.desc}</span>
                 </span>
               </button>
-            ))}
-          </div>
-        </nav>
+            );
+          })}
+        </div>
 
-        <div className="min-w-0 max-w-2xl">
-          <div className="mb-6 flex items-center gap-2 lg:hidden">
-            {STEPS.map((s, i) => (
-              <div key={s.id} className="flex flex-1 items-center gap-2">
-                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                  step === s.id ? "border-teal-700 bg-teal-700 text-white" : step > s.id ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-neutral-300 text-neutral-400"
-                }`}>
-                  {step > s.id ? <Check className="h-3 w-3" /> : s.id}
-                </div>
-                {i < STEPS.length - 1 && <div className="h-px flex-1 bg-neutral-200" />}
-              </div>
-            ))}
-          </div>
-
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 sm:p-8">
           {step === 1 && (
             <section>
-              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">Step 1</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-sky-600">Step 1</p>
               <h2 className="mt-1 text-xl font-bold text-neutral-900">Name the Form</h2>
               <p className="mt-1 text-sm text-neutral-500">Start with what this form is for. You'll add the actual questions next.</p>
               <div className="mt-6 space-y-5 border-t border-neutral-200 pt-6">
                 <div className="space-y-1.5">
-                  <Label>Form Name *</Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Noise Level Monitoring" autoFocus />
+                  <div className="flex items-center justify-between">
+                    <Label>Form Name *</Label>
+                    <span className="text-xs text-neutral-400">{title.length}/60</span>
+                  </div>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value.slice(0, 60))}
+                    placeholder="e.g. Noise Level Monitoring"
+                    autoFocus
+                  />
+                  <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Keep it short and specific, e.g. 'Noise Level Monitoring'.
+                  </p>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label>Description</Label>
-                  <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this form for? Shown to site users." />
+                  <div className="flex items-center justify-between">
+                    <Label>Description</Label>
+                    <span className="text-xs text-neutral-400">{description.length}/200</span>
+                  </div>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value.slice(0, 200))}
+                    placeholder="What is this form for? Shown to site users."
+                  />
+                  <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Shown to site users under the form title. Explain when and why to fill it out.
+                  </p>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Icon / Custom Image</Label>
+                    <Label>Icon</Label>
                     <Select 
                       value={ICON_OPTIONS.includes(icon) ? icon : (icon ? "custom_image" : ICON_OPTIONS[0])} 
                       onValueChange={(v) => {
@@ -1717,7 +1748,7 @@ function NewForm() {
                       <SelectTrigger className="bg-white"><SelectValue placeholder="Select icon..." /></SelectTrigger>
                       <SelectContent>
                         {ICON_OPTIONS.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-                        <SelectItem value="custom_image" className="font-bold text-teal-700">Custom Image URL...</SelectItem>
+                        <SelectItem value="custom_image" className="font-bold text-sky-600">Custom Image URL...</SelectItem>
                       </SelectContent>
                     </Select>
                     {(!ICON_OPTIONS.includes(icon) && icon !== undefined) && (
@@ -1725,13 +1756,17 @@ function NewForm() {
                         placeholder="Paste image URL here (https://...)"
                         value={icon}
                         onChange={(e) => setIcon(e.target.value)}
-                        className="mt-2 text-xs bg-white border-teal-200"
+                        className="mt-2 text-xs bg-white border-sky-200"
                         autoFocus
                       />
                     )}
+                    <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Shown on the dashboard tile.
+                    </p>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>How Often?</Label>
+                    <Label>Reporting Frequency</Label>
                     <Select value={frequency} onValueChange={setFrequency}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1741,12 +1776,23 @@ function NewForm() {
                         <SelectItem value="one_time">One-time</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="flex items-end gap-2 pb-1.5">
-                    <Checkbox id="is-active" checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
-                    <Label htmlFor="is-active" className="cursor-pointer text-sm">Active immediately</Label>
+                    <p className="flex items-center gap-1.5 text-xs text-neutral-400">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      How often sites must submit this form.
+                    </p>
                   </div>
                 </div>
+
+                <label
+                  htmlFor="is-active"
+                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4"
+                >
+                  <Checkbox id="is-active" checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} className="mt-0.5" />
+                  <span>
+                    <span className="block text-sm font-semibold text-neutral-900">Publish immediately</span>
+                    <span className="block text-xs text-neutral-500">Sites will see this form as soon as you publish.</span>
+                  </span>
+                </label>
               </div>
             </section>
           )}
@@ -1806,41 +1852,85 @@ function NewForm() {
 
           {step === 3 && (
             <section>
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-teal-700">Step 3</p>
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-sky-600">Step 3</p>
               <h2 className="mt-1 text-xl font-bold text-neutral-900">Who should see this form?</h2>
+              <p className="mt-1 text-sm text-neutral-500">Control which roles and which sites this form appears on.</p>
               <div className="mt-6 space-y-4 border-t border-neutral-200 pt-6">
-                
-                {/* ADDED: Audience Selector for Create Mode */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-neutral-900">Who can fill this out?</Label>
-                  <div className="flex gap-4">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={visibleToSiteUsers}
-                        onCheckedChange={(v) => setVisibleToSiteUsers(!!v)}
-                      />
-                      Site Users
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={visibleToContractors}
-                        onCheckedChange={(v) => setVisibleToContractors(!!v)}
-                      />
-                      Contractors
-                    </label>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* Who can fill this out? */}
+                  <div className="rounded-xl border border-neutral-200 bg-sky-50/40 p-4">
+                    <p className="text-sm font-semibold text-neutral-900">Who can fill this out?</p>
+                    <p className="text-xs text-neutral-500">Pick one or both.</p>
+                    <div className="mt-3 space-y-2">
+                      <label
+                        onClick={() => setVisibleToSiteUsers(!visibleToSiteUsers)}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
+                      >
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          visibleToSiteUsers ? "bg-blue-600 text-white" : "border border-neutral-300"
+                        }`}>
+                          {visibleToSiteUsers && <Check className="h-3 w-3" />}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-neutral-900">Site Users</span>
+                          <span className="block text-xs text-neutral-500">Staff at each project site</span>
+                        </span>
+                      </label>
+                      <label
+                        onClick={() => setVisibleToContractors(!visibleToContractors)}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
+                      >
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          visibleToContractors ? "bg-blue-600 text-white" : "border border-neutral-300"
+                        }`}>
+                          {visibleToContractors && <Check className="h-3 w-3" />}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-neutral-900">Contractors</span>
+                          <span className="block text-xs text-neutral-500">External vendors and partners</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Which sites? */}
+                  <div className="rounded-xl border border-neutral-200 bg-sky-50/40 p-4">
+                    <p className="text-sm font-semibold text-neutral-900">Which sites?</p>
+                    <p className="text-xs text-neutral-500">Appears on every site's dashboard.</p>
+                    <div className="mt-3 space-y-2">
+                      <label
+                        onClick={() => setVisibilityMode("all")}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
+                      >
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          visibilityMode === "all" ? "border-blue-600" : "border-neutral-300"
+                        }`}>
+                          {visibilityMode === "all" && <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-neutral-900">All Sites</span>
+                          <span className="block text-xs text-neutral-500">Visible everywhere</span>
+                        </span>
+                      </label>
+                      <label
+                        onClick={() => setVisibilityMode("specific")}
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
+                      >
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                          visibilityMode === "specific" ? "border-blue-600" : "border-neutral-300"
+                        }`}>
+                          {visibilityMode === "specific" && <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />}
+                        </span>
+                        <span>
+                          <span className="block text-sm font-semibold text-neutral-900">Specific Sites</span>
+                          <span className="block text-xs text-neutral-500">Choose which sites see it</span>
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input type="radio" name="visibility-mode" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
-                    All Sites
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input type="radio" name="visibility-mode" checked={visibilityMode === "specific"} onChange={() => setVisibilityMode("specific")} />
-                    Specific Sites
-                  </label>
-                </div>
                 {visibilityMode === "specific" && (
                   <div>
                     <div className="mb-2 flex justify-end gap-2">
@@ -1870,25 +1960,51 @@ function NewForm() {
                     )}
                   </div>
                 )}
-                <p className="text-xs text-neutral-500">
-                  {visibilityMode === "all" ? "This form will appear on every site's dashboard." : "This form will only appear on the dashboards of the sites you select."}
-                </p>
+
+                {/* Ready to publish summary */}
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
+                    <Check className="h-4 w-4" /> Ready to publish
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Review the summary below, then hit <span className="font-semibold">Create &amp; Publish</span>.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-1 text-xs text-emerald-800 sm:flex-row sm:gap-8">
+                    <p>
+                      • Fillable by:{" "}
+                      <span className="font-semibold">
+                        {[visibleToSiteUsers && "Site Users", visibleToContractors && "Contractors"].filter(Boolean).join(", ") || "None selected"}
+                      </span>
+                    </p>
+                    <p>
+                      • Scope: <span className="font-semibold">{visibilityMode === "all" ? "All sites" : `${selectedSiteIds.size} site${selectedSiteIds.size === 1 ? "" : "s"}`}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
           )}
 
-          <div className="mt-10 flex justify-between border-t border-neutral-200 pt-6">
-            <Button variant="outline" onClick={step === 1 ? () => navigate({ to: "/authenticated/app" }) : goBack}>
-              {step === 1 ? "Cancel" : "Back"}
-            </Button>
-            {step < 3 ? (
-              <Button onClick={goNext}>Next</Button>
-            ) : (
-              <Button onClick={handleWizardSubmit} disabled={submitMutation.isPending}>
-                {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create & Publish Form
+          <div className="mt-10 flex items-center justify-end border-t border-neutral-200 pt-6">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={step === 1 ? () => navigate({ to: "/authenticated/app" }) : goBack}>
+                {step === 1 ? "Cancel" : "Back"}
               </Button>
-            )}
+              {step < 3 ? (
+                <Button className="bg-gradient-to-r from-sky-500 to-indigo-600 text-white hover:opacity-90" onClick={goNext}>
+                  Continue →
+                </Button>
+              ) : (
+                <Button
+                  className="bg-emerald-500 text-white hover:bg-emerald-600"
+                  onClick={handleWizardSubmit}
+                  disabled={submitMutation.isPending}
+                >
+                  {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create & Publish
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

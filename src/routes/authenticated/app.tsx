@@ -1403,6 +1403,7 @@ const bulkToggleLockMutation = useMutation({
         <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
             <tr>
               <th className="px-6 py-3.5 font-bold text-slate-500">Form Metric Type</th>
+              <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[130px]">Edit Access</th>
               <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Status</th>
               <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Attachments</th>
               <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Report</th>
@@ -1411,7 +1412,8 @@ const bulkToggleLockMutation = useMutation({
         <tbody className="divide-y divide-slate-100">
           {submissionsLoading ? (
             <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
+                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
+                No form metrics are currently assigned or active for this period.
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
                 </td>
               </tr>
@@ -1429,8 +1431,9 @@ const bulkToggleLockMutation = useMutation({
                         <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                       )}
                     </td>
+                    {/* NEW COLUMN: EDIT ACCESS */}
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center">
                         <EditUnlockToggle
                           submission={submission}
                           isPending={
@@ -1441,9 +1444,15 @@ const bulkToggleLockMutation = useMutation({
                             submission && toggleEditUnlockMutation.mutate({ submissionId: submission.id, unlock })
                           }
                         />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
                         <StatusBadge status={status} />
                       </div>
                     </td>
+                    
+                    {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
                     
                     {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
                     <td className="px-6 py-4 text-center">
@@ -1557,6 +1566,7 @@ const bulkToggleLockMutation = useMutation({
                     <th className="px-6 py-3.5 font-bold text-slate-500">
                       Forms Submitted by {selectedContractor.name}
                     </th>
+                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[130px]">Edit Access</th>
                     <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Status</th>
                     <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Attachments</th>
                     <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Report</th>
@@ -1576,8 +1586,9 @@ const bulkToggleLockMutation = useMutation({
                               <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                             )}
                           </td>
+                          {/* NEW COLUMN: EDIT ACCESS */}
                           <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-2">
+                            <div className="flex items-center justify-center">
                               <EditUnlockToggle
                                 submission={submission}
                                 isPending={
@@ -1588,6 +1599,10 @@ const bulkToggleLockMutation = useMutation({
                                   submission && toggleEditUnlockMutation.mutate({ submissionId: submission.id, unlock })
                                 }
                               />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
                               <StatusBadge status={status} />
                             </div>
                           </td>
@@ -1638,7 +1653,7 @@ const bulkToggleLockMutation = useMutation({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
+                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-medium">
                         No form metrics are currently assigned to this contractor.
                       </td>
                     </tr>
