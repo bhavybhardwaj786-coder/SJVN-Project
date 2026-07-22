@@ -9,6 +9,7 @@ import editIcon from "@/assets/icon/edit.png";
 import { motion } from "framer-motion";
 
 import { buildFormWorksheet, FISCAL_MONTHS } from "@/lib/buildFormWorksheet";
+import { renderFormBody } from "@/lib/renderFormBody";
 
 
 import {
@@ -582,57 +583,56 @@ const bulkToggleLockMutation = useMutation({
         // @ts-ignore - autoTable attaches lastAutoTable to the document object
         let currentY = pdf.lastAutoTable.finalY + 30;
 
-        // Loop through each submitted form and draw its table
+        // Loop through each submitted form and draw its body using the exact
+        // same schema-driven renderer as the single-submission report — so
+        // the Combined Report always matches whatever design the individual
+        // report uses, with zero duplicated layout code.
+        //
+        // Every form after the first starts on a brand-new page, full stop —
+        // not "only if it looks like it might overflow". So if Water
+        // Withdrawal runs 1.5 pages, the next form always starts on page 3,
+        // never sharing a page with the tail end of the previous one.
         siteSubmissions.forEach(({ form, sub }, index) => {
           const fields = sub?.forms?.schema?.fields || [];
+          const layout = sub?.forms?.schema?.layout;
+          const repeatableGroups = sub?.forms?.schema?.repeatable_groups || [];
           const values = sub?.data || {};
 
-          // If table might overflow, start on a new page (rough estimation)
-          if (currentY > 700 && index > 0) {
+          if (index > 0) {
             pdf.addPage();
-            currentY = 60;
+            currentY = 50;
           }
 
-          // Section Title
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(12);
-          pdf.setTextColor(0, 78, 138);
-          pdf.text(form.title, pageWidth / 2, currentY, { align: "center" });
-          currentY += 15;
-
-          const tableBody = fields.map((field: any) => [
-            field.label || "",
-            formatFieldValue(field, values[field.key])
-          ]);
-
-          autoTable(pdf, {
+          currentY = renderFormBody({
+            pdf,
+            autoTable,
+            pageWidth,
             startY: currentY,
-            head: [['Field Parameter', 'Reported Value']],
-            body: tableBody.length > 0 ? tableBody : [['No fields defined', '-']],
-            theme: 'grid',
-            headStyles: {
-              fillColor: [0, 78, 138],
-              textColor: 255,
-              fontStyle: 'bold',
-              halign: 'center'
-            },
-            styles: {
-              font: 'helvetica',
-              fontSize: 10,
-              cellPadding: 8,
-              lineColor: [200, 200, 200],
-              lineWidth: 0.5,
-            },
-            columnStyles: {
-              0: { cellWidth: 250, halign: 'center' },
-              1: { cellWidth: 250, halign: 'center' }
-            },
-            margin: { left: (pageWidth - 500) / 2 },
+            formTitle: form.title,
+            fields,
+            layout,
+            repeatableGroups,
+            values,
           });
-
-          // @ts-ignore - autoTable attaches lastAutoTable to the document object
-          currentY = pdf.lastAutoTable.finalY + 40; 
         });
+
+        // Consistent footer on every page — same treatment as the
+        // single-submission report (brand rule + page count).
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          pdf.setPage(i);
+          const footerY = pdf.internal.pageSize.getHeight() - 34;
+          pdf.setDrawColor(215, 222, 232);
+          pdf.setLineWidth(0.75);
+          pdf.line(40, footerY, pageWidth - 40, footerY);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(140, 145, 155);
+          pdf.text(`SJVN Limited  •  ${monthName} Environmental Report`, 40, footerY + 14);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(0, 78, 138);
+          pdf.text(`Page ${i} of ${pageCount}`, pageWidth - 40, footerY + 14, { align: "right" });
+        }
 
         pdf.save(`${fileName}.pdf`);
         toast.success("Combined PDF generated successfully!");
