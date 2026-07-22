@@ -1034,14 +1034,18 @@ const bulkToggleLockMutation = useMutation({
                       : "Contractor Submissions This Month"
                     : "Select Site"}
                 </span>
-                {isSiteSelected ? (
+                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
                   <CheckCircle2 className="h-5 w-5 text-amber-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-amber-700 tracking-tight">
-                {isSiteSelected ? totalSubmitted : "—"}
+                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
+                  ? "—"
+                  : siteViewMode === "contractor" && selectedContractorId
+                    ? contractorSubmissions.length
+                    : totalSubmitted}
               </p>
             </div>
           </motion.div>
@@ -1057,14 +1061,16 @@ const bulkToggleLockMutation = useMutation({
                       : "Contractor Assigned Forms"
                     : "Select Site"}
                 </span>
-                {isSiteSelected ? (
+                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
                   <ListChecks className="h-5 w-5 text-emerald-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-emerald-700 tracking-tight">
-                {isSiteSelected ? totalForms : "—"}
+                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
+                  ? "—"
+                  : totalForms}
               </p>
             </div>
           </motion.div>

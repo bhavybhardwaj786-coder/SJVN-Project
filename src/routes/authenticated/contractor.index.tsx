@@ -9,7 +9,8 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import {
   FileText, Droplet, Wind, Trash2, AlertTriangle, Wallet, Trees,
   Fuel, Volume2, Waves, CloudRain, Leaf, MapPinned, Calendar,
-  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen
+  CheckCircle2, Clock, AlertCircle, ArrowRight, Lock, Loader2, SquarePen,
+  Building2 // <-- ADD THIS
 } from "lucide-react";
 
 import wasteIcon from "@/assets/icon/waste.png";
@@ -123,14 +124,50 @@ function ContractorDashboard() {
     <AppShell>
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
         <motion.div initial="hidden" animate="show" variants={containerVariants} className="w-full px-4 py-8 sm:px-6 lg:px-8">
-          <motion.section variants={fadeUp} className="flex">
-            <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wider text-sky-100">Contractor Portal</p>
-              <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">Environmental Compliance Dashboard</h1>
-              <p className="mt-1 text-sm text-sky-50">Complete and submit monthly environmental compliance reports.</p>
+          {/* Unified Full-Width Header & Date Selector */}
+          <motion.section variants={fadeUp} className="w-full">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:flex-row sm:items-center">
+              
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/25">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-sky-100">
+                    <span className="font-semibold uppercase tracking-wide text-sky-200">Site</span>
+                    <span className="mx-1.5 text-sky-300">–</span>
+                    <span className="font-bold text-white">{siteData?.name || "—"}</span>
+                  </p>
+                  <p className="mt-1 truncate text-sm text-sky-100">
+                    <span className="font-semibold uppercase tracking-wide text-sky-200">Contractor</span>
+                    <span className="mx-1.5 text-sky-300">–</span>
+                    <span className="font-bold text-white">{currentUser?.full_name || currentUser?.email || "—"}</span>
+                  </p>
+                  <p className="mt-2 truncate text-xs text-sky-100">Complete and submit monthly compliance reports.</p>
+                </div>
+              </div>
+              
+              {/* Added sm:mr-6 here to shift the calendar slightly to the left */}
+              <div className="shrink-0 sm:text-right sm:mr-6">
+                <label htmlFor="reporting-month" className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-sky-100">
+                  Select Reporting Period
+                </label>
+                <div className="inline-flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-white">
+                  <Calendar className="h-4 w-4 text-sky-600" />
+                  <input 
+                    id="reporting-month" 
+                    type="month" 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(e.target.value)} 
+                    className="bg-transparent text-sm font-semibold text-slate-800 outline-none" 
+                  />
+                </div>
+              </div>
+
             </div>
           </motion.section>
 
+          {/* Stats Grid Stays Here */}
           <motion.section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
               <motion.div variants={fadeUp} key={label} className={`rounded-xl bg-gradient-to-br ${tint} p-4 ring-1`}>
@@ -138,14 +175,6 @@ function ContractorDashboard() {
                 <p className="mt-2 text-2xl font-semibold">{value}</p>
               </motion.div>
             ))}
-          </motion.section>
-
-          <motion.section variants={fadeUp} className="mt-6 flex">
-            <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
-              <Calendar className="h-4 w-4 text-sky-600" />
-              <label htmlFor="reporting-month" className="text-sm font-medium text-slate-700 whitespace-nowrap">Reporting Month</label>
-              <input id="reporting-month" type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
-            </div>
           </motion.section>
 
           {!targetSiteId && (

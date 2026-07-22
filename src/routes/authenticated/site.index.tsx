@@ -126,27 +126,50 @@ function SiteDashboard() {
     <AppShell>
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-6 -mb-6 min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50/40">
         <div className="mx-auto w-full px-4 py-8 sm:px-6 lg:px-8">
-          <section className="flex">
-            <div className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-5 py-5 shadow-sm sm:w-auto sm:px-6">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/25">
-                <Building2 className="h-5 w-5" />
+          {/* Unified Full-Width Header & Date Selector */}
+          <section className="w-full">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-5 py-5 shadow-sm sm:flex-row sm:items-center">
+              
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/25">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-indigo-100">
+                    <span className="font-semibold uppercase tracking-wide text-indigo-200">Site</span>
+                    <span className="mx-1.5 text-indigo-300">–</span>
+                    <span className="font-bold text-white">{siteName || "—"}</span>
+                  </p>
+                  <p className="mt-1 truncate text-sm text-indigo-100">
+                    <span className="font-semibold uppercase tracking-wide text-indigo-200">Site user</span>
+                    <span className="mx-1.5 text-indigo-300">–</span>
+                    <span className="font-bold text-white">{currentUser?.full_name || currentUser?.email || "—"}</span>
+                  </p>
+                  <p className="mt-2 truncate text-xs text-indigo-100">Complete and submit monthly BRSR reports.</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm text-indigo-100">
-                  <span className="font-semibold uppercase tracking-wide text-indigo-200">Site</span>
-                  <span className="mx-1.5 text-indigo-300">–</span>
-                  <span className="font-bold text-white">{siteName || "—"}</span>
-                </p>
-                <p className="mt-1 truncate text-sm text-indigo-100">
-                  <span className="font-semibold uppercase tracking-wide text-indigo-200">Site user</span>
-                  <span className="mx-1.5 text-indigo-300">–</span>
-                  <span className="font-bold text-white">{currentUser?.full_name || currentUser?.email || "—"}</span>
-                </p>
-                <p className="mt-2 truncate text-xs text-indigo-100">Complete and submit monthly BRSR reports.</p>
+              
+              {/* Added sm:mr-6 here to shift the calendar slightly to the left */}
+              <div className="shrink-0 sm:text-right sm:mr-6">
+                <label htmlFor="reporting-month" className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-indigo-100">
+                  Select Reporting Period
+                </label>
+                <div className="inline-flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-white">
+                  <Calendar className="h-4 w-4 text-sky-600" />
+                  <input 
+                    id="reporting-month" 
+                    type="month" 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(e.target.value)} 
+                    className="bg-transparent text-sm font-semibold text-slate-800 outline-none" 
+                  />
+                </div>
               </div>
+
             </div>
           </section>
 
+          {/* Stats Grid Stays Here */}
           <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => (
               <div key={label} className={`rounded-2xl ${tint} p-4 sm:p-5 ring-1 shadow-sm`}>
@@ -157,14 +180,6 @@ function SiteDashboard() {
                 <p className="mt-2 text-2xl font-bold sm:text-3xl">{value}</p>
               </div>
             ))}
-          </section>
-
-          <section className="mt-6 flex">
-            <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
-              <Calendar className="h-4 w-4 text-sky-600" />
-              <label htmlFor="reporting-month" className="text-sm font-medium text-slate-700 whitespace-nowrap">Reporting Month</label>
-              <input id="reporting-month" type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" />
-            </div>
           </section>
 
           {/* DIAGNOSTIC UI ALERTS ADDED HERE */}
