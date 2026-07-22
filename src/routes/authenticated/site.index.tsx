@@ -224,7 +224,7 @@ function SiteDashboard() {
             ) : requiredForms.length === 0 ? (
                <p className="text-sm text-slate-500 font-medium p-4">No forms have been assigned yet.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {requiredForms.map(({ id, name, description, icon: Icon, customImage }) => {
                   const submission = getSubmission(id);
                   const mappedStatus: MappedStatus = getOriginalStatus(id) === "submitted" ? "completed" : getOriginalStatus(id) === "draft" ? "in-progress" : "pending";
