@@ -757,174 +757,164 @@ const bulkToggleLockMutation = useMutation({
     <AppShell>
       <motion.div initial="hidden" animate="show" variants={containerVariants}>
         
-        <motion.div variants={fadeUp} className="flex">
-  <section className="flex">
-    <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
-      <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
-        Welcome back
-      </p>
-      <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-        Admin Dashboard
-      </h1>
-      <p className="mt-1 max-w-md text-sm text-sky-50">
-        Here's how compliance is tracking across all sites this reporting period.
-      </p>
-    </div>
-  </section>
-</motion.div>
+        
+{/* Unified Full-Width Admin Header & Bulk Controls */}
+          <motion.div variants={fadeUp} className="w-full">
+            <div className="flex flex-col justify-between gap-6 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-6 shadow-sm xl:flex-row xl:items-center">
+              
+              {/* Left: Title & Info */}
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-sky-100">
+                  Welcome back
+                </p>
+                <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
+                  Admin Dashboard
+                </h1>
+                <p className="mt-1.5 text-sm text-sky-50 max-w-xl">
+                  Here's how compliance is tracking across all sites this reporting period.
+                </p>
+              </div>
 
-{/* Replace the `<motion.div>` on line 545 with this updated wrapper: */}
-<motion.div variants={fadeUp} className="mt-6 flex flex-wrap items-center gap-4">
-  {/* NEW: Native Month Picker matching the User Dashboard */}
-  <div className="inline-flex items-center gap-3 rounded-xl border border-sky-100 bg-white px-4 py-2.5 shadow-sm">
-    <Calendar className="h-4 w-4 text-sky-600" />
-    <label htmlFor="reporting-month" className="text-sm font-medium text-slate-700 whitespace-nowrap">
-      Reporting Month
-    </label>
-    <input 
-      id="reporting-month" 
-      type="month" 
-      value={selectedMonth} 
-      onChange={(e) => setSelectedMonth(e.target.value)} 
-      className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" 
-    />
-  </div>
+              {/* Right: Controls Container */}
+              <div className="flex flex-wrap items-center gap-3 shrink-0 xl:justify-end">
+                
+                {/* 1. Month Picker */}
+                <div className="inline-flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-white">
+                  <Calendar className="h-4 w-4 text-sky-600" />
+                  <input 
+                    id="reporting-month" 
+                    type="month" 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(e.target.value)} 
+                    className="bg-transparent text-sm font-semibold text-slate-800 outline-none" 
+                  />
+                </div>
 
-  {/* NEW: Bulk Portal Access dropdown */}
-  {/* Remove 'mt-3' from this div class: */}
-  <div className="relative">
-    {/* This button must always be visible to toggle the state */}
-    <button
-      onClick={() => setBulkDropdownOpen((o) => !o)}
-      className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border bg-card px-3 text-sm shadow-card outline-none focus:border-primary"
-    >
-      <span className="truncate text-slate-700 font-medium">
-        {bulkSiteIds.size === 0
-          ? "Select sites for portal access"
-          : bulkSiteIds.size === sites.length
-          ? "All sites selected"
-          : `${bulkSiteIds.size} site(s) selected`}
-      </span>
-      <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
-    </button>
+                {/* 2. Bulk Portal Access Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setBulkDropdownOpen((o) => !o)}
+                    className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-white"
+                  >
+                    <span className="truncate text-slate-700 font-medium">
+                      {bulkSiteIds.size === 0
+                        ? "Select sites for portal access"
+                        : bulkSiteIds.size === sites.length
+                        ? "All sites selected"
+                        : `${bulkSiteIds.size} site(s) selected`}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 ml-1 transition-transform ${bulkDropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
 
-    {/* ONLY the popup menu is hidden behind the condition */}
-    {bulkDropdownOpen && (
-      <div className="absolute z-50 mt-1 w-full sm:w-[320px] max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl p-1.5">
-        {/* "All Sites" option pinned at the top */}
-        <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 mb-1">
-          <input
-            type="checkbox"
-            className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-            checked={sites.length > 0 && bulkSiteIds.size === sites.length}
-            onChange={() => {
-              if (bulkSiteIds.size === sites.length) {
-                setBulkSiteIds(new Set());
-              } else {
-                setBulkSiteIds(new Set(sites.map((s) => s.id)));
-              }
-            }}
-          />
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-            <Layers className="h-4 w-4" />
-          </div>
-          <span className="text-sm font-extrabold text-slate-800">
-            Select All Sites
-          </span>
-        </label>
+                  {/* Dropdown Menu Popup */}
+                  {bulkDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full sm:w-[320px] right-0 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl p-1.5">
+                      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 mb-1">
+                        <input
+                          type="checkbox"
+                          className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                          checked={sites.length > 0 && bulkSiteIds.size === sites.length}
+                          onChange={() => {
+                            if (bulkSiteIds.size === sites.length) {
+                              setBulkSiteIds(new Set());
+                            } else {
+                              setBulkSiteIds(new Set(sites.map((s) => s.id)));
+                            }
+                          }}
+                        />
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                          <Layers className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-extrabold text-slate-800">
+                          Select All Sites
+                        </span>
+                      </label>
 
-        <div className="h-px bg-slate-100 mx-2 mb-1.5" /> {/* Divider */}
+                      <div className="h-px bg-slate-100 mx-2 mb-1.5" /> 
 
-        {/* Individual Site List */}
-        {sites.map((site) => {
-          const isChecked = bulkSiteIds.has(site.id);
+                      {sites.map((site) => {
+                        const isChecked = bulkSiteIds.has(site.id);
+                        return (
+                          <label
+                            key={site.id}
+                            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 mb-0.5 transition-all duration-200 ${
+                              isChecked ? "bg-slate-50 ring-1 ring-slate-200/50 shadow-sm" : "hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                              checked={isChecked}
+                              onChange={() => {
+                                setBulkSiteIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(site.id)) next.delete(site.id);
+                                  else next.add(site.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+                              isChecked ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              <MapPin className="h-4 w-4" />
+                            </div>
+                            <div className="flex flex-col truncate">
+                              <span className={`truncate text-sm font-bold leading-tight ${
+                                isChecked ? 'text-sky-900' : 'text-slate-700'
+                              }`}>
+                                {site.name}
+                              </span>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                                isChecked ? 'text-sky-600' : 'text-slate-400'
+                              }`}>
+                                CODE: {site.code}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Action Buttons (Lock/Unlock) */}
+                {bulkSiteIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() =>
+                        bulkToggleLockMutation.mutate({
+                          siteIds: Array.from(bulkSiteIds),
+                          month: selectedMonth,
+                          action: "unlock",
+                        })
+                      }
+                      disabled={bulkToggleLockMutation.isPending}
+                      className="bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm"
+                    >
+                      <Unlock className="h-4 w-4 mr-1.5" /> Unlock ({bulkSiteIds.size})
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        bulkToggleLockMutation.mutate({
+                          siteIds: Array.from(bulkSiteIds),
+                          month: selectedMonth,
+                          action: "lock",
+                        })
+                      }
+                      disabled={bulkToggleLockMutation.isPending}
+                      variant="outline"
+                      className="border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
+                    >
+                      <Lock className="h-4 w-4 mr-1.5" /> Lock ({bulkSiteIds.size})
+                    </Button>
+                    {bulkToggleLockMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-white" />}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
           
-          return (
-            <label
-              key={site.id}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 mb-0.5 transition-all duration-200 ${
-                isChecked 
-                  ? "bg-slate-50 ring-1 ring-slate-200/50 shadow-sm" 
-                  : "hover:bg-slate-50"
-              }`}
-            >
-              {/* 1. Checkbox */}
-              <input
-                type="checkbox"
-                className="shrink-0 h-3.5 w-3.5 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                checked={isChecked}
-                onChange={() => {
-                  setBulkSiteIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(site.id)) next.delete(site.id);
-                    else next.add(site.id);
-                    return next;
-                  });
-                }}
-              />
-
-              {/* 2. MapPin Icon Container */}
-              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
-                isChecked ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'
-              }`}>
-                <MapPin className="h-4 w-4" />
-              </div>
-
-              {/* 3. Text Container (Name & Code) */}
-              <div className="flex flex-col truncate">
-                <span className={`truncate text-sm font-bold leading-tight ${
-                  isChecked ? 'text-sky-900' : 'text-slate-700'
-                }`}>
-                  {site.name}
-                </span>
-                <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
-                  isChecked ? 'text-sky-600' : 'text-slate-400'
-                }`}>
-                  CODE: {site.code}
-                </span>
-              </div>
-            </label>
-          );
-        })}
-      </div>
-    )}
-  </div>
-
-{/* Bulk action buttons — only show once at least one site is checked */}
-{bulkSiteIds.size > 0 && (
-  <div className="mt-3 flex flex-wrap items-center gap-3">
-    <Button
-      onClick={() =>
-        bulkToggleLockMutation.mutate({
-          siteIds: Array.from(bulkSiteIds),
-          month: selectedMonth,
-          action: "unlock",
-        })
-      }
-      disabled={bulkToggleLockMutation.isPending}
-      className="bg-emerald-600 hover:bg-emerald-700 h-10 text-xs font-bold shadow-sm"
-    >
-      <Unlock className="h-4 w-4 mr-1.5" /> Unlock Selected ({bulkSiteIds.size})
-    </Button>
-    <Button
-      onClick={() =>
-        bulkToggleLockMutation.mutate({
-          siteIds: Array.from(bulkSiteIds),
-          month: selectedMonth,
-          action: "lock",
-        })
-      }
-      disabled={bulkToggleLockMutation.isPending}
-      variant="outline"
-      className="border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 h-10 text-xs font-bold shadow-sm"
-    >
-      <Lock className="h-4 w-4 mr-1.5" /> Lock Selected ({bulkSiteIds.size})
-    </Button>
-    {bulkToggleLockMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-  </div>
-)}
-</motion.div>
-
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         {/* --- RE-ENGINEERED COMPLEMENTARY DIRECTORY STATS GRID --- */}
         <motion.section variants={containerVariants} className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1034,14 +1024,18 @@ const bulkToggleLockMutation = useMutation({
                       : "Contractor Submissions This Month"
                     : "Select Site"}
                 </span>
-                {isSiteSelected ? (
+                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
                   <CheckCircle2 className="h-5 w-5 text-amber-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-amber-700 tracking-tight">
-                {isSiteSelected ? totalSubmitted : "—"}
+                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
+                  ? "—"
+                  : siteViewMode === "contractor" && selectedContractorId
+                    ? contractorSubmissions.length
+                    : totalSubmitted}
               </p>
             </div>
           </motion.div>
@@ -1057,14 +1051,16 @@ const bulkToggleLockMutation = useMutation({
                       : "Contractor Assigned Forms"
                     : "Select Site"}
                 </span>
-                {isSiteSelected ? (
+                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
                   <ListChecks className="h-5 w-5 text-emerald-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-emerald-700 tracking-tight">
-                {isSiteSelected ? totalForms : "—"}
+                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
+                  ? "—"
+                  : totalForms}
               </p>
             </div>
           </motion.div>
