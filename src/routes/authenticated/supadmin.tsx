@@ -16,6 +16,12 @@ import { sitesService } from "@/services";
 import { usersService } from "@/services/users-service"
 import { Button } from "@/components/ui/button";
 
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Plus, X, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
 export const Route = createFileRoute("/authenticated/supadmin")({
   ssr: false,
   component: SuperAdminDashboard,
@@ -33,6 +39,75 @@ const itemVariants = {
 
 function SuperAdminDashboard() {
   const { data: currentUser } = useCurrentUser();
+
+  const queryClient = useQueryClient();
+  const [showAddSite, setShowAddSite] = useState(false);
+  const [siteName, setSiteName] = useState("");
+  const [siteCode, setSiteCode] = useState("");
+
+  const [showRemoveSite, setShowRemoveSite] = useState(false);
+  const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
+
+  const { data: allSites } = useQuery({
+    queryKey: ["all-sites-list"],
+    queryFn: () => sitesService.getAllSitesAdmin().then((r) => r.data || []),
+    enabled: showRemoveSite,
+  });
+
+  const removeSiteMutation = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.all(
+        selectedSiteIds.map((id) => sitesService.deleteSite(id))
+      );
+      const failed = results.filter((r) => r.error);
+      if (failed.length > 0) throw new Error(`${failed.length} site(s) failed to remove`);
+      return results;
+    },
+    onSuccess: () => {
+      const names = allSites
+        ?.filter((s: any) => selectedSiteIds.includes(s.id))
+        .map((s: any) => s.name)
+        .join(", ");
+      toast.success(`${names} Site${selectedSiteIds.length > 1 ? "s" : ""} Removed`);
+      queryClient.invalidateQueries({ queryKey: ["all-sites-count"] });
+      queryClient.invalidateQueries({ queryKey: ["all-sites-list"] });
+      setSelectedSiteIds([]);
+      setShowConfirmRemove(false);
+      setShowRemoveSite(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to remove site(s)");
+      setShowConfirmRemove(false);
+    },
+  });
+
+  const toggleSiteSelect = (id: string) => {
+    setSelectedSiteIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
+
+    const addSiteMutation = useMutation({
+      mutationFn: async () => {
+        const { data, error } = await sitesService.createSite({
+          name: siteName,
+          code: siteCode,
+        } as any);
+        if (error) throw new Error(error);
+        return data;
+      },
+      onSuccess: (data: any) => {
+        toast.success(`${data?.name || siteName} Site Added`);
+        queryClient.invalidateQueries({ queryKey: ["all-sites-count"] });
+        setShowAddSite(false);
+        setSiteName("");
+        setSiteCode("");
+      },
+      onError: (err: any) => {
+        toast.error(err?.message || "Failed to add site");
+      },
+    });
 
   // Fetch counts for the stat cards
   const { data: sitesResult } = useQuery({
@@ -66,20 +141,138 @@ function SuperAdminDashboard() {
         animate="show"
         className="mx-auto max-w-5xl space-y-8 p-2 sm:p-4 text-slate-900"
       >
-        {/* Simple, clean text header */}
-        <motion.div variants={itemVariants} className="flex">
-          <div className="inline-block rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
-              Super Admin Portal
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
-              Identity & Access Management
-            </h1>
-            <p className="mt-1 max-w-md text-sm text-sky-50">
-              Manage administrators, site operators, and project access.
-            </p>
+        <motion.div variants={itemVariants} className="flex items-stretch justify-between gap-4 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 px-6 py-5 shadow-sm sm:px-8 sm:py-6">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-sky-100">
+            Super Admin Portal
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+            Identity & Access Management
+          </h1>
+          <p className="mt-1 max-w-md text-sm text-sky-50">
+            Manage administrators, site operators, and project access.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setShowAddSite(true)}
+            className="bg-white hover:bg-slate-50 text-blue-700 font-bold text-xs h-10 px-5 shadow-sm rounded-lg flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" /> Add Site
+          </Button>
+          <Button
+            onClick={() => setShowRemoveSite(true)}
+            className="bg-white hover:bg-rose-50 text-rose-700 font-bold text-xs h-10 px-5 shadow-sm rounded-lg flex items-center gap-1.5"
+          >
+            <Trash2 className="h-4 w-4" /> Remove Site
+          </Button>
+        </div>
+      </motion.div>
+
+      {showAddSite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Add New Site</h3>
+              <button onClick={() => setShowAddSite(false)}>
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <Input placeholder="Site Name" value={siteName} onChange={(e) => setSiteName(e.target.value)} />
+              <Input placeholder="Site Code" value={siteCode} onChange={(e) => setSiteCode(e.target.value)} />
+            </div>
+            <Button
+              className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!siteName || !siteCode || addSiteMutation.isPending}
+              onClick={() => addSiteMutation.mutate()}
+            >
+              {addSiteMutation.isPending ? "Adding..." : "Add Site"}
+            </Button>
           </div>
-        </motion.div>
+        </div>
+      )}
+
+      {showRemoveSite && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-900">Remove Sites</h3>
+            <button onClick={() => { setShowRemoveSite(false); setSelectedSiteIds([]); }}>
+              <X className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {allSites?.length ? (
+              allSites.map((s: any) => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedSiteIds.includes(s.id)}
+                    onChange={() => toggleSiteSelect(s.id)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm font-medium text-slate-800">{s.name}</span>
+                  <span className="text-xs text-slate-400 ml-auto">{s.code}</span>
+                </label>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-4">No sites available</p>
+            )}
+          </div>
+
+          <div className="mt-5 flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => { setShowRemoveSite(false); setSelectedSiteIds([]); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={selectedSiteIds.length === 0}
+              onClick={() => setShowConfirmRemove(true)}
+            >
+              Remove ({selectedSiteIds.length})
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showConfirmRemove && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
+          <h3 className="text-lg font-bold text-slate-900">Confirm Removal</h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Are you sure you want to remove {selectedSiteIds.length} site{selectedSiteIds.length > 1 ? "s" : ""}? This cannot be undone.
+          </p>
+          <div className="mt-5 flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowConfirmRemove(false)}
+              disabled={removeSiteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={() => removeSiteMutation.mutate()}
+              disabled={removeSiteMutation.isPending}
+            >
+              {removeSiteMutation.isPending ? "Removing..." : "Confirm Remove"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
 
         {/* Global Directory Overview Grid */}
         <motion.section variants={itemVariants} className="grid gap-4 sm:grid-cols-3">
