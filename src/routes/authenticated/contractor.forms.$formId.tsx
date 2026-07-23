@@ -485,8 +485,30 @@ function FillForm() {
 
                   if (node.type === "field_group") {
                     return (
-                      <div key={idx} className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {node.children.map((fieldKey: string) => renderFieldUI(fieldKey))}
+                      <div key={idx} className="overflow-x-auto w-full mb-6 rounded-lg border border-slate-200">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-slate-100/50 text-slate-700 text-xs uppercase font-bold tracking-wider">
+                            <tr>
+                              <th className="px-4 py-3 border-b border-slate-200">S. No.</th>
+                              <th className="px-4 py-3 border-b border-slate-200">Substance</th>
+                              <th className="px-4 py-3 border-b border-slate-200">Unit</th>
+                              <th className="px-4 py-3 border-b border-slate-200">Reported Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {node.children.map((fieldKey: string, rIdx: number) => {
+                              const field = fields.find((f: any) => f.key === fieldKey);
+                              return (
+                                <tr key={fieldKey} className="hover:bg-slate-50/30 transition-colors">
+                                  <td className="px-4 py-3 align-top font-medium text-slate-700">{rIdx + 1}</td>
+                                  <td className="px-4 py-3 align-top font-medium text-slate-700">{field?.label || fieldKey}</td>
+                                  <td className="px-4 py-3 align-top text-slate-700">{field?.unit || "—"}</td>
+                                  <td className="px-4 py-3 align-top">{renderFieldUI(fieldKey, true)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     );
                   }

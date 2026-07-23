@@ -1,6 +1,6 @@
 import { createFileRoute, Link , redirect, useNavigate  } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 import touchscreenIcon from "@/assets/icon/touchscreen.png";
 import dashedLineIcon from "@/assets/icon/dashed-line.png";
@@ -221,6 +221,18 @@ function AdminDashboard() {
   // NEW: bulk portal access selection
   const [bulkSiteIds, setBulkSiteIds] = useState<Set<string>>(new Set());
   const [bulkDropdownOpen, setBulkDropdownOpen] = useState(false);
+  const bulkDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!bulkDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(e.target as Node)) {
+        setBulkDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [bulkDropdownOpen]);
 
   const reportingMonthDate = `${selectedMonth}-01`;
 
@@ -791,7 +803,7 @@ const bulkToggleLockMutation = useMutation({
                 </div>
 
                 {/* 2. Bulk Portal Access Dropdown */}
-                <div className="relative">
+                <div className="relative" ref={bulkDropdownRef}>
                   <button
                     onClick={() => setBulkDropdownOpen((o) => !o)}
                     className="flex h-10 w-full sm:w-[280px] items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-white"

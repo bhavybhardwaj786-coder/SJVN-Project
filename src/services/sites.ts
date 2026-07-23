@@ -30,4 +30,8 @@ export const sitesService = {
   updateSite: async (id: string, updates: Partial<Site>) => {
     return apiClient.patch(`/sites/${id}`, updates) as Promise<{ data: Site[] | null; error: string | null }>
   },
+
+  deleteSite: async (id: string) => {
+  return apiClient.delete(`/sites/${id}`) as Promise<{ data: any; error: string | null }>
+  },
 }

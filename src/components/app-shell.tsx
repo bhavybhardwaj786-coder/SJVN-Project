@@ -51,12 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => setOpen(false), [pathname]);
 
-  const nav = me?.isSuperAdmin
-    ? [
-        { to: "/authenticated/supadmin", label: "Super Admin Dashboard", icon: ShieldCheck, exact: true },
-        { to: "/authenticated/users", label: "User Management", icon: Users },
-      ]
-    : [];
+  const nav: Array<{ to: string; label: string; icon: any; exact?: boolean }> = [];
 
   async function signOut() {
     await queryClient.cancelQueries();

@@ -104,11 +104,46 @@ router.patch('/:id', async (req: Request, res: Response<ApiResponse<Site[]>>) =>
 
     // Returned as an array (not a single object) to match the old .select()
     // behavior that app.tsx's mutations check .length on.
-    res.json({ data: result.rows, error: null })
+     res.json({ data: result.rows, error: null })
   } catch (err) {
     console.error(err)
     res.status(500).json({ data: null, error: (err as Error).message })
   }
+})
+
+// DELETE /api/sites/:id (supadmin.tsx remove-site action)
+ // DELETE /api/sites/:id (supadmin.tsx remove-site action)
+// Cascades: deletes all users assigned to this site, then the site itself
+// (submissions cascade automatically via the FK's ON DELETE CASCADE).
+  router.delete('/:id', async (req: Request, res: Response<ApiResponse<any>>) => {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+
+      const deletedUsers = await client.query(
+        'DELETE FROM users WHERE site_id = $1 RETURNING id',
+        [req.params.id]
+      )
+
+      const deletedSite = await client.query(
+        'DELETE FROM sites WHERE id = $1 RETURNING id',
+        [req.params.id]
+      )
+
+      if (deletedSite.rows.length === 0) {
+        await client.query('ROLLBACK')
+        return res.status(404).json({ data: null, error: 'Site not found' })
+      }
+
+      await client.query('COMMIT')
+      res.json({ data: { success: true, usersRemoved: deletedUsers.rows.length }, error: null })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      console.error(err)
+      res.status(500).json({ data: null, error: (err as Error).message })
+    } finally {
+      client.release()
+    }
 })
 
 export default router
