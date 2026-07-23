@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { UserPlus, KeyRound, Ban, CheckCircle2, Loader2, X } from "lucide-react";
+import { UserPlus, KeyRound, Ban, CheckCircle2, Loader2, X, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { usersService } from "@/services/users-service";
@@ -78,6 +78,22 @@ function UserManagement() {
     },
     onError: (err: any) => toast.error(err?.message || "Failed to update status"),
   });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => usersService.deleteUser(id), // Ensure deleteUser is implemented in your users-service.ts
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manage-admins"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-site-users"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-contractors"] });
+      toast.success("User completely deleted");
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to delete user"),
+  });
+
+  const handleDeleteUser = (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to completely delete "${name}"? This cannot be undone.`)) return;
+    deleteUserMutation.mutate({ id });
+  };
 
   if (!currentUser) {
     return (
@@ -216,11 +232,11 @@ function UserManagement() {
                           )}
                         </td>
                       )}
-                      {activeTab === "site_user" && (
-                        <td className="px-5 py-4 font-semibold text-slate-700">
-                          {u.sites?.name ? `${u.sites.name} (${u.sites.code})` : <span className="text-xs text-red-500">Unassigned</span>}
-                        </td>
-                      )}
+                      {(activeTab === "site_user" || activeTab === "contractor") && (
+                      <td className="px-5 py-4 font-semibold text-slate-700">
+                        {u.sites?.name ? `${u.sites.name} (${u.sites.code})` : <span className="text-xs text-red-500">Unassigned</span>}
+                      </td>
+                     )}
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
@@ -252,8 +268,19 @@ function UserManagement() {
                                 is_active: !u.is_active,
                               })
                             }
+                            title={u.is_active ? "Deactivate User" : "Activate User"}
                           >
                             {u.is_active ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-200 text-red-600 shadow-sm hover:bg-red-50"
+                            onClick={() => handleDeleteUser(u.id, u.full_name)}
+                            disabled={deleteUserMutation.isPending && deleteUserMutation.variables?.id === u.id}
+                            title="Delete User"
+                          >
+                            {deleteUserMutation.isPending && deleteUserMutation.variables?.id === u.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                           </Button>
                         </div>
                       </td>
@@ -303,7 +330,7 @@ function CreateUserInlineForm({
         full_name: fullName,
         email,
         password,
-        site_id: role === "site_user" || role === "contractor" ? siteId : undefined,
+        site_id: (role === "site_user" || role === "contractor") ? siteId : undefined,
       }),
     onSuccess: () => {
       toast.success("User configuration created successfully");

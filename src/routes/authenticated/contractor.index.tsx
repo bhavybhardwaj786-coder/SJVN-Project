@@ -64,6 +64,12 @@ function ContractorDashboard() {
 
   const targetSiteId = currentUser?.site_id || me?.sites?.[0]?.id;
 
+  const { data: sitesResult } = useQuery({
+    queryKey: ["my-sites"],
+    queryFn: () => sitesService.getSites(),
+  });
+  const siteName = sitesResult?.data?.find((s: any) => s.id === targetSiteId)?.name;
+
   const { data: formsResult, isLoading: formsLoading } = useQuery({
     queryKey: ["active-forms", targetSiteId],
     queryFn: () => formsService.getActiveForms({ role: "contractor", siteId: targetSiteId }),
@@ -136,7 +142,7 @@ function ContractorDashboard() {
                   <p className="truncate text-sm text-sky-100">
                     <span className="font-semibold uppercase tracking-wide text-sky-200">Site</span>
                     <span className="mx-1.5 text-sky-300">–</span>
-                    <span className="font-bold text-white">{siteData?.name || "—"}</span>
+                    <span className="font-bold text-white">{siteName || siteData?.name || "—"}</span>
                   </p>
                   <p className="mt-1 truncate text-sm text-sky-100">
                     <span className="font-semibold uppercase tracking-wide text-sky-200">Contractor</span>

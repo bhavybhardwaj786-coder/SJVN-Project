@@ -30,8 +30,14 @@ export const usersService = {
 
   // 'table' is kept only so existing call sites in users.tsx don't need to change —
   // the unified backend has a single users table now, so this parameter is unused.
+  // 'table' is kept only so existing call sites in users.tsx don't need to change —
+  // the unified backend has a single users table now, so this parameter is unused.
   setActive(table: "admins" | "site_users" | "contractors", id: string, is_active: boolean) {
     return apiClient.patch(`/users/${id}/active`, { is_active });
+  },
+
+  deleteUser(id: string) {
+    return apiClient.delete(`/users/${id}`);
   },
 
   getUsersByIds(ids: string[]) {
