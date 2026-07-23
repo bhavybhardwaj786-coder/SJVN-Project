@@ -6,14 +6,23 @@ import type { User } from '../types'
 
 const router = Router()
 
-router.use(requireAuth, requireRole('admin', 'super_admin'))
+// REMOVE this global lock:
+// router.use(requireAuth, requireRole('admin', 'super_admin'))
 
-// GET /api/users?role=admin|site_user|contractor (replaces listAdmins/listSiteUsers/listContractors)
-router.get('/', async (req: AuthedRequest, res: Response) => {
+// ADD this instead (authentication required globally, but roles checked per-route):
+router.use(requireAuth)
+
+// GET /api/users?role=admin|site_user|contractor
+router.get('/', requireRole('super_admin', 'admin', 'site_user'), async (req: AuthedRequest, res: Response) => {
   try {
     const role = req.query.role as string
     if (!['admin', 'site_user', 'contractor'].includes(role)) {
       return res.status(400).json({ data: null, error: 'role must be admin, site_user, or contractor' })
+    }
+
+    // Security check: Site users are ONLY allowed to view contractors, not admins!
+    if (req.user?.role === 'site_user' && role !== 'contractor') {
+      return res.status(403).json({ data: null, error: 'Permission denied: Site users can only view contractors' })
     }
 
     const result = await pool.query(
@@ -82,14 +91,32 @@ router.post('/:id/reset-password', requireRole('super_admin'), async (req: Authe
 })
 
 // PATCH /api/users/:id/active (replaces setActive — note: old signature took a
-// table name since admins/site_users were separate tables; now there's only one
-// users table, so that parameter becomes unnecessary — handled in the frontend service)
-router.patch('/:id/active', async (req: AuthedRequest, res: Response) => {
+
+
+// PATCH /api/users/:id/active (replaces setActive)
+router.patch('/:id/active', requireRole('super_admin', 'admin'), async (req: AuthedRequest, res: Response) => {
   try {
     const { is_active } = req.body
     const result = await pool.query(
       'UPDATE users SET is_active = $1, updated_at = now() WHERE id = $2 RETURNING id',
       [is_active, req.params.id]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ data: null, error: 'User not found' })
+    }
+    res.json({ data: { success: true }, error: null })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ data: null, error: (err as Error).message })
+  }
+})
+
+// DELETE /api/users/:id (completely removes a user)
+router.delete('/:id', requireRole('super_admin'), async (req: AuthedRequest, res: Response) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id',
+      [req.params.id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ data: null, error: 'User not found' })

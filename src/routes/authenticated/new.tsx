@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCurrentUser } from "@/hooks/use-current-user";
+
 import { AppShell } from "@/components/app-shell";
 import { formsService, sitesService } from "@/services";
 import { Input } from "@/components/ui/input";
@@ -992,7 +994,7 @@ function BlockList(props: BlockListProps) {
 // ==========================================================
 
 function NewForm() {
-
+  const { data: currentUser } = useCurrentUser();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -1308,15 +1310,22 @@ function NewForm() {
     mutationFn: async () => {
       const compiledSchema = compileSchema(blocks, icon);
 
+      // FORCE SCOPING: If creator is a site user, lock the form to their site only.
+      const isSiteUser = currentUser?.role === "site_user";
+      const finalSiteIds = isSiteUser 
+        ? ([currentUser?.site_id].filter(Boolean) as string[])
+        : (visibilityMode === "all" ? null : Array.from(selectedSiteIds));
+
+      const isAdmin = currentUser?.role === "admin";
       const payload = {
         title: title.trim(),
         description: description.trim() || null,
         schema: compiledSchema,
         is_active: isActive,
         frequency,
-        site_ids: visibilityMode === "all" ? null : Array.from(selectedSiteIds),
-        visible_to_site_users: visibleToSiteUsers,
-        visible_to_contractors: visibleToContractors,
+        site_ids: finalSiteIds,
+        visible_to_site_users: isAdmin ? true : visibleToSiteUsers,
+        visible_to_contractors: isAdmin ? false : visibleToContractors,
       };
       
       return editId ? formsService.updateForm(editId, payload) : formsService.createForm(payload);
@@ -1567,45 +1576,57 @@ function NewForm() {
         </label>
       </div>
     </div>
-
-    <div className="flex gap-4">
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
-        All Sites
-      </label>
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "specific"} onChange={() => setVisibilityMode("specific")} />
-        Specific Sites
-      </label>
-    </div>
-
-    {visibilityMode === "specific" && (
-      <div>
-        <div className="mb-2 flex justify-end gap-2">
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set(sites.map((s) => s.id)))}>Select All</Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set())}>Clear</Button>
+{/* 1. Show this ONLY if they are NOT a site user */}
+    {currentUser?.role !== "site_user" && (
+      <>
+        <div className="flex gap-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "all"} onChange={() => setVisibilityMode("all")} />
+            All Sites
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input type="radio" name="visibility-mode-edit" checked={visibilityMode === "specific"} onChange={() => setVisibilityMode("specific")} />
+            Specific Sites
+          </label>
         </div>
-        {sitesLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {sites.map((site) => (
-              <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-2 text-sm transition-colors hover:bg-neutral-50">
-                <Checkbox
-                  checked={selectedSiteIds.has(site.id)}
-                  onCheckedChange={() => {
-                    setSelectedSiteIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(site.id)) next.delete(site.id); else next.add(site.id);
-                      return next;
-                    });
-                  }}
-                />
-                <span>{site.name} <span className="text-xs text-neutral-500">({site.code})</span></span>
-              </label>
-            ))}
+
+        {visibilityMode === "specific" && (
+          <div>
+            <div className="mb-2 flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set(sites.map((s) => s.id)))}>Select All</Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedSiteIds(new Set())}>Clear</Button>
+            </div>
+            {sitesLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {sites.map((site) => (
+                  <label key={site.id} className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 p-2 text-sm transition-colors hover:bg-neutral-50">
+                    <Checkbox
+                      checked={selectedSiteIds.has(site.id)}
+                      onCheckedChange={() => {
+                        setSelectedSiteIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(site.id)) next.delete(site.id); else next.add(site.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span>{site.name} <span className="text-xs text-neutral-500">({site.code})</span></span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         )}
+      </>
+    )}
+
+    {/* 2. Show this ONLY if they ARE a site user (Notice it is now completely separate from the block above) */}
+    {currentUser?.role === "site_user" && (
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <p className="text-sm font-semibold text-blue-900">Site Scope Locked</p>
+        <p className="text-xs text-blue-700 mt-1">As a Site Operator, forms you create are automatically restricted to your designated facility.</p>
       </div>
     )}
 
@@ -1857,37 +1878,42 @@ function NewForm() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Who can fill this out? */}
                   <div className="rounded-xl border border-neutral-200 bg-sky-50/40 p-4">
-                    <p className="text-sm font-semibold text-neutral-900">Who can fill this out?</p>
-                    <p className="text-xs text-neutral-500">Pick one or both.</p>
+                    <p className="text-sm font-semibold text-neutral-900">Target Audience</p>
+                    <p className="text-xs text-neutral-500">
+                      {currentUser?.role === "admin" ? "Configured for Site Operators" : "Pick fillable roles"}
+                    </p>
                     <div className="mt-3 space-y-2">
                       <label
-                        onClick={() => setVisibleToSiteUsers(!visibleToSiteUsers)}
+                        onClick={() => currentUser?.role !== "admin" && setVisibleToSiteUsers(!visibleToSiteUsers)}
                         className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
                       >
                         <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                          visibleToSiteUsers ? "bg-blue-600 text-white" : "border border-neutral-300"
+                          visibleToSiteUsers || currentUser?.role === "admin" ? "bg-blue-600 text-white" : "border border-neutral-300"
                         }`}>
-                          {visibleToSiteUsers && <Check className="h-3 w-3" />}
+                          {(visibleToSiteUsers || currentUser?.role === "admin") && <Check className="h-3 w-3" />}
                         </span>
                         <span>
                           <span className="block text-sm font-semibold text-neutral-900">Site Users</span>
                           <span className="block text-xs text-neutral-500">Staff at each project site</span>
                         </span>
                       </label>
-                      <label
-                        onClick={() => setVisibleToContractors(!visibleToContractors)}
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
-                      >
-                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                          visibleToContractors ? "bg-blue-600 text-white" : "border border-neutral-300"
-                        }`}>
-                          {visibleToContractors && <Check className="h-3 w-3" />}
-                        </span>
-                        <span>
-                          <span className="block text-sm font-semibold text-neutral-900">Contractors</span>
-                          <span className="block text-xs text-neutral-500">External vendors and partners</span>
-                        </span>
-                      </label>
+
+                      {currentUser?.role !== "admin" && (
+                        <label
+                          onClick={() => setVisibleToContractors(!visibleToContractors)}
+                          className="flex cursor-pointer items-start gap-3 rounded-lg border border-neutral-200 bg-white p-3 transition-colors hover:border-neutral-300"
+                        >
+                          <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                            visibleToContractors ? "bg-blue-600 text-white" : "border border-neutral-300"
+                          }`}>
+                            {visibleToContractors && <Check className="h-3 w-3" />}
+                          </span>
+                          <span>
+                            <span className="block text-sm font-semibold text-neutral-900">Contractors</span>
+                            <span className="block text-xs text-neutral-500">External vendors and partners</span>
+                          </span>
+                        </label>
+                      )}
                     </div>
                   </div>
 

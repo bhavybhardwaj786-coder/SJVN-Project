@@ -208,12 +208,6 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<"matrix" | "forms">("matrix");
 
-  // NEW: once a site is selected, choose whether to browse its submissions
-  // grouped by form ("site") or grouped by who submitted them ("contractor").
-  const [siteViewMode, setSiteViewMode] = useState<"site" | "contractor">("site");
-  // NEW: which contractor is currently drilled into, when in contractor mode.
-  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null);
-  
   // State to handle loading spinners on export buttons
   const [exportingSiteId, setExportingSiteId] = useState<string | null>(null);
 
@@ -266,39 +260,8 @@ function AdminDashboard() {
   });
   const submissions = submissionsResult || [];
 
-  // Resolve contractor display names via a direct lookup against the
-  // `contractors` table, keyed on the user_ids seen in this month's submissions.
-  const submitterIds = useMemo(
-    () => Array.from(new Set(submissions.map((s) => s.user_id).filter(Boolean))),
-    [submissions]
-  );
-
-  const { data: contractorRows } = useQuery({
-    queryKey: ["contractor-names", submitterIds],
-    queryFn: async () => {
-      if (submitterIds.length === 0) return [];
-      const { data, error } = await usersService.getUsersByIds(submitterIds);
-      if (error) throw new Error(error);
-      return data || [];
-    },
-    enabled: submitterIds.length > 0,
-  });
-
-  const contractorNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    (contractorRows || []).forEach((row: any) => {
-      const name =
-        row.full_name || row.name || row.contractor_name || row.company_name || null;
-      if (!name) return;
-      if (row.id) map.set(row.id, name);
-      if (row.user_id) map.set(row.user_id, name);
-    });
-    return map;
-  }, [contractorRows]);
-
-  // Site-only submission matrix, keyed by site_id__form_id. Filtering on
-  // submitted_by_role instead of guessing by id set means a contractor's
-  // submission of the same form can never overwrite the site user's here.
+  // Site-only submission matrix, keyed by site_id__form_id. 
+  // Filtering on submitted_by_role strictly ignores contractor flow.
   const submissionMap = useMemo(() => {
     const map = new Map<string, SubmissionRow>();
     submissions
@@ -310,86 +273,28 @@ function AdminDashboard() {
   }, [submissions]);
 
   const totalSites = sites.length;
-
-  // Find currently selected site object if it exists
   const selectedSiteObj = sites.find(s => s.name.toLowerCase() === siteSearchQuery.toLowerCase());
   const isSiteSelected = !!selectedSiteObj;
 
-  // 1. Dynamic Active Forms calculation based on visibility configuration
   const contextualActiveForms = activeForms.filter(f => {
-    // If the form has a specific site visibility array, ensure this site is explicitly whitelisted
     if (f.site_ids && f.site_ids.length > 0) {
       if (!selectedSiteObj || !f.site_ids.includes(selectedSiteObj.id)) return false;
     }
-    // Further restrict by which tab (site vs contractor) is active, using the
-    // form's own visibility flags rather than guessing from submissions.
-    return siteViewMode === "site" ? f.visible_to_site_users : f.visible_to_contractors;
+    return f.visible_to_site_users; // Admin dashboard purely looks at site users now
   });
 
   const totalForms = isSiteSelected ? contextualActiveForms.length : activeForms.length;
 
-  // 2. Filter submissions list down exclusively to the matching site selection state
   const contextualSubmissions = submissions.filter(s => {
-    if (selectedSiteObj) {
-      return s.site_id === selectedSiteObj.id;
-    }
+    if (selectedSiteObj) return s.site_id === selectedSiteObj.id;
     return true;
   });
 
-  // Split further by which tab (site vs contractor) is active, so the stat
-  // card reflects only the submissions for the currently selected view.
-  const contextualSubmissionsByRole = contextualSubmissions.filter((s) =>
-    siteViewMode === "site" ? s.submitted_by_role === "site" : s.submitted_by_role === "contractor"
-  );
-
-  const totalSubmitted = isSiteSelected ? contextualSubmissionsByRole.length : submissions.length;
-
-  // Contractors who submitted something for the selected site this month,
-  // with a count of how many forms each one submitted. Filtered strictly to
-  // submitted_by_role === "contractor" so a site user never appears here.
-  const siteContractors = useMemo(() => {
-    if (!selectedSiteObj) return [];
-    const byUser = new Map<string, { id: string; name: string; count: number }>();
-    contextualSubmissions
-      .filter((s) => s.submitted_by_role === "contractor")
-      .forEach((s) => {
-        const id = s.user_id;
-        if (!id) return;
-        const name = contractorNameMap.get(id) || "Unnamed Contractor";
-        const existing = byUser.get(id);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          byUser.set(id, { id, name, count: 1 });
-        }
-      });
-    return Array.from(byUser.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [contextualSubmissions, selectedSiteObj, contractorNameMap]);
-
-  // NEW: when drilled into a contractor, only that contractor's submissions
-  const contractorSubmissions = useMemo(() => {
-    if (!selectedContractorId) return [];
-    return contextualSubmissions.filter((s) => s.user_id === selectedContractorId);
-  }, [contextualSubmissions, selectedContractorId]);
-
-  // Map contractor submissions by form_id so we can look one up per form,
-  // the same way submissionMap works for the site view.
-  const contractorSubmissionMap = useMemo(() => {
-    const map = new Map<string, SubmissionRow>();
-    contractorSubmissions.forEach((s) => {
-      if (s.form_id) map.set(s.form_id, s);
-    });
-    return map;
-  }, [contractorSubmissions]);
-
-  // Forms assigned to contractors — drives the drill-down table so it shows
-  // every assigned form, including ones with no submission yet.
-  const contractorAssignedForms = activeForms.filter((f: any) => f.visible_to_contractors);
-
-  const selectedContractor = siteContractors.find((c) => c.id === selectedContractorId) || null;
+  const contextualSubmissionsByRole = contextualSubmissions.filter((s) => s.submitted_by_role === "site");
+  const totalSubmitted = isSiteSelected ? contextualSubmissionsByRole.length : submissions.filter(s => s.submitted_by_role === "site").length;
 
   const displayedForms = forms.filter((f: any) =>
-    (f.title || "").toLowerCase().includes(formSearchQuery.toLowerCase())
+    (f.title || "").toLowerCase().includes(formSearchQuery.toLowerCase()) && f.visible_to_site_users
   );
   const displayedSites = sites.filter((s: SiteRow) =>
     (s.name || "").toLowerCase().includes(siteSearchQuery.toLowerCase())
@@ -754,16 +659,12 @@ const bulkToggleLockMutation = useMutation({
     }
   };
 
-  // NEW: whenever the selected site changes, reset the contractor drill-down
-  // so stale selections from a previous site don't linger.
   const handleSelectSite = (name: string) => {
-  navigate({
-    search: (prev) => ({ ...prev, site: name }),
-    replace: true,
-  });
-  setSiteViewMode("site");
-  setSelectedContractorId(null);
-};
+    navigate({
+      search: (prev) => ({ ...prev, site: name }),
+      replace: true,
+    });
+  };
 
   return (
     <AppShell>
@@ -1030,24 +931,16 @@ const bulkToggleLockMutation = useMutation({
             <div>
               <div className="flex items-start justify-between">
                 <span className="text-sm font-semibold text-amber-800">
-                  {isSiteSelected
-                    ? siteViewMode === "site"
-                      ? "Site Submissions This Month"
-                      : "Contractor Submissions This Month"
-                    : "Select Site"}
+                  {isSiteSelected ? "Site Submissions This Month" : "Select Site"}
                 </span>
-                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
+                {isSiteSelected ? (
                   <CheckCircle2 className="h-5 w-5 text-amber-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-amber-700 tracking-tight">
-                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
-                  ? "—"
-                  : siteViewMode === "contractor" && selectedContractorId
-                    ? contractorSubmissions.length
-                    : totalSubmitted}
+                {!isSiteSelected ? "—" : totalSubmitted}
               </p>
             </div>
           </motion.div>
@@ -1057,22 +950,16 @@ const bulkToggleLockMutation = useMutation({
             <div>
               <div className="flex items-start justify-between">
                 <span className="text-sm font-semibold text-emerald-800">
-                  {isSiteSelected
-                    ? siteViewMode === "site"
-                      ? "Site Assigned Forms"
-                      : "Contractor Assigned Forms"
-                    : "Select Site"}
+                  {isSiteSelected ? "Site Assigned Forms" : "Select Site"}
                 </span>
-                {isSiteSelected && !(siteViewMode === "contractor" && !selectedContractorId) ? (
+                {isSiteSelected ? (
                   <ListChecks className="h-5 w-5 text-emerald-600 opacity-80" />
                 ) : (
                   <img src={dashedLineIcon} alt="Pending" className="h-5 w-5 mix-blend-multiply opacity-50" />
                 )}
               </div>
               <p className="mt-3 text-3xl font-bold text-emerald-700 tracking-tight">
-                {!isSiteSelected || (siteViewMode === "contractor" && !selectedContractorId)
-                  ? "—"
-                  : totalForms}
+                {!isSiteSelected ? "—" : totalForms}
               </p>
             </div>
           </motion.div>
@@ -1107,30 +994,6 @@ const bulkToggleLockMutation = useMutation({
           <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
             {site.name} <span className="text-sm font-semibold text-muted-foreground">({site.code})</span>
           </h3>
-        </div>
-
-        {/* --- RESTORED VIEW SWITCHER --- */}
-        <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100/80 p-1">
-          <button
-            onClick={() => setSiteViewMode("site")}
-            className={`rounded-md px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
-              siteViewMode === "site" 
-                ? "bg-white text-[#095a7d] shadow-sm ring-1 ring-slate-200/50" 
-                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-            }`}
-          >
-            Site Submissions
-          </button>
-          <button
-            onClick={() => setSiteViewMode("contractor")}
-            className={`rounded-md px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
-              siteViewMode === "contractor" 
-                ? "bg-white text-[#095a7d] shadow-sm ring-1 ring-slate-200/50" 
-                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-            }`}
-          >
-            Contractor Submissions
-          </button>
         </div>
 
         {/* Action Buttons (Export & Lock/Unlock) */}
@@ -1172,8 +1035,6 @@ const bulkToggleLockMutation = useMutation({
       </div>
     ))}
 
-    {/* ---- SITE VIEW: existing forms x status matrix, unchanged ---- */}
-    {siteViewMode === "site" && (
     <div className="overflow-hidden rounded-xl border bg-card shadow-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
@@ -1188,8 +1049,7 @@ const bulkToggleLockMutation = useMutation({
         <tbody className="divide-y divide-slate-100">
           {submissionsLoading ? (
             <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
-                No form metrics are currently assigned or active for this period.
+                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-medium">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
                 </td>
               </tr>
@@ -1207,7 +1067,6 @@ const bulkToggleLockMutation = useMutation({
                         <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
                       )}
                     </td>
-                    {/* NEW COLUMN: EDIT ACCESS */}
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center">
                         <EditUnlockToggle
@@ -1227,10 +1086,6 @@ const bulkToggleLockMutation = useMutation({
                         <StatusBadge status={status} />
                       </div>
                     </td>
-                    
-                    {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
-                    
-                    {/* COLUMN 1: DOWNLOAD ATTACHMENTS */}
                     <td className="px-6 py-4 text-center">
                       {submission ? (
                         <Button
@@ -1251,8 +1106,6 @@ const bulkToggleLockMutation = useMutation({
                         <span className="text-xs text-slate-400 italic select-none">—</span>
                       )}
                     </td>
-
-                    {/* COLUMN 2: DOWNLOAD/VIEW REPORT */}
                     <td className="px-6 py-4 text-right">
                       {submission ? (
                         <Link 
@@ -1275,7 +1128,7 @@ const bulkToggleLockMutation = useMutation({
             ))
           ) : (
             <tr>
-              <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground font-medium">
+              <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-medium">
                 No form metrics are currently assigned or active for this period.
               </td>
             </tr>
@@ -1283,164 +1136,6 @@ const bulkToggleLockMutation = useMutation({
         </tbody>
       </table>
     </div>
-    )}
-
-    {/* ---- CONTRACTOR VIEW: grouped by who submitted, drill down per contractor ---- */}
-    {siteViewMode === "contractor" && (
-      <div className="space-y-4">
-        {!selectedContractor ? (
-          <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-            {submissionsLoading ? (
-              <div className="px-6 py-12 text-center">
-                <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
-              </div>
-            ) : siteContractors.length > 0 ? (
-              <div className="divide-y divide-slate-100">
-                {siteContractors.map((contractor) => (
-                  <button
-                    key={contractor.id}
-                    type="button"
-                    onClick={() => setSelectedContractorId(contractor.id)}
-                    className="w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors hover:bg-slate-50/40"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eaf3f6] text-[#095a7d] font-bold text-sm shrink-0">
-                        {contractor.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-800 text-sm">{contractor.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {contractor.count} form{contractor.count !== 1 ? "s" : ""} submitted
-                        </div>
-                      </div>
-                    </div>
-                    <Eye className="h-4 w-4 text-slate-400" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="px-6 py-12 text-center text-muted-foreground font-medium">
-                No contractors have submitted forms for this site yet.
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => setSelectedContractorId(null)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Contractors
-            </button>
-
-            <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground border-b">
-                  <tr>
-                    <th className="px-6 py-3.5 font-bold text-slate-500">
-                      Forms Submitted by {selectedContractor.name}
-                    </th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[130px]">Edit Access</th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[160px]">Status</th>
-                    <th className="px-6 py-3.5 font-bold text-center text-slate-500 w-[180px]">Attachments</th>
-                    <th className="px-6 py-3.5 font-bold text-right text-slate-500 w-[180px]">Report</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {contractorAssignedForms.length > 0 ? (
-                    contractorAssignedForms.map((f: any) => {
-                      const submission = contractorSubmissionMap.get(f.id);
-                      const status = submission?.status ?? "not_submitted";
-
-                      return (
-                        <tr key={f.id} className="transition-colors hover:bg-slate-50/40">
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-800 text-sm">{f.title}</div>
-                            {f.description && (
-                              <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{f.description}</div>
-                            )}
-                          </td>
-                          {/* NEW COLUMN: EDIT ACCESS */}
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-center">
-                              <EditUnlockToggle
-                                submission={submission}
-                                isPending={
-                                  toggleEditUnlockMutation.isPending &&
-                                  toggleEditUnlockMutation.variables?.submissionId === submission?.id
-                                }
-                                onToggle={(unlock) =>
-                                  submission && toggleEditUnlockMutation.mutate({ submissionId: submission.id, unlock })
-                                }
-                              />
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <StatusBadge status={status} />
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            {submission ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={zippingId === submission.id}
-                                onClick={() =>
-                                  handleDownloadAttachmentsZip(
-                                    submission,
-                                    submission.sites?.name || selectedSiteObj?.name || "",
-                                    f.title
-                                  )
-                                }
-                                className="inline-flex items-center gap-1.5 text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
-                              >
-                                {zippingId === submission.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <FolderDown className="h-3.5 w-3.5" />
-                                )}
-                                Download ZIP
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-slate-400 italic select-none">—</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {submission ? (
-                              <Link
-                                to="/authenticated/$submissionId"
-                                params={{ submissionId: submission.id }}
-                                search={{ site: siteSearchQuery }}
-                                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline bg-primary-soft/40 hover:bg-primary-soft px-3 py-1.5 rounded-md transition-colors"
-                              >
-                                <Eye className="h-3.5 w-3.5" /> View Report
-                              </Link>
-                            ) : (
-                              <span className="text-xs font-medium text-slate-400 select-none pr-3">
-                                No Record
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-medium">
-                        No form metrics are currently assigned to this contractor.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-    )}
   </motion.section>
 )}
 
