@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from "@/components/ui/button";
 import sjvnLogo from "@/assets/sjvn-logo.jpeg";
 import { buildFormWorksheet } from "@/lib/buildFormWorksheet";
+import { renderFormBody } from "@/lib/renderFormBody"; // <-- ADD THIS IMPORT
 
 import wasteIcon from "@/assets/icon/waste.png";
 import airPollutionIcon from "@/assets/icon/air-pollution.png";
@@ -251,238 +252,276 @@ function SiteDashboard() {
   const [exportingData, setExportingData] = useState(false);
 
   const handleCombinedExport = async (format: "pdf" | "excel", specificContractorId?: string | null) => {
-    const targetForms = myContractorForms; 
+    const targetForms = myContractorForms;
+
+  // Build an ordered, per-contractor list of form submissions — never
+  // summed together. When a specific contractor is requested, only that
+  // contractor's forms are included. When exporting "All Contractors",
+  // every contractor's forms are included as their own separate entries,
+  // ordered contractor by contractor (contractor1's forms first, then
+  // contractor2's, and so on) using the same order shown in the
+  // Contractor Submissions list.
+  let formExportData: any[] = [];
+
+  if (specificContractorId) {
+    // SINGLE CONTRACTOR: Keep data isolated
+    const contractor = siteContractorsWithCounts.find((c: any) => c.id === specificContractorId);
+    formExportData = targetForms.map((form: any) => {
+      const sub = submissions.find(
+        (s: any) => s.form_id === form.id && s.status === "submitted" && s.submitted_by_role === "contractor" && s.user_id === specificContractorId
+      );
+      if (!sub) return null;
+      
+      const joinedForm = Array.isArray(sub.forms) ? sub.forms[0] : sub.forms;
+      const formWithFullSchema = joinedForm?.schema ? joinedForm : form;
+      return { form: formWithFullSchema, data: sub.data || {}, contractorName: contractor?.name };
+    }).filter(Boolean);
     
-    // Aggregates and sums field parameters across contractors for each form
-    const formExportData = targetForms.map((form: any) => {
-      let subs = submissions.filter(
+  } else {
+    // ALL CONTRACTORS: Aggregate and sum the numeric values
+    formExportData = targetForms.map((form: any) => {
+      // Get every contractor's submission for this specific form
+      const subsForForm = submissions.filter(
         (s: any) => s.form_id === form.id && s.status === "submitted" && s.submitted_by_role === "contractor"
       );
-      if (specificContractorId) {
-        subs = subs.filter((s: any) => s.user_id === specificContractorId);
-      }
-      if (subs.length === 0) return null;
+      if (subsForForm.length === 0) return null;
 
-      // 1. Initialize combined data container with initial submission layout
-      const aggregatedData: Record<string, any> = { ...subs[0].data };
+      // Extract form schema
+      const joinedForm = Array.isArray(subsForForm[0].forms) ? subsForForm[0].forms[0] : subsForForm[0].forms;
+      const formWithFullSchema = joinedForm?.schema ? joinedForm : form;
 
-      // 2. Sum numeric parameters across all contractors' submissions
-      if (subs.length > 1) {
-        const schemaFields = form?.schema?.fields || [];
-        const numericKeys = new Set<string>();
+      // Build the aggregated data object
+      const aggregatedData: Record<string, any> = {};
 
-        // Collect keys from schema definition
-        schemaFields.forEach((f: any) => {
-          if (f.type === "number" || !f.type) numericKeys.add(f.key);
-        });
+      subsForForm.forEach((sub: any) => {
+        Object.entries(sub.data || {}).forEach(([key, val]) => {
+          if (val === null || val === undefined || val === "") return;
 
-        // Also collect any numeric data keys present in contractor submissions
-        subs.forEach((sub: any) => {
-          Object.entries(sub.data || {}).forEach(([k, v]) => {
-            if (!k.endsWith("_files") && typeof v !== "object" && v !== "" && v !== null && !isNaN(parseFloat(v as string))) {
-              numericKeys.add(k);
+          // Safely check if the value is a number so we don't accidentally sum strings or booleans
+          const isNumber = typeof val === "number" || (typeof val === "string" && !isNaN(Number(val)) && val.trim() !== "");
+
+          if (isNumber) {
+            // Add numeric values together
+            aggregatedData[key] = (aggregatedData[key] || 0) + Number(val);
+          } else if (Array.isArray(val)) {
+            // Merge repeatable group rows and file attachments into one big list
+            aggregatedData[key] = [...(aggregatedData[key] || []), ...val];
+          } else {
+            // For text fields, dropdowns, or booleans, just retain the first reported value
+            if (aggregatedData[key] === undefined) {
+              aggregatedData[key] = val;
             }
-          });
-        });
-
-        // Reset numeric keys to 0 before summing
-        numericKeys.forEach((key) => {
-          aggregatedData[key] = 0;
-        });
-
-        // Sum values across all contractor submissions
-        subs.forEach((sub: any) => {
-          const subData = sub.data || {};
-          numericKeys.forEach((key) => {
-            const val = parseFloat(subData[key]);
-            if (!isNaN(val)) {
-              aggregatedData[key] = (parseFloat(aggregatedData[key]) || 0) + val;
-            }
-          });
-        });
-
-        // Clean up formatted numbers
-        numericKeys.forEach((key) => {
-          if (typeof aggregatedData[key] === "number") {
-            const num = aggregatedData[key];
-            aggregatedData[key] = Number.isInteger(num) ? num.toString() : num.toFixed(2);
           }
         });
-      }
+      });
 
-      return { form, data: aggregatedData };
+      return { form: formWithFullSchema, data: aggregatedData, contractorName: "All Contractors Aggregated" };
     }).filter(Boolean);
+  }
 
-    if (formExportData.length === 0) {
-      toast.error("No submitted contractor data available to export for this period.");
-      return;
-    }
+  if (formExportData.length === 0) {
+    toast.error("No submitted contractor data available to export for this period.");
+    return;
+  }
 
-    setExportingData(true);
-    const prefix = specificContractorId ? selectedContractor?.name?.replace(/\s+/g, "_") : "All_Contractors_Combined";
-    const fileName = `SJVN_${prefix}_${siteName?.replace(/\s+/g, "_")}_${selectedMonth}`;
-    const monthName = new Date(reportingMonthDate).toLocaleString("default", { month: "long", year: "numeric" });
+  setExportingData(true);
+  const prefix = specificContractorId ? selectedContractor?.name?.replace(/\s+/g, "_") : "All_Contractors_Combined";
+  const fileName = `SJVN_${prefix}_${siteName?.replace(/\s+/g, "_")}_${selectedMonth}`;
+  const monthName = new Date(reportingMonthDate).toLocaleString("default", { month: "long", year: "numeric" });
 
-    try {
-      if (format === "pdf") {
-        const { jsPDF } = await import("jspdf");
-        const { default: autoTable } = await import("jspdf-autotable");
-        const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const rightSideX = pageWidth - 40; 
+  try {
+    if (format === "pdf") {
+      const { jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const rightSideX = pageWidth - 40; 
 
-        // PDF Standard Header
-        pdf.addImage(sjvnLogo, "JPEG", 40, 40, 70, 92);
-        pdf.setDrawColor(0, 78, 138);
-        pdf.setLineWidth(1.5);
-        pdf.line(40, 30, pageWidth - 40, 30);
+      // PDF Standard Header
+      pdf.addImage(sjvnLogo, "JPEG", 40, 40, 70, 92);
+      pdf.setDrawColor(0, 78, 138);
+      pdf.setLineWidth(1.5);
+      pdf.line(40, 30, pageWidth - 40, 30);
 
-        let headerY = 55;
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(20);
-        pdf.setTextColor(0, 78, 138);
-        pdf.text("SJVN LIMITED", rightSideX, headerY, { align: "right" });
-        headerY += 16;
-        pdf.setFont("helvetica", "italic");
-        pdf.setFontSize(9);
-        pdf.setTextColor(90, 90, 90);
-        pdf.text("(A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)", rightSideX, headerY, { align: "right" });
-        headerY += 28;
-        pdf.setFont("helvetica", "normal");
-        pdf.text("Website: www.sjvn.nic.in", rightSideX, headerY, { align: "right" });
+      let headerY = 55;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(20);
+      pdf.setTextColor(0, 78, 138);
+      pdf.text("SJVN LIMITED", rightSideX, headerY, { align: "right" });
+      headerY += 16;
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(9);
+      pdf.setTextColor(90, 90, 90);
+      pdf.text("(A Joint Venture of Govt. of India & Govt. of Himachal Pradesh)", rightSideX, headerY, { align: "right" });
+      headerY += 13;
+      pdf.setFont("helvetica", "normal");
+      pdf.text("ISO 9001:2015 Certified  ·  CIN: L40101HP1988GOI008409", rightSideX, headerY, { align: "right" });
+      headerY += 13;
+      pdf.text("Corporate Headquarter, Shimla, HP, 171006", rightSideX, headerY, { align: "right" });
+      headerY += 15;
+      pdf.text("Website: www.sjvn.nic.in", rightSideX, headerY, { align: "right" });
 
-        const dividerY = 148;
-        pdf.setDrawColor(0, 78, 138);
-        pdf.line(40, dividerY, pageWidth - 40, dividerY);
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(15);
-        pdf.setTextColor(0, 78, 138);
-        pdf.text(
-          specificContractorId ? "Contractor Monthly Compliance Report" : "Combined Contractor Aggregated Report",
-          pageWidth / 2,
-          dividerY + 26,
-          { align: "center" }
-        );
+      const dividerY = 148;
+      pdf.setDrawColor(0, 78, 138);
+      pdf.line(40, dividerY, pageWidth - 40, dividerY);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(15);
+      pdf.setTextColor(0, 78, 138);
+      pdf.text(
+        specificContractorId ? "Contractor Monthly Compliance Report" : "Combined Contractor Aggregated Report",
+        pageWidth / 2,
+        dividerY + 26,
+        { align: "center" }
+      );
 
-        // Metadata block
-        autoTable(pdf, {
-          startY: dividerY + 40,
-          body: [
-            ["Site Location", siteName || "—"],
-            ["Reporting Period", monthName],
-            ["Data Source", specificContractorId ? selectedContractor?.name : "All Site Contractors (Aggregated Sum)"],
-          ],
-          theme: 'grid',
-          styles: { font: 'helvetica', fontSize: 10, cellPadding: 6, textColor: [60, 60, 60] },
-          columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold', fillColor: [235, 240, 247], textColor: [0, 78, 138] }, 1: { cellWidth: 360 } },
-          margin: { left: (pageWidth - 500) / 2 },
-        });
+      // Metadata block
+      autoTable(pdf, {
+        startY: dividerY + 40,
+        body: [
+          ["Site Location", siteName || "—"],
+          ["Reporting Period", monthName],
+          ["Data Source", specificContractorId ? selectedContractor?.name : "All Site Contractors (Individual Reports Combined)"],
+        ],
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 6, textColor: [60, 60, 60] },
+        columnStyles: { 0: { cellWidth: 140, fontStyle: 'bold', fillColor: [235, 240, 247], textColor: [0, 78, 138] }, 1: { cellWidth: 360 } },
+        margin: { left: (pageWidth - 500) / 2 },
+      });
 
-        let currentY = (pdf as any).lastAutoTable.finalY + 30;
+      let currentY = (pdf as any).lastAutoTable.finalY + 30;
 
-        // Render each form's summed parameters into styled report tables
-        formExportData.forEach(({ form, data }, index) => {
-          const fields = form?.schema?.fields || [];
-          if (currentY > 700 && index > 0) { 
-            pdf.addPage(); 
-            currentY = 60; 
-          }
+      // Render each form using the exact same schema-driven renderer as the
+      // single-submission report and the Admin Combined Report — so this
+      // report always matches whatever design the individual report uses,
+      // with zero duplicated layout code. Every form after the first
+      // starts on a brand-new page, matching the Admin Combined Report.
+      formExportData.forEach(({ form, data, contractorName }, index) => {
+        const fields = form?.schema?.fields || [];
+        const layout = form?.schema?.layout;
+        const repeatableGroups = form?.schema?.repeatable_groups || [];
 
+        if (index > 0) {
+          pdf.addPage();
+          currentY = 50;
+        }
+
+        // Small contractor label above each form's page, so it's clear
+        // which contractor's data follows when multiple contractors are
+        // combined into one file.
+        if (!specificContractorId) {
           pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(12);
-          pdf.setTextColor(0, 78, 138);
-          pdf.text(form.title, pageWidth / 2, currentY, { align: "center" });
-          currentY += 15;
+          pdf.setFontSize(13);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`Contractor: ${contractorName}`, pageWidth / 2, currentY, { align: "center" });
+          currentY += 20;
+        }
 
-          const tableBody = fields.map((field: any) => {
-            const label = field.unit ? `${field.label} (${field.unit})` : field.label || "";
-            const val = data[field.key];
-            const displayVal = val !== undefined && val !== null && val !== "" ? String(val) : "—";
-            return [label, displayVal];
-          });
-
-          autoTable(pdf, {
-            startY: currentY,
-            head: [['Field Parameter', 'Combined Total / Reported Value']],
-            body: tableBody.length > 0 ? tableBody : [['No fields defined', '-']],
-            theme: 'striped',
-            headStyles: { fillColor: [0, 78, 138], textColor: 255, fontStyle: 'bold', halign: 'left', fontSize: 9.5 },
-            styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 6, textColor: [55, 60, 70] },
-            columnStyles: {
-              0: { cellWidth: 300, fontStyle: 'bold', textColor: [40, 55, 80] },
-              1: { cellWidth: 200, fontStyle: 'bold', textColor: [0, 78, 138], halign: 'right' }
-            },
-            margin: { left: (pageWidth - 500) / 2 },
-          });
-
-          currentY = (pdf as any).lastAutoTable.finalY + 30; 
+        currentY = renderFormBody({
+          pdf,
+          autoTable,
+          pageWidth,
+          startY: currentY,
+          formTitle: form.title,
+          fields,
+          layout,
+          repeatableGroups,
+          values: data,
         });
+      });
 
-        pdf.save(`${fileName}.pdf`);
-        toast.success("Combined PDF report downloaded successfully!");
-      } else {
-        // EXCEL EXPORT
-        const ExcelJSModule = await import("exceljs");
-        const ExcelJS = ExcelJSModule.default || ExcelJSModule;
-        const workbook = new ExcelJS.Workbook();
-        const targetMonthIndex = parseInt(selectedMonth.split("-")[1], 10) - 1; 
-        const fyStartYear = targetMonthIndex >= 3 ? parseInt(selectedMonth.split("-")[0], 10) : parseInt(selectedMonth.split("-")[0], 10) - 1;
-        const targetFiscalIndex = targetMonthIndex >= 3 ? targetMonthIndex - 3 : targetMonthIndex + 9;
-
-        formExportData.forEach(({ form, data }) => {
-          buildFormWorksheet({
-            workbook,
-            formTitle: form.title,
-            schema: { fields: form.schema?.fields || [], repeatable_groups: form.schema?.repeatable_groups || [], layout: form.schema?.layout },
-            values: data,
-            siteName: siteName || "Site",
-            siteCode: "",
-            fyLabel: `FY ${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, "0")}`,
-            reportingMonthLabel: monthName,
-            metaRow7Label: "Data Source:",
-            metaRow7Value: specificContractorId ? (selectedContractor?.name || "") : "All Contractors Aggregated Sum",
-            cutoffFiscalIndex: targetFiscalIndex,
-            // 👈 CRITICAL FIX: Resolve the aggregated value into the target month's column in Excel
-            resolveMonthlyValue: (fiscalIndex, rowDef) => {
-              if (fiscalIndex !== targetFiscalIndex) return undefined;
-              
-              if (rowDef.fieldKey && data[rowDef.fieldKey] !== undefined) {
-                return data[rowDef.fieldKey];
-              }
-
-              if (rowDef.matchLabel) {
-                const schemaFields = form.schema?.fields || [];
-                const matchedField = schemaFields.find((f: any) => {
-                  const fLabel = (f.label || "").trim().toLowerCase();
-                  const searchLabel = rowDef.matchLabel!.trim().toLowerCase();
-                  return fLabel === searchLabel || fLabel.includes(searchLabel);
-                });
-                if (matchedField && data[matchedField.key] !== undefined) {
-                  return data[matchedField.key];
-                }
-              }
-
-              return undefined;
-            },
-          });
-        });
-
-        const buffer = await workbook.xlsx.writeBuffer();
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-        link.download = `${fileName}.xlsx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("Combined Excel workbook downloaded successfully!");
+      // Consistent footer on every page — same treatment as the Admin
+      // Combined Report and the single-submission report.
+      const pageCount = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        const footerY = pdf.internal.pageSize.getHeight() - 34;
+        pdf.setDrawColor(215, 222, 232);
+        pdf.setLineWidth(0.75);
+        pdf.line(40, footerY, pageWidth - 40, footerY);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.setTextColor(140, 145, 155);
+        pdf.text(`SJVN Limited  •  ${monthName} Environmental Report`, 40, footerY + 14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(0, 78, 138);
+        pdf.text(`Page ${i} of ${pageCount}`, pageWidth - 40, footerY + 14, { align: "right" });
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not generate aggregated report document.");
-    } finally {
-      setExportingData(false);
+
+      pdf.save(`${fileName}.pdf`);
+      toast.success("Combined PDF report downloaded successfully!");
+    } else {
+      // EXCEL EXPORT
+      const ExcelJSModule = await import("exceljs");
+      const ExcelJS = ExcelJSModule.default || ExcelJSModule;
+      const workbook = new ExcelJS.Workbook();
+      const targetMonthIndex = parseInt(selectedMonth.split("-")[1], 10) - 1; 
+      const fyStartYear = targetMonthIndex >= 3 ? parseInt(selectedMonth.split("-")[0], 10) : parseInt(selectedMonth.split("-")[0], 10) - 1;
+      const targetFiscalIndex = targetMonthIndex >= 3 ? targetMonthIndex - 3 : targetMonthIndex + 9;
+
+      formExportData.forEach(({ form, data, contractorName }) => {
+        // Excel worksheet names must be unique within a workbook (ExcelJS
+        // throws if two sheets share a name) and are capped at 31 chars,
+        // with : \ / ? * [ ] disallowed. When combining multiple
+        // contractors, several of them can submit the *same* form (e.g.
+        // "Water Withdrawal"), so the plain form title collides across
+        // contractors — mirror the PDF branch's per-contractor labelling
+        // by folding the contractor name into the sheet name here.
+        const rawTitle = specificContractorId ? form.title : `${form.title} - ${contractorName}`;
+        const safeTitle = rawTitle.replace(/[:\\/?*\[\]]/g, "-").slice(0, 31);
+
+        buildFormWorksheet({
+          workbook,
+          formTitle: safeTitle,
+          schema: { fields: form.schema?.fields || [], repeatable_groups: form.schema?.repeatable_groups || [], layout: form.schema?.layout },
+          values: data,
+          siteName: siteName || "Site",
+          siteCode: "",
+          fyLabel: `FY ${fyStartYear}-${String((fyStartYear + 1) % 100).padStart(2, "0")}`,
+          reportingMonthLabel: monthName,
+          metaRow7Label: "Data Source:",
+          metaRow7Value: specificContractorId ? (selectedContractor?.name || "") : "All Contractors Aggregated Sum",
+          cutoffFiscalIndex: targetFiscalIndex,
+          // 👈 CRITICAL FIX: Resolve the aggregated value into the target month's column in Excel
+          resolveMonthlyValue: (fiscalIndex, rowDef) => {
+            if (fiscalIndex !== targetFiscalIndex) return undefined;
+            
+            if (rowDef.fieldKey && data[rowDef.fieldKey] !== undefined) {
+              return data[rowDef.fieldKey];
+            }
+
+            if (rowDef.matchLabel) {
+              const schemaFields = form.schema?.fields || [];
+              const matchedField = schemaFields.find((f: any) => {
+                const fLabel = (f.label || "").trim().toLowerCase();
+                const searchLabel = rowDef.matchLabel!.trim().toLowerCase();
+                return fLabel === searchLabel || fLabel.includes(searchLabel);
+              });
+              if (matchedField && data[matchedField.key] !== undefined) {
+                return data[matchedField.key];
+              }
+            }
+
+            return undefined;
+          },
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      link.download = `${fileName}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Combined Excel workbook downloaded successfully!");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    toast.error("Could not generate aggregated report document.");
+  } finally {
+    setExportingData(false);
+  }
+};
 
   const handleDownloadAttachmentsZip = async (submission: any, siteNameStr: string, formTitle: string) => {
     if (!submission?.data) return;
@@ -576,7 +615,47 @@ function SiteDashboard() {
 
           <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {stats.map(({ label, value, Icon, tint }) => {
-  g
+            if (label === "Contractors") {
+              return (
+                <div
+                  key={label}
+                  onClick={() => setActiveView((prev) => (prev === "contractor_board" ? "site_forms" : "contractor_board"))}
+                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-500 to-purple-600 p-4 sm:p-5 shadow-sm cursor-pointer hover:shadow-lg transition-all ring-1 ring-white/10 ${
+                    activeView === "contractor_board" ? "ring-2 ring-white/70 shadow-lg" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                        <Icon className="h-5 w-5 text-white" />
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-wide text-white">{label}</span>
+                    </div>
+                    <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white">
+                      Manage <ArrowRight className="h-3 w-3" />
+                    </span>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <p className="text-3xl font-bold text-white sm:text-4xl">{value}</p>
+                    <span className="text-xs font-medium text-indigo-100">Tap to open</span>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={label}
+                onClick={() => setActiveView("site_forms")}
+                className={`rounded-2xl ${tint} p-4 sm:p-5 ring-1 shadow-sm cursor-pointer hover:shadow-md transition-all`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold">{label}</span>
+                  <Icon className="h-4 w-4 shrink-0" />
+                </div>
+                <p className="mt-2 text-2xl font-bold sm:text-3xl">{value}</p>
+              </div>
+            );
+          })}
           </section>
 
           {!targetSiteId && (
