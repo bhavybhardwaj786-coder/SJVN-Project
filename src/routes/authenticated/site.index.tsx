@@ -575,27 +575,8 @@ function SiteDashboard() {
           </section>
 
           <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {stats.map(({ label, value, Icon, tint, view }) => (
-              <div 
-                key={label}
-                onClick={() => {
-                  if (label === "Contractors") {
-                    setActiveView((prev) => (prev === "contractor_board" ? "site_forms" : "contractor_board"));
-                  } else {
-                    setActiveView("site_forms");
-                  }
-                }}
-                className={`rounded-2xl ${tint} p-4 sm:p-5 ring-1 shadow-sm cursor-pointer hover:shadow-md transition-all ${
-                  label === "Contractors" && activeView === "contractor_board" ? "ring-2 ring-indigo-500 shadow-md" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold">{label}</span>
-                  <Icon className="h-4 w-4 shrink-0" />
-                </div>
-                <p className="mt-2 text-2xl font-bold sm:text-3xl">{value}</p>
-              </div>
-            ))}
+            {stats.map(({ label, value, Icon, tint }) => {
+  g
           </section>
 
           {!targetSiteId && (
